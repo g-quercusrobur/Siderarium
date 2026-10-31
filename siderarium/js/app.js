@@ -122,7 +122,7 @@
       S.state.natal = ns; S.state.transits = tr;
       S.state.interaction = SD.engine.computeInteractions(S.state, ns, tr);   // what the two skies make together
       S.state.transitInfo = transitInfo(ns, tr);                                 // when each leading transit is exact, and where it stands in the natal houses
-      S.state.stone = SD.engine.stoneOf(S.state, ns, tr, S.state.interaction);   // the companion stone for this moment, against this chart
+      // the companion stone (SD.engine.stoneOf) is kept but not shown for now
       S.state.configs = { ...S.state.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
     }
     S.lastCompute = performance.now();
