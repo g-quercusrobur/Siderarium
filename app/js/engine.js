@@ -470,6 +470,24 @@
     return out;
   }
 
+  /* The wheel of the year: the eight feasts by the calendar, in the place's own zone. the four solar points and the
+     four cross-quarters; the names are the neopagan Wheel's, laid over older festivals (the veil also knows the
+     astronomical doors, the Sun at 0°/15° of the signs). today's feast, if any, and the next with its date. */
+  const WHEEL = [['yule', 12, 21], ['imbolc', 2, 1], ['ostara', 3, 20], ['beltane', 4, 30], ['litha', 6, 21], ['lammas', 8, 1], ['mabon', 9, 22], ['samhain', 10, 31]];
+  function wheelOf(st) {
+    const tz = (st.loc && st.loc.tz) || 'UTC';
+    let p; try { p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(st.date).map(x => [x.type, x.value])); } catch (e) { return null; }
+    const y = +p.year, m = +p.month, d = +p.day, todayN = m * 100 + d;
+    const feast = (w, yy) => ({ key: w[0], date: new Date(Date.UTC(yy, w[1] - 1, w[2], 12)) });
+    let today = null, next = null, days = 0;
+    for (const w of WHEEL) if (w[1] === m && (w[2] === d || (w[0] === 'beltane' && m === 5 && d === 1) || (w[0] === 'imbolc' && m === 2 && d === 2) || (w[0] === 'samhain' && m === 11 && d === 1))) today = w[0];
+    const ahead = WHEEL.map(w => [w, w[1] * 100 + w[2]]).filter(([w, n]) => n > todayN).sort((a, b) => a[1] - b[1]);
+    const first = WHEEL.slice().sort((a, b) => (a[1] * 100 + a[2]) - (b[1] * 100 + b[2]))[0];   // after the year's last feast, the next is the first of the year to come
+    const nw = ahead.length ? feast(ahead[0][0], y) : feast(first, y + 1);
+    const dayUTC = Date.UTC(y, m - 1, d, 12);
+    days = Math.round((nw.date.getTime() - dayUTC) / 864e5);
+    return { today, next: nw.key, nextDate: nw.date, days };
+  }
   /* The thinning of the veil, 0..1 [SD]. The between-times of the day (twilight, solar midnight), the Moon's light
      (dark, full), her place (water signs, water houses), her void, the hours of the Moon and of Saturn, the doors of
      the year (the cross-quarters, Samhain heaviest; the solstices and equinoxes lighter), an eclipse, and Neptune on
@@ -492,7 +510,7 @@
     if (st.moon.verdict === 'void') add('void', 0.5);
     if (h) { if (h.hourRuler === 'moon') add('moonHour', 0.45); else if (h.hourRuler === 'saturn') add('saturnHour', 0.4); if (h.dayRuler === 'moon' || h.dayRuler === 'saturn') add('day', 0.2); }
     const sl = st.bodies.sun.lon, dist = x => { const d = Math.abs(((sl - x) % 360 + 540) % 360 - 180); return d; };
-    const doors = [['samhain', 225, 0.8], ['beltane', 45, 0.65], ['imbolc', 315, 0.45], ['lammas', 135, 0.45], ['solstice', 90, 0.4], ['solstice', 270, 0.4], ['equinox', 0, 0.4], ['equinox', 180, 0.4]];
+    const doors = [['samhain', 225, 0.8], ['beltane', 45, 0.65], ['imbolc', 315, 0.45], ['lammas', 135, 0.45], ['litha', 90, 0.4], ['yule', 270, 0.4], ['ostara', 0, 0.4], ['mabon', 180, 0.4]];
     for (const [k, lon, w] of doors) add(k, w * g(dist(lon), 1.5));          // the doors as the Sun reaches them
     // the doors as the calendar keeps them: the nights of 31 October, 30 April, 1 February and 31 July, a bell of 14 hours about local midnight
     if (st.loc && st.loc.tz) {
@@ -687,6 +705,7 @@
     st.mode = modeOf(st); st.windows = windowsOf(st);
     st.title = { house: st.bodies.moon.house, mode: st.mode.key, state: stateOf(st) };   // the title of the moment: stage of life, mother letter, time to work / watch / rest
     st.veil = veilOf(st);
+    st.wheel = wheelOf(st);
     return st;
   }
 
