@@ -470,6 +470,30 @@
     return out;
   }
 
+  /* The companion stone for the moment, against a chart [SD]. the rule: when it is time to work, go with the hour
+     (the hour's ruler, or the planet of the leading harmonious transit); when it is time to watch, compensate (a malefic
+     striking the chart is tempered by its antidote, Jupiter for Saturn, Venus for Mars; a light or benefic striking it
+     is answered by supporting the planet struck; a soft leading transit by its own planet; no transit, by the mode);
+     when it is time to shelter, Saturn's wall. among the planet's stones, after Agrippa, the one of the chart's dominant
+     element comes first, the others follow as alternatives. */
+  function stoneOf(st, natal, transits, inter) {
+    const state = st.title.state, flavour = natal && natal.elements ? natal.elements.dominant : (st.elements ? st.elements.dominant : 'earth');
+    const lead = transits && transits[0], malefic = k => k === 'mars' || k === 'saturn' || k === 'pluto', antidote = { saturn: 'jupiter', mars: 'venus', pluto: 'jupiter' };
+    const classical = k => !!C.STONES[k];
+    let planet, rule, why = null;
+    if (state === 'shelter') { planet = 'saturn'; rule = 'wall'; }
+    else if (state === 'work') { rule = 'flow'; planet = (lead && inter && inter.verdict === 'harmonyPrevails' && classical(lead.a) && lead.nature !== 'hard') ? lead.a : st.hour.hourRuler; if (lead && planet === lead.a) why = lead; }
+    else {
+      rule = 'balance';
+      if (lead && (lead.nature === 'hard' || (lead.aspect === 'conjunction' && malefic(lead.a)))) {
+        planet = malefic(lead.a) ? antidote[lead.a] : (classical(lead.b) ? lead.b : 'venus'); why = lead;
+      } else if (lead && classical(lead.a)) { planet = lead.a; why = lead; }
+      else planet = { destruction: 'jupiter', incarnation: 'venus', ideation: 'mercury' }[st.mode.key] || 'moon';
+    }
+    if (!classical(planet)) planet = 'moon';
+    const list = C.STONES[planet].slice().sort((a, b) => (b[1] === flavour) - (a[1] === flavour));
+    return { planet, rule, flavour, stone: list[0][0], alternatives: list.slice(1, 3).map(x => x[0]), why: why ? { a: why.a, aspect: why.aspect, b: why.b } : null };
+  }
   /* The wheel of the year: the eight feasts by the calendar, in the place's own zone. the four solar points and the
      four cross-quarters; the names are the neopagan Wheel's, laid over older festivals (the veil also knows the
      astronomical doors, the Sun at 0°/15° of the signs). today's feast, if any, and the next with its date. */
@@ -738,5 +762,5 @@
     if (orbAt(tm) < Math.min(0.5, orbMax * 0.35)) exact = new Date(tm);
     return { exact, enter: enter ? new Date(enter) : null, leave: leave ? new Date(leave) : null, orbNow: o0 };
   }
-  SD.engine = { compute, computeTransits, computeInteractions, transitSpan, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  SD.engine = { compute, computeTransits, computeInteractions, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});

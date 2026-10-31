@@ -1357,9 +1357,9 @@
       title: tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
       reason: tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
-      detail1: x.cs(housesTxt),
-      detail2: x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
-      detail3: x.cs(`${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
+      detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)} · ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')}`) : x.cs(housesTxt),
+      detail2: x.cs(housesTxt),
+      detail3: x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
       detail4: x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
