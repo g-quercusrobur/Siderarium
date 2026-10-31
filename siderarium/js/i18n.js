@@ -166,7 +166,7 @@
     titleCase: s => lang === 'en' ? String(s).split(' ').map((w, n) => (n && /^(of|from|and|in|the)$/.test(w)) ? w : I.cap1(w)).join(' ') : I.cap1(s),
     name: s => I.cap1(s),
     house12: n => d().houses12[n - 1] || String(n),
-    stone: k => (d().stones || {})[k] || k,
+    stone: k => ((d().ui && d().ui.stones) || {})[k] || k,
     realm: n => (d().realms || [])[n - 1] || I.house12(n),
     state: k => d().state[k] || k,
     /* notes: letters in English, solfège in Spanish; a chord name as the engine writes it keeps its suffix */
