@@ -277,7 +277,7 @@
     en: { title: 'The title line', moon: 'The Moon', figure: 'Figures and aspects', planet: 'Planets', angel: 'The angels of the hours', sign: 'Signs', element: 'Elements', house: 'Houses and realms', dignity: 'Dignities and conditions', time: 'Time', wheel: 'The wheel of the year', stone: 'Stones', sound: 'Sound', sd: 'The instrument’s own layers', mansion: 'The lunar mansions' },
     es: { title: 'El título', moon: 'La Luna', figure: 'Figuras y aspectos', planet: 'Planetas', angel: 'Los ángeles de las horas', sign: 'Signos', element: 'Elementos', house: 'Casas y reinos', dignity: 'Dignidades y condiciones', time: 'Tiempo', wheel: 'La rueda del año', stone: 'Piedras', sound: 'Sonido', sd: 'Las capas propias del instrumento', mansion: 'Las mansiones lunares' }
   };
-  const ORDER = ['title', 'moon', 'figure', 'planet', 'angel', 'sign', 'element', 'house', 'dignity', 'time', 'wheel', 'stone', 'sound', 'sd', 'mansion'];
+  const ORDER = ['title', 'moon', 'figure', 'planet', 'angel', 'sign', 'element', 'house', 'dignity', 'time', 'wheel', 'sound', 'sd', 'mansion'];   // the stones group is kept in the data but not shown for now
 
   /* the linker: every term and alias, longest first, matched on word boundaries, case-insensitive */
   let cache = {};
@@ -285,6 +285,7 @@
     if (cache[lang]) return cache[lang];
     const words = [];
     for (const g of G) {
+      if (!ORDER.includes(g.group)) continue;                     // only the groups on show link
       const t = g[lang][0].replace(/\s*\(.*\)$/, '');            // the term without its bracket
       const list = [t, ...(g.aliases[lang] || [])];
       for (const w of list) if (w && w.length > 2) words.push({ w, key: g.key });
