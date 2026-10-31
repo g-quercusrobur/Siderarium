@@ -1357,7 +1357,7 @@
       title: tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
       reason: tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
-      detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)} · ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')}`) : x.cs(housesTxt),
+      detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}, ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)}`) : x.cs(housesTxt),
       detail2: x.cs(housesTxt),
       detail3: x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
       detail4: x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),
