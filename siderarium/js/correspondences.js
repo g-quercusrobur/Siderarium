@@ -43,6 +43,17 @@
   };
   const ORDER = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
   /* the elements, GD King scale of the mother letters; earth is Malkuth's black, here a dark brown */
+  /* the stones of the planets, after Agrippa, Book I, chapters 23 to 29. the element beside each is the clock's own tag,
+     by the stone's colour and nature, so the one nearest a chart's flavour can be offered first [SD]. */
+  const STONES = {
+    sun: [['ruby', 'fire'], ['carbuncle', 'fire'], ['chrysolite', 'earth'], ['topaz', 'earth'], ['hyacinth', 'air'], ['heliotrope', 'water']],
+    moon: [['moonstone', 'water'], ['pearl', 'water'], ['crystal', 'air'], ['beryl', 'water'], ['marcasite', 'earth']],
+    mercury: [['agate', 'earth'], ['emerald', 'water'], ['topaz', 'earth'], ['jasper', 'fire'], ['crystal', 'air']],
+    venus: [['emerald', 'water'], ['beryl', 'water'], ['coral', 'fire'], ['carnelian', 'fire'], ['sapphire', 'air'], ['lapis', 'air'], ['greenJasper', 'earth']],
+    mars: [['bloodstone', 'fire'], ['diamond', 'air'], ['lodestone', 'earth'], ['jasper', 'fire'], ['amethyst', 'water']],
+    jupiter: [['sapphire', 'air'], ['hyacinth', 'air'], ['emerald', 'water'], ['beryl', 'water'], ['greenJasper', 'earth']],
+    saturn: [['onyx', 'earth'], ['jet', 'earth'], ['sapphire', 'air'], ['chalcedony', 'water'], ['brownJasper', 'earth'], ['lodestone', 'earth']]
+  };
   const ELEMENTS = { air: '#f2e8a0', water: '#4a7ef0', fire: '#ff5a2a', earth: '#1c1410' };
   const CHALDEAN = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon'];
   const WEEKDAY_RULER = ['sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn']; // Sunday..Saturday
@@ -143,6 +154,7 @@
   const MALEFIC = { mars: 1, saturn: 1, pluto: 0.6, uranus: 0.4 };
 
   SD.corr = {
+    STONES,
     SIGNS, PLANETS, ORDER, CHALDEAN, WEEKDAY_RULER, SYNODIC_OVERRIDE,
     DOMICILE, EXALTATION, TRIPLICITY, TERMS, faceRuler, ASPECTS, ASPECT_GLYPH, BENEFIC, MALEFIC, NOTES, INTERVALS, MOTHERS,
     DECANS, decanOf, TRUMP_SIGN, TRUMP_PLANET, TRUMP_ELEMENT, MANSIONS, mansionOf, ELEMENTS
