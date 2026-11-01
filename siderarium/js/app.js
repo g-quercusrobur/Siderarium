@@ -151,7 +151,7 @@
     const c = SD.render.captionLines(viewState());
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
-    $('caption').innerHTML = `<p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p><p class="reason">${c.reason}</p>${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
+    $('caption').innerHTML = `<p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && S.state.ties ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -629,7 +629,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (st.pair && st.natal) { $('readout').innerHTML = pairReadout(st); linkTerms($('readout')); return; }
     $('readout').innerHTML = `
       ${lead}
-      ${st.tikkun ? tikkunHtml(st) : ''}
+      ${st.tikkun ? tikkunHead(st) : ''}
       <h3>${H('bodies')}</h3><table>${rows}</table>
       <h3>${H('figure')}</h3><table>${figs || `<tr><td>${i.cap1(i.t('ui.quietSky'))}</td></tr>`}</table>
       <h3>${H('sound')}</h3><p>${i.chordLong(st.chord)}${st.chord.interval ? ' · ' + i.interval(st.chord.interval) : ''}${st.chord.notes.length ? ` · ${R('notes')} ` + st.chord.notes.map(n => i.note(n)).join(' ') : ''}${st.chord.planets ? ` · ${R('from')} ` + st.chord.planets.map(P).join(', ') : ''}${st.chord.moonNote ? ` · ${R('moonNote')} ${i.note(st.chord.moonNote)}` : ''}${st.chord.ground && st.chord.ground.length ? ` · ${R('ground')} ` + st.chord.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(' ') : ''}${st.nextChord ? ` · ${R('next')} ${i.chordName(st.nextChord.to)} ${R('at')} ${hm(st.nextChord.at)}` : ''}</p>
@@ -645,6 +645,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       ${st.wheel ? `<p>${i.cap1(R('wheel'))}: ${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')} · ` : ''}${R('wheelNext')} ${i.t('ui.wheel.' + st.wheel.next)} · ${new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(st.wheel.nextDate)} · ${R('inDays')(st.wheel.days)}</p>` : ''}
       <h3>${H('hierarchy')}</h3><table>${top}</table>
       <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>
+      ${st.tikkun ? tikkunCards(st) : ''}
       <p class="dim">${i.cap1(R('sect'))} ${st.sect === 'day' ? R('day') : R('night')} · ASC ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · MC ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))} · ${R('dayRuler')} ${P(st.hour.dayRuler)} / ${i.name(st.hour.dayAngel)} · ${R('hour')} ${st.hour.index + 1} ${P(st.hour.hourRuler)} / ${i.name(st.hour.angel)}</p>`;
     linkTerms($('readout'));
   }
@@ -697,14 +698,17 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const [first, second] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b];
     return `${own(first, pt(x.a))} ${i.aspect(x.aspect)} ${own(second, pt(x.b))}`;
   }
+  /* the three ties as scales: a hairline with a tick wherever the word changes, a dot at the score, the word under the
+     dot in its colour; warm for antipathy, neutral for none, cool for sympathy. the same scale on the dial and the phone */
+  function tieScales(st) {
+    const i = SD.i18n, T = st.ties; if (!T) return '';
+    return `<div class="scales">${SD.render.tieScale(st).map(g => `<div class="scale"><span class="sl">${i.cap1(g.label)}</span><div class="sline">${g.ticks.map(x => `<i style="left:${(x * 100).toFixed(1)}%"${x === 0.5 ? ' class="mid"' : ''}></i>`).join('')}<b style="left:${(g.pos * 100).toFixed(1)}%;background:${g.color}"></b></div><span class="sw" style="color:${g.color};left:${(Math.min(0.82, Math.max(0.18, g.pos)) * 100).toFixed(1)}%">${g.word}</span></div>`).join('')}</div>`;
+  }
   function tiesHtml(st) {
-    const i = SD.i18n, T = st.ties, pr = st.pair, steps = SD.engine.tieSteps; if (!T) return '';
-    const cls = g => ({ strongSympathy: 'deepHarmony', sympathy: 'harmony', none: 'balanced', antipathy: 'strife', strongAntipathy: 'deepStrife' })[g];
-    return ['choice', 'need', 'pleasure'].map(k => {
-      const t = T[k], S_ = steps[k], x = Math.max(-1, Math.min(1, (t.value - S_.c) / (1.6 * S_.s2)));
-      const parts = (t.parts || []).map(x => `${contactWords(x, pr)} ${x.w >= 0 ? '+' : '−'}${Math.abs(x.w).toFixed(2)}`).join(' · ');
-      return `<div class="tie"><div class="th"><span>${i.cap1(i.t('ui.tie.' + k))}</span><span class="state-${cls(t.grade)}">${i.t('ui.tieGrade.' + t.grade)} · ${t.value.toFixed(2)}</span></div><div class="track"><i style="left:${(50 + 50 * x).toFixed(1)}%"></i></div>${parts ? `<p>${parts}</p>` : ''}</div>`;
-    }).join('');
+    const T = st.ties, pr = st.pair; if (!T) return '';
+    const i = SD.i18n;
+    const parts = ['choice', 'need', 'pleasure'].map(k => { const p = (T[k].parts || []).map(x => `${contactWords(x, pr)} ${x.w >= 0 ? '+' : '−'}${Math.abs(x.w).toFixed(2)}`).join(' · '); return p ? `<p><b>${i.cap1(i.t('ui.tie.' + k))}</b> ${p}</p>` : ''; }).join('');
+    return `${tieScales(st)}<div class="makers nolink">${parts}</div>`;
   }
   function compositeHtml(st) {
     const i = SD.i18n, C = SD.corr, c = st.composite, P = k => i.planet(k), A = k => i.aspect(k), R = k => i.t('ui.r.' + k); if (!c) return '';
@@ -761,29 +765,43 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
 
   /* the life mission: karma to mission, the engine, the conjunctions and threshold, the signs on the road, the aspect cards */
-  function tikkunHtml(st) {
-    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major, L = SD.tikkun.letter, P = p => i.cap1(i.planet(p)), A = a => i.aspect(a), R = x => i.t('ui.r.' + x);
-    const dm = lon => { const s = Math.floor(lon / 30), d = lon - s * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(s)}`; };
-    const hs = h => h ? ` · ${R('house')} ${i.roman(h)}` : '';
-    const row = (lab, what, letter, card, extra) => `<tr><td>${lab}</td><td colspan="2">${what} · ${L(letter)} · ${M(card)}${extra || ''}</td></tr>`;
-    const rows = [
-      row(T.karma, `${T.south} ${dm(k.south.lon)}${hs(k.south.house)}`, k.south.letter, k.south.card),
-      row(T.mission, `${T.north} ${dm(k.north.lon)}${hs(k.north.house)}`, k.north.letter, k.north.card),
-      row(T.engine, `${P(k.engine.planet)} ${i.sign(k.engine.sign)}${hs(k.engine.house)}`, k.engine.letter, k.engine.card, k.engine.doubled ? ` · ${T.doubled}` : ''),
-      ...k.conj.map(c => `<tr><td>${T.conj}</td><td colspan="2">${P(c.planet)} ${A('conjunction')} ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${M(c.card)}</td></tr>`),
-      ...k.threshold.map(t => `<tr><td>${T.threshold}</td><td colspan="2">${t.node === 'north' ? T.north : T.south} ${SD.tikkun.near(t)} · ${L(t.letter)} · ${M(t.card)}</td></tr>`)
-    ].join('');
-    const nm = x => x === 'ascendant' ? 'ASC' : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
-    const road = k.placements.map(p => `${M(p.card)}${p.count > 1 ? ' ×' + p.count : ''} (${p.keys.map(nm).join(', ')})`).join(' · ');
-    const asp = k.aspects.map(a => `<tr><td colspan="3">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} ${a.orb.toFixed(1)}° · ${SD.tikkun.cardOf(a)}${a.path ? ` (${L(a.letter)})` : ''} · ${T[a.quality]}${a.weak ? ' · ' + T.weak : ''}</td></tr>`).join('');
+  /* the head of the natal reading: the mission in one line and one sentence */
+  function tikkunHead(st) {
+    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major;
     const realm = k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : '';
-    return `<h3>${T.label}</h3>
-      <p class="verdict">${i.cap1(T.short[k.north.sign])} · ${M(k.north.card)}</p>
-      <p>${T.long[k.north.sign]}${realm}</p>
-      <table>${rows}</table>
-      <p>${T.road}: ${road}</p>
-      <table>${asp}</table>
-      <p class="dim">${T.symbolic} ${i.cap1(T.mean)}.${k.noTime ? ' ' + i.cap1(T.noTime) + '.' : ''}</p>`;
+    return `<h3>${T.label}</h3><p class="verdict">${i.cap1(T.short[k.north.sign])} · ${M(k.north.card)}</p><p>${T.long[k.north.sign]}${realm}</p>`;
+  }
+  /* the cards, after the whole chart: three tables with the same columns, the letter on a muted second line,
+     recurring cards said in words, the tikkun's own cards marked */
+  function tikkunCards(st) {
+    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major, P = p => i.cap1(i.planet(p)), A = a => i.aspect(a), R = x => i.t('ui.r.' + x);
+    const lt = l => `${SD.tikkun.text().name[l]}, ${SD.tikkun.text().letter[l]}`;
+    const dm = lon => { const s = Math.floor(lon / 30), d = lon - s * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(s)}`; };
+    const hs = h => h ? ` · ${i.roman(h)}` : '';                // sign and house only: the degrees are in the planets above
+    const mine = new Set([k.north.card, k.engine.card]);
+    const cell = c => `<td class="card${mine.has(c) ? ' tk' : ''}">${M(c)}</td>`;
+    const r2 = (a, b, c, sub) => `<tr><td class="nolink">${a}</td><td class="nolink">${b}</td>${c}</tr>${sub ? `<tr class="sub nolink"><td></td><td colspan="2">${sub}</td></tr>` : ''}`;   // only the card names link to their plates: the rest stays plain
+    const head = (a, b, c) => `<tr class="head nolink"><td>${a}</td><td>${b}</td><td>${c}</td></tr>`;
+    // 1 · the tikkun
+    const t1 = [head('', T.place, T.card),
+      r2(T.karma, `${T.south} · ${i.sign(k.south.sign)}${hs(k.south.house)}`, cell(k.south.card), lt(k.south.letter)),
+      r2(T.mission, `${T.north} · ${i.sign(k.north.sign)}${hs(k.north.house)}`, cell(k.north.card), lt(k.north.letter)),
+      r2(T.engine, `${P(k.engine.planet)} · ${i.sign(k.engine.sign)}${hs(k.engine.house)}`, cell(k.engine.card), lt(k.engine.letter) + (k.engine.doubled ? ` · ${T.doubled}` : '')),
+      ...k.conj.map(c => r2(T.conj, `${P(c.planet)} · ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}°`, cell(c.card), lt(c.letter))),
+      ...k.threshold.map(t => r2(T.threshold, SD.tikkun.near(t), cell(t.card), lt(t.letter)))].join('');
+    // 2 · the signs on the road, in the order of the chart
+    const order = (k.noTime ? [] : ['ascendant']).concat(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']).concat(k.noTime ? [] : ['midheaven']);
+    const lonOf = x => x === 'ascendant' ? st.asc : x === 'midheaven' ? st.mc : st.bodies[x].lon, nm = x => x === 'ascendant' ? i.cap1(R('ascendant')) : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
+    const t2 = [head('', T.sign, T.card), ...order.map(x => { const s = Math.floor(lonOf(x) / 30); return r2(nm(x), i.sign(s), cell(SD.tikkun.SIGN[s][1])); })].join('');
+    const recur = k.placements.filter(p => p.count > 1).map(p => T.recurs(M(p.card), p.count, p.keys.map(nm).join(', ')));
+    // 3 · the aspect cards
+    const t3 = [head(T.aspect, T.card, T.quality), ...k.aspects.map(a => `<tr><td class="nolink">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} · ${a.orb.toFixed(1)}°</td><td class="card">${SD.tikkun.cardOf(a)}</td><td class="nolink">${T[a.quality]}${a.weak ? `, ${T.weak}` : ''}</td></tr>${a.path ? `<tr class="sub nolink"><td></td><td colspan="2">${T.pathOf} ${lt(a.letter)}</td></tr>` : ''}`)].join('');
+    return `<h3>${T.cards}</h3>
+      <table class="cards">${t1}</table>
+      <h4>${T.road}</h4><table class="cards">${t2}</table>
+      ${recur.length ? `<p class="recur nolink">${recur.join('<br>')}</p>` : ''}
+      <h4>${T.aspects}</h4><table class="cards">${t3}</table>
+      <p class="dim"><span class="tkmark"></span> ${T.tikkunMark}. ${T.symbolic} ${i.cap1(T.mean)}.${k.noTime ? ' ' + i.cap1(T.noTime) + '.' : ''}</p>`;
   }
 
   /* the update button: ask the server for a newer service worker, let it install (it takes over at once), then reload.
