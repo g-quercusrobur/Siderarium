@@ -1469,7 +1469,14 @@
        enmity named when a kind reaches strong antipathy */
     const ties = state.ties, TK = ['choice', 'need', 'pleasure'], rank = g => ({ strongSympathy: 2, sympathy: 1, none: 0, antipathy: -1, strongAntipathy: -2 })[g] || 0;
     const tieName = k => i.t('ui.tie.' + k), tieIn = k => i.t('ui.tieIn.' + k), TT = i.t('cap.tie');   // the second form after "in": Spanish takes the article
-    let tiePhrase = '', tieRow = '';
+    let tiePhrase = '', tieRow = '', combo = null;
+    /* the headline of a pair: the combination of the three ties, named. one sympathy and one antipathy is a polarity and
+       says so ("polarized fascination"); otherwise the tone follows the sum, warm to cool. 27 names, DESIGN.md */
+    if (pr && ties) {
+      const sg = k => Math.sign(rank(ties[k].grade)), key = TK.map(k => ({ 1: 'p', 0: 'z', '-1': 'm' })[sg(k)]).join(''), sum = TK.reduce((a, k) => a + rank(ties[k].grade), 0);
+      const tone = key.includes('p') && key.includes('m') ? 'polar' : sum >= 4 ? 'deepHarmony' : sum > 0 ? 'harmony' : sum === 0 ? 'quiet' : sum <= -4 ? 'deepStrife' : 'strife';
+      combo = { key, tone, name: i.t('cap.combo')[key] };
+    }
     if (pr && ties) {
       const sym = TK.filter(k => rank(ties[k].grade) > 0).sort((a, b) => ties[b].value - ties[a].value), ant = TK.filter(k => rank(ties[k].grade) < 0).sort((a, b) => ties[a].value - ties[b].value);
       if (sym.length === 3) tiePhrase = TT.all; else if (sym.length === 2) tiePhrase = TT.two(tieName(sym[0]), tieName(sym[1])); else if (sym.length === 1) tiePhrase = TT.one(tieName(sym[0]));
@@ -1481,9 +1488,9 @@
     return {
       cols,
       label: x.c1(pr ? `${i.t('cap.synastryLabel')} · ${info.name}` : `${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
-      stateKey,
-      state: x.c1(i.t('ui.grade.' + grade)),
-      title: pr ? x.c1(tiePhrase) : tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
+      stateKey: pr && combo ? combo.tone : stateKey,
+      state: pr && combo ? combo.name : x.c1(i.t('ui.grade.' + grade)),
+      title: pr ? `${i.t('cap.overall')}: ${i.t('ui.grade.' + grade)}` : tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
       reason: pr ? x.c1(tieRow) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}, ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)}`) : x.cs(housesTxt),
@@ -1509,7 +1516,7 @@
   }
   const STATE_INK = { work: '#6fcf8e', watch: '#e3b341', shelter: '#ff5a2a',   // the one coloured text on the instrument
     // the grades of two skies: hot red through yellow to green, and cold blue for deep harmony, the hue of the harmony lines
-    deepStrife: '#ff3b1a', strife: '#ff5a2a', tension: '#e8894a', balanced: '#e3b341', ease: '#b9cf6e', harmony: '#6fcf8e', deepHarmony: '#7fa4e0', quiet: '#b8b2a4' };
+    polar: '#c58bf0', deepStrife: '#ff3b1a', strife: '#ff5a2a', tension: '#e8894a', balanced: '#e3b341', ease: '#b9cf6e', harmony: '#6fcf8e', deepHarmony: '#7fa4e0', quiet: '#b8b2a4' };
   function drawCaption(ctx, state, Lt) {
     const u = Lt.u, m = Lt.S * 0.0625, k = u * Lt.tc;     // type scales up on small screens; the 2048 export is unchanged
     const c = captionLines(state);
