@@ -601,23 +601,58 @@
   }
 
   /* ---------- the pull between two charts ----------
-     The classical marker of desire between two people is Venus of one on Mars of the other, and the hard contacts
-     count as fully as the soft, since desire is tension before it is ease. Pluto with either deepens it (modern),
-     Mars on the other's lights or Ascendant quickens it, Venus on the lights warms it. Summed and squashed as the
-     harmony is, read on two steps. [SD] */
-  const DESIRE = [['venus', 'mars', 1.0], ['mars', 'pluto', 0.7], ['venus', 'pluto', 0.7], ['mars', 'sun', 0.5], ['mars', 'moon', 0.5], ['mars', 'ascendant', 0.5], ['venus', 'ascendant', 0.4], ['venus', 'sun', 0.35], ['venus', 'moon', 0.35], ['mars', 'mars', 0.4]];
-  function desireOf(contacts) {
-    let sum = 0; const parts = [];
+     What the sources agree on, old and new. Ptolemy (Tetrabiblos IV.5) keeps the two matters apart: the luminaries in
+     harmony make a marriage last, while Venus with Mars "produces merely amorous dispositions", ardent and impetuous;
+     Valens (Anthologies II) gives Mars intercourse and the genitals, Venus desire and "the parts of intercourse", and
+     reads Venus with Mars by conjunction or square as lechery, by trine as a union that follows the affair; Firmicus
+     (Mathesis) the same. So desire is Venus and Mars across the charts, by any aspect, the hard ones no weaker than the
+     soft. Ptolemy also gives the damper: Saturn on Venus makes "firm" but cold unions, Saturn on Mars "frigid".
+     The moderns (Sargent, Arroyo, Greene; the Cafe Astrology and Astrology Anonymous synastry primers) add Pluto with
+     Venus or Mars as the most intense, Mars on the other's Sun, Moon or Ascendant, Mars in the other's fifth or eighth
+     house, Uranus and Neptune with Venus or Mars as excitement, and rank Venus on the Sun or Moon as affection more
+     than desire. The one statistical study (Astro Investigators, 749 + 829 married couples, 2005) finds Venus–Mars
+     contacts barely above chance among the married: desire is not durability, which is the point of keeping this
+     score apart from harmony and strife. Weights are Siderarium's reading of that corpus. [SD] */
+  const HARD3 = a => a === 'conjunction' || a === 'square' || a === 'opposition', PTOLEMAIC = new Set(['conjunction', 'sextile', 'square', 'trine', 'opposition']);
+  const DESIRE = [
+    ['venus', 'mars', 1.0, 1.15],        // the marker itself: every aspect counts, the hard ones more
+    ['venus', 'pluto', 0.7, 1.15], ['mars', 'pluto', 0.7, 1.15],   // modern: the deepest pull, and the battles of will
+    ['mars', 'moon', 0.55, 1.1], ['mars', 'sun', 0.5, 1.1],         // Mars on the other's lights: the body noticed
+    ['mars', 'ascendant', 0.5, 1.1], ['venus', 'ascendant', 0.35, 1.0],
+    ['venus', 'uranus', 0.35, 1.0], ['mars', 'uranus', 0.25, 1.0], ['mars', 'neptune', 0.3, 1.0],   // excitement, inconstant
+    ['venus', 'sun', 0.25, 1.0], ['venus', 'moon', 0.2, 1.0],      // affection more than desire
+    ['mars', 'mars', 0.3, 1.2],                                     // heat by friction: the hard contacts only
+    ['venus', 'saturn', -0.35, 1.3], ['mars', 'saturn', -0.35, 1.3] // Ptolemy's damper: firm but cold, frigid
+  ];
+  function desireOf(contacts, A, B) {
+    let sum = 0; const parts = []; let vmA = false, vmB = false;
+    const add = (a, b, aspect, power, w) => { sum += w; parts.push({ a, b, aspect, w }); };
     for (const t of contacts) {
+      if (!PTOLEMAIC.has(t.aspect)) continue;              // the five aspects only, as every source reads them
       const row = DESIRE.find(([p, q]) => (t.a === p && t.b === q) || (t.a === q && t.b === p));
       if (!row) continue;
-      const w = row[2] * t.power * (t.aspect === 'conjunction' || t.aspect === 'square' || t.aspect === 'opposition' ? 1.2 : 0.8);
-      sum += w; parts.push({ a: t.a, b: t.b, aspect: t.aspect, w });
+      const [p, q, base, hardK] = row, hard = HARD3(t.aspect);
+      if (p === 'mars' && q === 'mars' && !hard) continue;
+      const w = base * t.power * (hard ? hardK : 0.85);
+      add(t.a, t.b, t.aspect, t.power, w);
+      if ((p === 'venus' && q === 'mars')) { if (t.a === 'venus') vmA = true; else vmB = true; }
     }
-    const value = 1 - Math.exp(-sum);
-    const grade = value >= 0.65 ? 'strong' : value >= 0.5 ? 'some' : null;   // about one couple in ten, and one in four, among random pairs
-    return { value, grade, parts: parts.sort((x, y) => y.w - x.w).slice(0, 3) };
+    if (A && B) {
+      // the second chart's Venus and Mars on the first chart's Ascendant: the contacts list runs the other way only
+      for (const k of ['mars', 'venus']) {
+        const d = sep(B.bodies[k].lon, A.asc), near = [[0, 'conjunction', 6], [180, 'opposition', 6], [90, 'square', 5]].find(([deg, , orb]) => Math.abs(d - deg) <= orb);
+        if (near) { const orb = Math.abs(d - near[0]), power = 1 - orb / near[2], base = k === 'mars' ? 0.5 : 0.35; add(k, 'ascendant', near[1], power, base * power * (k === 'mars' ? 1.1 : 1)); }
+      }
+      // Mars in the other's fifth or eighth house: the houses of pleasure and of the bed (modern)
+      if ([5, 8].includes(houseIn(A.cusps, B.bodies.mars.lon))) add('mars', 'house', 'in', 1, 0.3);
+      if ([5, 8].includes(houseIn(B.cusps, A.bodies.mars.lon))) add('mars', 'house', 'in', 1, 0.3);
+    }
+    if (vmA && vmB) sum *= 1.2;                              // Venus on Mars both ways: the strongest form
+    const value = 1 - Math.exp(-Math.max(0, sum));
+    const grade = value >= DESIRE_STRONG ? 'strong' : value >= DESIRE_SOME ? 'some' : null;
+    return { value, grade, parts: parts.sort((x, y) => y.w - x.w).slice(0, 4) };
   }
+  const DESIRE_SOME = 0.6, DESIRE_STRONG = 0.71;              // the top quarter and the top tenth of 1,770 random couples at Rome
 
   /* ---------- what the two skies make together ----------
      A transiting planet that aspects both ends of a natal aspect sets that aspect off: the native's own strife or
