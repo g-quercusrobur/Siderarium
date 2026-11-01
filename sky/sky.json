@@ -1,25 +1,25 @@
 {
- "rendered": "2026-11-01 14:59 utc",
+ "rendered": "2026-11-01 19:33 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Sunday · 1 November 2026 · 15:59 CET · Rome",
-   "figure": "Sun quincunx Saturn",
+   "caption": "Sunday · 1 November 2026 · 20:33 CET · Rome",
+   "figure": "Sun square Moon",
    "chord": "Chord C major · C E G"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Sunday · 1 November 2026 · 09:59 GMT-5 · New York",
-   "figure": "Sun quincunx Saturn",
+   "caption": "Sunday · 1 November 2026 · 14:33 GMT-5 · New York",
+   "figure": "Sun square Moon",
    "chord": "Chord C major · C E G"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Sunday · 1 November 2026 · 14:59 GMT · Greenwich",
-   "figure": "Sun quincunx Saturn",
+   "caption": "Sunday · 1 November 2026 · 19:33 GMT · Greenwich",
+   "figure": "Sun square Moon",
    "chord": "Chord C major · C E G"
   }
  ]
