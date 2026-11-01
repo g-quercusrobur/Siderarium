@@ -422,6 +422,46 @@
   }
 
   /* ---------- the birth chart report: everything an interpreter, human or machine, needs, as plain text ---------- */
+  /* the reading spec: the owner's own format for a natal reading, set at the head of every copied or saved birth chart
+     report so that any AI it is pasted into reads the chart that way by default. Kept verbatim in English: it is an
+     instruction to the model, whatever the interface language. Section 9 is reserved: the owner's text stopped at "9." */
+  const READING_SPEC = `NATAL CHART READING — OUTPUT SPEC
+
+Input: a natal chart (screenshots, table, or data). If houses/nodes are
+missing, derive them and say so in one line. Never ask for data you can infer.
+
+Open with the single structural fact that governs the whole chart — usually
+the chart ruler's condition (sign, house, dignity, retrogradation), plus the
+Sun-Moon phase if it's notable. No preamble.
+
+Then these sections, in this order, with ## headers:
+
+1. ANCORE LUNARI — the Moon's hard aspects. Define the term in one line.
+   Read sign AND house together, always. List the hard aspects with orbs,
+   then name the supporting aspects (sextiles/trines) explicitly.
+2. [SIGN NOTE] — one short chapter on the chart's dominant sign, written
+   against its stereotype. Only if one sign clearly dominates.
+3. NODES — define South Node as provenance (past-life competence, the
+   trap) and North Node as the mission of this incarnation. Read sign and
+   house for both. End with one practical tell: the sentence or reflex that
+   signals the South Node is running.
+4. SATURN — sign, house, dignity. Flag if Saturn disposits a cluster.
+5. VOCATION — MC sign and ruler's placement, aspects to MC, planets in 10th.
+6. MONEY — 2nd house sign, where its ruler sits, planets inside it. End with
+   a one-line operational synthesis: the income model that actually works.
+7. THE CRITICAL ASPECT — the tightest hard aspect in the chart. Explain its
+   mechanics (how the two planets mis-fire together), name concrete risk
+   zones, then give 2-3 literal operating rules.
+8. OCCULT LAYER — Pluto, Neptune, Uranus, 8th and 12th house placements.
+   Only if the chart actually carries it. Treat the 8th as eros, shared
+   resources, inheritance, power and depth-work — NOT as "death and crisis."
+
+Apply this spec to the chart data below.`;
+  /* the mean lunar node (Meeus 47.7): the nodes are not among the bodies, and the spec reads them */
+  function meanNode(date) {
+    const T = (date.getTime() / 864e5 + 2440587.5 - 2451545) / 36525;
+    return SD.engine.norm360(125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000);
+  }
   function chartReportText() {
     const st = natalState(); if (!st) return null;
     const i = SD.i18n, C = SD.corr, n = S.natal, R = k => i.t('ui.rep.' + k);
@@ -430,6 +470,7 @@
     const pp = placeParts(new Date(n.date), n.place.tz), off = offsetOf(n.place.tz, new Date(n.date));
     const L = [];
     L.push(`# ${R('title')} · ${n.name || i.t('ui.noneSet')}`, '');
+    L.unshift(READING_SPEC, '', '---', '');                // the owner's reading format first: the AI reads the chart this way by default
     L.push(R('intro').replace('{houses}', S.houses), '');
     L.push(`## ${R('birth')}`);
     L.push(`- ${R('name')}: ${n.name || '—'}`);
@@ -440,6 +481,9 @@
     L.push(`- ${R('system')}: ${R('zodiac')} · ${S.houses} · ${st.sect === 'day' ? R('dayChart') : R('nightChart')}`, '');
     L.push(`## ${R('angles')}`);
     L.push(`- ASC ${lonTxt(st.asc)}`, `- MC ${lonTxt(st.mc)}`, `- DSC ${lonTxt(st.asc + 180)}`, `- IC ${lonTxt(st.mc + 180)}`);
+    { const nn = meanNode(new Date(n.date)), sn = SD.engine.norm360(nn + 180), hIn = lon => i.roman(SD.engine.houseIn(st.cusps, lon));
+      L.push(`- ${R('northNode')}: ${lonTxt(nn)} · ${R('house')} ${hIn(nn)}`, `- ${R('southNode')}: ${lonTxt(sn)} · ${R('house')} ${hIn(sn)}`);
+      L.push(`- ${i.t('ui.r.fortune')}: ${lonTxt(st.fortune)} · ${R('house')} ${hIn(st.fortune)}`); }
     L.push(`- ${i.cap1(i.t('ui.r.onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${P(x.planet)} ${A('conjunction')} ${i.t('ui.r.angle.' + x.angle)} ${x.orb.toFixed(1)}°`).join(' · ') : i.t('ui.r.noneOnAngles')}`, '');
     L.push(`## ${R('houses')}`);
     for (let h = 1; h <= 12; h++) L.push(`- ${i.roman(h)} ${lonTxt(st.cusps[h])}`);
