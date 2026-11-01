@@ -603,6 +603,19 @@
   /* ---------- the Lot of Fortune ----------
      Ptolemy's lot: by day the Ascendant plus the Moon less the Sun, by night the reverse. Of the ties between two
      charts it governs the one "by need" (Tetrabiblos IV.7). */
+  /* the mean lunar node (Meeus 47.7) */
+  function meanNode(date) { const T = (date.getTime() / 864e5 + 2440587.5 - 2451545) / 36525; return norm360(125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000); }
+  /* the true (osculating) lunar node: the ascending node of the Moon's instantaneous geocentric orbit, from its position
+     and velocity, on the J2000 ecliptic, then carried to the equinox of date by the general precession in longitude */
+  function trueNode(date) {
+    const t = A.MakeTime(date), dt = 0.01, e = 23.4392911 * D2R, ce = Math.cos(e), se = Math.sin(e);
+    const ecl = v => ({ x: v.x, y: v.y * ce + v.z * se, z: -v.y * se + v.z * ce });
+    const r = ecl(A.GeoMoon(t)), r1 = ecl(A.GeoMoon(t.AddDays(dt))), r0 = ecl(A.GeoMoon(t.AddDays(-dt)));
+    const v = { x: (r1.x - r0.x) / (2 * dt), y: (r1.y - r0.y) / (2 * dt), z: (r1.z - r0.z) / (2 * dt) };
+    const hx = r.y * v.z - r.z * v.y, hy = r.z * v.x - r.x * v.z;
+    const T = (date.getTime() / 864e5 + 2440587.5 - 2451545) / 36525;
+    return norm360(Math.atan2(hx, -hy) * R2D + 1.3969713 * T);
+  }
   function fortuneOf(st) { return norm360(st.sect === 'day' ? st.asc + st.bodies.moon.lon - st.bodies.sun.lon : st.asc + st.bodies.sun.lon - st.bodies.moon.lon); }
 
   /* ---------- the composite: the pair's own chart ----------
@@ -952,5 +965,5 @@
     if (orbAt(tm) < Math.min(0.5, orbMax * 0.35)) exact = new Date(tm);
     return { exact, enter: enter ? new Date(enter) : null, leave: leave ? new Date(leave) : null, orbNow: o0 };
   }
-  SD.engine = { compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  SD.engine = { compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});

@@ -1,7 +1,7 @@
 /* siderarium — service worker. network first, cache fallback: the clock works offline after one visit. */
-const VERSION = 'sd-2026-11-27q';
+const VERSION = 'sd-2026-11-27r';
 const SHELL = ['./', './index.html', './css/style.css', './js/vendor/astronomy.browser.min.js', './js/color.js', './js/correspondences.js', './js/i18n.js',
-  './js/engine.js', './js/glyphs.js', './js/render.js', './js/glossary.js', './js/app.js', './manifest.webmanifest', './icons/siderarium-192.png', './icons/siderarium-512.png',
+  './js/engine.js', './js/tikkun.js', './js/glyphs.js', './js/render.js', './js/glossary.js', './js/app.js', './manifest.webmanifest', './icons/siderarium-192.png', './icons/siderarium-512.png',
   './fonts/Geist-Regular.woff2', './fonts/Geist-Medium.woff2', './fonts/GeistMono-Regular.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

@@ -95,6 +95,7 @@
     if (natalCache.key !== key) {
       const st = SD.engine.compute(new Date(S.natal.date), place, { houses: S.houses });
       st.natalView = true; st.nextChord = null; st.relocated = S.relocate ? place.name : null;
+      st.tikkun = SD.tikkun.of(st, { noTime: !!S.natal.unknownTime });   // the life mission, from the nodes
       natalCache.key = key; natalCache.state = st;
     }
     return natalCache.state;
@@ -441,12 +442,10 @@ No preamble. Open with the one fact that governs the chart: usually the chart ru
 Sections 1-8 each end with two italic lines:
 *Vibrazione bassa:* how the configuration misfires.
 *Vibrazione alta:* how to raise it; concrete and operational, not inspirational.
-Style: discursive prose, dense and exact. Explain each technical term once, briefly, for a first-time reader. State orbs. No confidence tags, no hedging, no "may suggest": commit to readings. Don't flatter the chart. End flat, no uplifting closer. Reply in the language the user writes in; with no other text, in the language of this report.`;
+Style: discursive prose, dense and exact. Explain each technical term once, briefly, for a first-time reader. State orbs. No confidence tags, no hedging, no "may suggest": commit to readings. Don't flatter the chart. End flat, no uplifting closer. Reply in the language the user writes in; with no other text, in the language of this report.
+11. TIKKUN, from the Tikkun data below (true node; the cards are a symbolic reading, not prediction): Karma (South Node) → Mission (North Node), with the Engine and any Threshold. For each card three lines: the letter (name and meaning), the card, how it applies to this chart. Then one paragraph on the movement from Karma to Mission. Then the signs on the road, one line each: repeated cards first, then the other placement cards, then the aspect cards (a path card that shares a planet's name has nothing to do with that planet). Then 3-4 sentences of synthesis, reading the road signs as help toward the Mission or friction against it. Then the Psalm 119 stanzas for the Mission and Engine letters as an optional practice.`;
   /* the mean lunar node (Meeus 47.7): the nodes are not among the bodies, and the spec reads them */
-  function meanNode(date) {
-    const T = (date.getTime() / 864e5 + 2440587.5 - 2451545) / 36525;
-    return SD.engine.norm360(125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000);
-  }
+  const meanNode = date => SD.engine.trueNode(date);   // the true node, as the tikkun reads it: one node throughout the report
   function chartReportText() {
     const st = natalState(); if (!st) return null;
     const i = SD.i18n, C = SD.corr, n = S.natal, R = k => i.t('ui.rep.' + k);
@@ -516,6 +515,22 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
         L.push(`| ${name}${tag ? ' (' + tag + ')' : ''} | ${lonTxt(lon)} | ${i.trumpSign(sg)} | ${C.PLANETS[k] && i.trumpPlanet(k) ? i.trumpPlanet(k) : '—'} | ${i.card(d)} · ${i.title(d)} |`);
       }
       L.push(''); }
+    if (st.tikkun) {                                        // the life mission, every card already computed, so the reader never invents a position
+      const k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major, Lt = SD.tikkun.letter;
+      const nm = x => x === 'ascendant' ? 'ASC' : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
+      const hs = h => h ? ` · ${R('house')} ${i.roman(h)}` : '';
+      L.push(`## ${T.label} · ${T.mean}`);
+      L.push(`- ${T.karma}: ${T.south} ${lonTxt(k.south.lon)}${hs(k.south.house)} · ${Lt(k.south.letter)} · ${M(k.south.card)}`);
+      L.push(`- ${T.mission}: ${T.north} ${lonTxt(k.north.lon)}${hs(k.north.house)} · ${Lt(k.north.letter)} · ${M(k.north.card)} · ${T.psalm} ${k.north.psalm}`);
+      L.push(`- ${T.engine}: ${P(k.engine.planet)}, ${i.t('ui.rep.rulerOf')} ${i.sign(k.north.sign)}, ${i.t('ui.rep.inSign')} ${i.sign(k.engine.sign)}${hs(k.engine.house)} · ${Lt(k.engine.letter)} · ${M(k.engine.card)} · ${T.psalm} ${k.engine.psalm}${k.engine.doubled ? ' · ' + T.doubled : ''}`);
+      for (const c of k.conj) L.push(`- ${T.conj}: ${P(c.planet)} ${A('conjunction')} ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${M(c.card)}`);
+      for (const t of k.threshold) L.push(`- ${T.threshold}: ${t.node === 'north' ? T.north : T.south} → ${i.sign(t.sign)} · ${Lt(t.letter)} · ${M(t.card)}`);
+      L.push(`- ${T.mission}, ${i.t('ui.rep.inWords')}: ${T.long[k.north.sign]}${k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : ''}`);
+      L.push(`- ${T.road}: ${k.placements.map(p => `${M(p.card)}${p.count > 1 ? ' ×' + p.count : ''} (${p.keys.map(nm).join(', ')})${p.tikkun ? ' ★' : ''}`).join(' · ')}`);
+      L.push(`- ${T.aspects}: ${k.aspects.map(a => `${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} ${a.orb.toFixed(1)}° → ${SD.tikkun.cardOf(a)}${a.path ? ` (${Lt(a.letter)})` : ''}, ${T[a.quality]}${a.weak ? ', ' + T.weak : ''}`).join(' · ')}`);
+      if (k.noTime) L.push(`- ${i.cap1(T.noTime)}`);
+      L.push(`- ★ = ${i.t('ui.rep.reinforces')}`, '');
+    }
     L.push(`## ${R('layers')}`);
     const pr = st.configs.primary;
     if (pr) L.push(`- ${R('figure')}: ${P(pr.a)} ${A(pr.aspect)} ${P(pr.b)} · {${pr.n}/${pr.k}} · ${R('orb')} ${pr.orb.toFixed(2)}°${st.configs.cut ? ` · ${R('cut')} ${P(st.configs.cut.by)}` : ''}`);
@@ -607,12 +622,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <tr><td>${i.cap1(R('dayRuler'))}</td><td>${P(st.hour.dayRuler)}</td><td>${i.trumpPlanet(st.hour.dayRuler)}</td></tr>
       <tr><td>${i.cap1(R('hourRuler'))}</td><td>${P(st.hour.hourRuler)}</td><td>${i.trumpPlanet(st.hour.hourRuler)}</td></tr></table>`;
     const hours = st.hour.table ? st.hour.table.map(h => `<span${h.index === st.hour.index ? ' class="now"' : ''}>${h.index + 1} ${P(h.ruler)} ${hm(h.start)}</span>`).join(' · ') : i.cap1(i.t('ui.polar'));
+    const MAJ = /^(conjunction|sextile|square|trine|opposition)$/, acard = a => st.tikkun && MAJ.test(a.aspect) ? ` · ${SD.tikkun.cardOf(SD.tikkun.aspectCard(a.a, a.b))}` : '';
     const top = st.aspects.slice(0, 12).map(a =>
-      `<tr><td>${figName(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>`).join('');
+      `<tr><td>${figName(a)}${acard(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>`).join('');
     const ev = st.events.map(e => i.event(e.type) + (e.planet ? ' ' + P(e.planet) : '') + (e.kind ? ' ' + evName(e.kind) : '') + (e.direction ? ' ' + i.event(e.direction) : '')).join(' · ') || '—';
     if (st.pair && st.natal) { $('readout').innerHTML = pairReadout(st); linkTerms($('readout')); return; }
     $('readout').innerHTML = `
       ${lead}
+      ${st.tikkun ? tikkunHtml(st) : ''}
       <h3>${H('bodies')}</h3><table>${rows}</table>
       <h3>${H('figure')}</h3><table>${figs || `<tr><td>${i.cap1(i.t('ui.quietSky'))}</td></tr>`}</table>
       <h3>${H('sound')}</h3><p>${i.chordLong(st.chord)}${st.chord.interval ? ' · ' + i.interval(st.chord.interval) : ''}${st.chord.notes.length ? ` · ${R('notes')} ` + st.chord.notes.map(n => i.note(n)).join(' ') : ''}${st.chord.planets ? ` · ${R('from')} ` + st.chord.planets.map(P).join(', ') : ''}${st.chord.moonNote ? ` · ${R('moonNote')} ${i.note(st.chord.moonNote)}` : ''}${st.chord.ground && st.chord.ground.length ? ` · ${R('ground')} ` + st.chord.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(' ') : ''}${st.nextChord ? ` · ${R('next')} ${i.chordName(st.nextChord.to)} ${R('at')} ${hm(st.nextChord.at)}` : ''}</p>
@@ -741,6 +758,32 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     L.push('');
     L.push(`— ${R('footer')} · siderarium.com · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
     return { text: L.join('\n'), name: `${pr.a}-${pr.b}` };
+  }
+
+  /* the life mission: karma to mission, the engine, the conjunctions and threshold, the signs on the road, the aspect cards */
+  function tikkunHtml(st) {
+    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major, L = SD.tikkun.letter, P = p => i.cap1(i.planet(p)), A = a => i.aspect(a), R = x => i.t('ui.r.' + x);
+    const dm = lon => { const s = Math.floor(lon / 30), d = lon - s * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(s)}`; };
+    const hs = h => h ? ` · ${R('house')} ${i.roman(h)}` : '';
+    const row = (lab, what, letter, card, extra) => `<tr><td>${lab}</td><td colspan="2">${what} · ${L(letter)} · ${M(card)}${extra || ''}</td></tr>`;
+    const rows = [
+      row(T.karma, `${T.south} ${dm(k.south.lon)}${hs(k.south.house)}`, k.south.letter, k.south.card),
+      row(T.mission, `${T.north} ${dm(k.north.lon)}${hs(k.north.house)}`, k.north.letter, k.north.card),
+      row(T.engine, `${P(k.engine.planet)} ${i.sign(k.engine.sign)}${hs(k.engine.house)}`, k.engine.letter, k.engine.card, k.engine.doubled ? ` · ${T.doubled}` : ''),
+      ...k.conj.map(c => `<tr><td>${T.conj}</td><td colspan="2">${P(c.planet)} ${A('conjunction')} ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${M(c.card)}</td></tr>`),
+      ...k.threshold.map(t => `<tr><td>${T.threshold}</td><td colspan="2">${t.node === 'north' ? T.north : T.south} → ${i.sign(t.sign)} · ${L(t.letter)} · ${M(t.card)}</td></tr>`)
+    ].join('');
+    const nm = x => x === 'ascendant' ? 'ASC' : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
+    const road = k.placements.map(p => `${M(p.card)}${p.count > 1 ? ' ×' + p.count : ''} (${p.keys.map(nm).join(', ')})`).join(' · ');
+    const asp = k.aspects.map(a => `<tr><td colspan="3">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} ${a.orb.toFixed(1)}° · ${SD.tikkun.cardOf(a)}${a.path ? ` (${L(a.letter)})` : ''} · ${T[a.quality]}${a.weak ? ' · ' + T.weak : ''}</td></tr>`).join('');
+    const realm = k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : '';
+    return `<h3>${T.label}</h3>
+      <p class="verdict">${i.cap1(T.short[k.north.sign])} · ${M(k.north.card)}</p>
+      <p>${T.long[k.north.sign]}${realm}</p>
+      <table>${rows}</table>
+      <p>${T.road}: ${road}</p>
+      <table>${asp}</table>
+      <p class="dim">${T.symbolic} ${i.cap1(T.mean)}.${k.noTime ? ' ' + i.cap1(T.noTime) + '.' : ''}</p>`;
   }
 
   function updateControls() {
