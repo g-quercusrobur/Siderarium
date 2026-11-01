@@ -3,4 +3,6 @@
   <url><loc>https://siderarium.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority><xhtml:link rel="alternate" hreflang="en" href="https://siderarium.com/"/><xhtml:link rel="alternate" hreflang="es" href="https://siderarium.com/app/?lang=es"/></url>
   <url><loc>https://siderarium.com/app/</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://siderarium.com/privacy.html</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
+  <url><loc>https://siderarium.com/terms.html</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
+  <url><loc>https://siderarium.com/credits.html</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
 </urlset>
