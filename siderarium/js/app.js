@@ -130,7 +130,9 @@
         S.state.attraction = SD.engine.desireOf(tr, A, Bs);        // the pull between two bodies: Venus and Mars across the charts, and their kin
         S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
         S.state.configs = { ...A.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
-        S.state.ownFigures = { a: A.configs.primary, b: Bs.configs.primary };   // each chart's own ruling figure, for the common sigil
+        S.state.ownFigures = { a: A.configs.primary, b: Bs.configs.primary };   // each chart's own ruling figure, faint behind the pair's
+        S.state.ties = SD.engine.tiesOf(A, Bs, tr);          // Ptolemy's three: by choice, by need, by pleasure
+        S.state.composite = SD.engine.compositeOf(A, Bs);    // the pair's own chart: its figure is the mandala
       } else { S.state = { ...A, natalView: true, pairMissing: true }; }
     }
     if (S.mode === 'synastry' && S.natal) {                 // the sky of now against the nativity: the figure is the strongest transit
@@ -148,7 +150,7 @@
     const c = SD.render.captionLines(viewState());
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
-    $('caption').innerHTML = `<p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p><p class="reason">${c.reason}</p>${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
+    $('caption').innerHTML = `<p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p><p class="reason">${c.reason}</p>${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -487,14 +489,15 @@
     L.push(`— ${R('footer')} · siderarium.com · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
     return { text: L.join('\n'), name: n.name || 'chart' };
   }
+  const reportText = () => S.mode === 'pair' && S.state && S.state.pair ? pairReportText() : chartReportText();
   function chartReport() {
-    const r = chartReportText(); if (!r) return;
+    const r = reportText(); if (!r) return;
     const base = r.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
     downloadBlob(new Blob([r.text], { type: 'text/markdown' }), `siderarium-report-${base}.md`);
   }
   /* the same report onto the clipboard, to paste into an interpreter; the old way when the clipboard refuses */
   async function copyReport() {
-    const r = chartReportText(); if (!r) return;
+    const r = reportText(); if (!r) return;
     const note = $('import-note'), i = SD.i18n;
     try { await navigator.clipboard.writeText(r.text); note.textContent = i.cap1(i.t('ui.copied')); return; } catch (e) { /* fall through */ }
     const ta = document.createElement('textarea'); ta.value = r.text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
@@ -594,7 +597,8 @@
     const of = st.ownFigures || {};
     const inter = st.interaction;
     const des = st.attraction, desTxt = des && des.grade ? ` · ${i.t('ui.desire.' + des.grade)} ${des.value.toFixed(2)}` : '';
-    const verdict = inter ? `<p class="verdict state-${inter.grade}">${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}${desTxt}</p>` : '';
+    const cap = SD.render.captionLines(st);
+    const verdict = inter ? `<p class="verdict state-${inter.grade}">${cap.title ? cap.title + ' · ' : ''}${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}${desTxt}</p>` : '';
     const contact = x => `${own(pr.a, P(x.a))} ${A(x.aspect)} ${own(pr.b, C.PLANETS[x.b] ? P(x.b) : x.b === 'ascendant' ? 'ASC' : 'MC')}`;
     const contacts = st.transits.slice(0, 12).map(x => `<tr><td>${contact(x)}</td><td class="nw">${x.orb.toFixed(2)}°</td><td class="nw">${x.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`;
     const sentence = f => f.name === 'setOff' ? `${own(pr.a, P(f.t))} ${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${own(pr.a, P(f.t))} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`;
@@ -608,9 +612,84 @@
       <tr><td>${i.cap1(R('element'))}</td><td>${elem(a)}</td><td>${elem(b)}</td></tr>
       <tr><td>${i.cap1(R('figure'))}</td><td>${figOf(of.a)}</td><td>${figOf(of.b)}</td></tr>
       <tr><td>${i.cap1(R('sect'))}</td><td>${a.sect === 'day' ? R('day') : R('night')}</td><td>${b.sect === 'day' ? R('day') : R('night')}</td></tr></table>
+      <h3>${H('ties')}</h3>${tiesHtml(st)}
+      <p class="dim">${i.cap1(R('tiesNote'))}</p>
+      <h3>${H('composite')}</h3>${compositeHtml(st)}
+      <p class="dim">${i.cap1(R('compositeNote'))}</p>
       <h3>${H('contacts')}</h3><table>${contacts}</table>
       <h3>${H('between')}</h3><table>${figures}</table>
       <p class="dim">${i.cap1(R('pairNote'))}</p>`;
+  }
+  /* a contact between the two charts in words, whichever way it runs */
+  function contactWords(x, pr) {
+    const i = SD.i18n, C = SD.corr, P = k => i.planet(k), own = (who, what) => i.t('cap.own')(who, what);
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : 'MC';
+    if (x.place) return `${i.t('ui.r.byPlace')}: ${i.t('ui.r.place.' + x.place)}`;
+    if (x.b === 'house') { const [who, whose] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b]; return `${own(who, P('mars'))} ${i.t('ui.r.inThe')} ${own(whose, i.t('ui.r.house58'))}`; }
+    const [first, second] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b];
+    return `${own(first, pt(x.a))} ${i.aspect(x.aspect)} ${own(second, pt(x.b))}`;
+  }
+  function tiesHtml(st) {
+    const i = SD.i18n, T = st.ties, pr = st.pair, steps = SD.engine.tieSteps; if (!T) return '';
+    const cls = g => ({ strongSympathy: 'deepHarmony', sympathy: 'harmony', none: 'balanced', antipathy: 'strife', strongAntipathy: 'deepStrife' })[g];
+    return ['choice', 'need', 'pleasure'].map(k => {
+      const t = T[k], S_ = steps[k], x = Math.max(-1, Math.min(1, (t.value - S_.c) / (1.6 * S_.s2)));
+      const parts = (t.parts || []).map(x => `${contactWords(x, pr)} ${x.w >= 0 ? '+' : '−'}${Math.abs(x.w).toFixed(2)}`).join(' · ');
+      return `<div class="tie"><div class="th"><span>${i.cap1(i.t('ui.tie.' + k))}</span><span class="state-${cls(t.grade)}">${i.t('ui.tieGrade.' + t.grade)} · ${t.value.toFixed(2)}</span></div><div class="track"><i style="left:${(50 + 50 * x).toFixed(1)}%"></i></div>${parts ? `<p>${parts}</p>` : ''}</div>`;
+    }).join('');
+  }
+  function compositeHtml(st) {
+    const i = SD.i18n, C = SD.corr, c = st.composite, P = k => i.planet(k), A = k => i.aspect(k), R = k => i.t('ui.r.' + k); if (!c) return '';
+    const pos = x => `${Math.floor(x.deg)}°${String(Math.floor((x.deg % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign)}`;
+    const f = c.configs.primary, fig = f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} · {${f.n}/${f.k}} · ${i.cap1(R('orb'))} ${f.orb.toFixed(2)}°` : i.cap1(i.t('ui.quietSky'));
+    const rows = C.ORDER.map(k => `<tr><td>${P(k)}</td><td>${pos(c.bodies[k])}</td><td>${R('house')} ${i.roman(c.bodies[k].house)}</td></tr>`).join('');
+    const el = c.elements ? `${i.t('ui.el.' + c.elements.dominant)} ${Math.round(c.elements.shares[c.elements.dominant] * 100)}%` : '';
+    return `<p class="verdict">${i.cap1(R('pairFigure'))}: ${fig}</p><table><tr><td>${i.cap1(R('ascendant'))}</td><td>${Math.floor(c.asc % 30)}° ${i.sign(Math.floor(c.asc / 30))}</td><td>MC ${Math.floor(c.mc % 30)}° ${i.sign(Math.floor(c.mc / 30))}</td></tr>${rows}<tr><td>${i.cap1(R('fortune'))}</td><td>${Math.floor(c.fortune % 30)}° ${i.sign(Math.floor(c.fortune / 30))}</td><td>${i.cap1(R('element'))} ${el}</td></tr></table>`;
+  }
+  /* the report of a pair, for pasting into an interpreter: both charts' birth data, the three ties with their makers,
+     the grade of harmony and strife, the pull, the composite, every contact */
+  function pairReportText() {
+    const st = S.state; if (!st || !st.pair) return null;
+    const i = SD.i18n, C = SD.corr, R = k => i.t('ui.rep.' + k), P = k => i.cap1(i.planet(k)), A = k => i.aspect(k), pr = st.pair;
+    const lonTxt = lon => { const L = ((lon % 360) + 360) % 360, sg = Math.floor(L / 30), d = L - sg * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(sg)} (${L.toFixed(2)}°)`; };
+    const chartB = S.charts.find(c => c.id === S.pair), charts = [[pr.a, S.natal, st], [pr.b, chartB, st.natal]];
+    const L = [];
+    L.push(`# ${i.t('cap.synastryLabel')} · ${pr.a} × ${pr.b}`, '');
+    L.push(R('pairIntro').replace('{houses}', S.houses), '');
+    for (const [name, n, x] of charts) {
+      if (!n) continue;
+      const pp = placeParts(new Date(n.date), n.place.tz), off = offsetOf(n.place.tz, new Date(n.date));
+      L.push(`## ${R('birth')} · ${name}`);
+      L.push(`- ${R('local')}: ${pp.year}-${pp.month}-${pp.day} ${n.unknownTime ? R('noon') : pp.hour + ':' + pp.minute} (${n.place.tz}, ${off}) · ${R('utc')}: ${new Date(n.date).toISOString().replace('T', ' ').slice(0, 16)} UTC`);
+      L.push(`- ${R('place')}: ${n.place.label || i.placeName(n.place.name)} · ${(+n.place.lat).toFixed(4)}, ${(+n.place.lon).toFixed(4)} · ${x.sect === 'day' ? R('dayChart') : R('nightChart')}`);
+      L.push(`- ASC ${lonTxt(x.asc)} · MC ${lonTxt(x.mc)} · ${i.t('ui.r.fortune')} ${lonTxt(x.fortune)}`);
+      L.push(`| ${R('planet')} | ${R('position')} | ${R('house')} | ${R('dignity')} |`, '|---|---|---|---|');
+      for (const k of C.ORDER) { const b = x.bodies[k]; L.push(`| ${P(k)} | ${lonTxt(b.lon)} | ${i.roman(b.house)} | ${b.dignity.score >= 0 ? '+' : ''}${b.dignity.score} ${b.dignity.labels.join(', ')}${b.retro ? ' · ' + R('retrograde') : ''} |`); }
+      L.push('');
+    }
+    const inter = st.interaction, T = st.ties, D = st.attraction;
+    L.push(`## ${i.cap1(i.t('ui.h.ties'))}`);
+    L.push(`${i.t('ui.r.tiesNote')}`, '');
+    for (const k of ['choice', 'need', 'pleasure']) { const t = T[k]; L.push(`- ${i.cap1(i.t('ui.tie.' + k))}: ${i.t('ui.tieGrade.' + t.grade)} (${t.value.toFixed(2)})${t.parts.length ? ' · ' + t.parts.map(x => `${contactWords(x, pr)} ${x.w >= 0 ? '+' : '−'}${Math.abs(x.w).toFixed(2)}`).join('; ') : ''}`); }
+    if (D) L.push(`- ${i.cap1(i.t('ui.desire.some'))}: ${D.value.toFixed(2)}${D.grade ? ' · ' + i.t('ui.desire.' + D.grade) : ''}`);
+    if (inter) L.push(`- ${i.cap1(i.t('ui.r.harmony'))} ${inter.harmony.toFixed(2)} · ${i.t('ui.r.strife')} ${inter.strife.toFixed(2)} · ${i.t('ui.grade.' + inter.grade)}`);
+    L.push('');
+    const c = st.composite;
+    if (c) {
+      L.push(`## ${i.cap1(i.t('ui.h.composite'))}`);
+      L.push(`${i.t('ui.r.compositeNote')}`, '');
+      L.push(`- ASC ${lonTxt(c.asc)} · MC ${lonTxt(c.mc)} · ${i.t('ui.r.fortune')} ${lonTxt(c.fortune)}`);
+      const f = c.configs.primary; if (f) L.push(`- ${i.cap1(i.t('ui.r.pairFigure'))}: ${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}} · ${f.orb.toFixed(2)}°`);
+      L.push(`| ${R('planet')} | ${R('position')} | ${R('house')} |`, '|---|---|---|');
+      for (const k of C.ORDER) L.push(`| ${P(k)} | ${lonTxt(c.bodies[k].lon)} | ${i.roman(c.bodies[k].house)} |`);
+      L.push('');
+    }
+    L.push(`## ${i.cap1(i.t('ui.h.contacts'))}`);
+    L.push(`| ${R('pair')} | ${R('aspect')} | ${R('orb')} | ${R('power')} |`, '|---|---|---|---|');
+    for (const x of st.transits) L.push(`| ${contactWords(x, pr)} | ${A(x.aspect)} | ${x.orb.toFixed(2)}° | ${x.power.toFixed(2)} |`);
+    L.push('');
+    L.push(`— ${R('footer')} · siderarium.com · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
+    return { text: L.join('\n'), name: `${pr.a}-${pr.b}` };
   }
 
   function updateControls() {
