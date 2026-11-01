@@ -55,8 +55,8 @@
     }
     const threshold = [];
     for (const [which, n] of [['north', north]]) {           // the mission's threshold: the two nodes always share the degree
-      if (n.deg >= 29) { const s = (n.sign + 1) % 12; threshold.push({ node: which, sign: s, card: SIGN[s][1], letter: SIGN[s][0] }); }
-      else if (n.deg < 1) { const s = (n.sign + 11) % 12; threshold.push({ node: which, sign: s, card: SIGN[s][1], letter: SIGN[s][0] }); }
+      if (n.deg >= 29) { const s = (n.sign + 1) % 12; threshold.push({ node: which, sign: s, card: SIGN[s][1], letter: SIGN[s][0], dist: 30 - n.deg }); }
+      else if (n.deg < 1) { const s = (n.sign + 11) % 12; threshold.push({ node: which, sign: s, card: SIGN[s][1], letter: SIGN[s][0], dist: n.deg }); }
     }
     // the signs on the road: the sign card of the Ascendant, the Midheaven and the seven; repeats first, with their count
     const places = (noTime ? [] : [['ascendant', st.asc], ['midheaven', st.mc]]).concat(SEVEN.map(k => [k, B[k].lon]));
@@ -105,7 +105,7 @@
         'From personal glory to the group: work for a cause larger than yourself, as the friend and the innovator rather than the star.',
         'From control, criticism and the list to faith: trust the larger order, serve through compassion, let the work be inspired.'
       ],
-      label: 'Life mission (tikkun)', karma: 'Karma', mission: 'Mission', engine: 'Engine', conj: 'Conjunct', threshold: 'Threshold', doubled: 'the mission doubled',
+      nearSign: (dist, sign) => `${dist} from the cusp of ${sign}`, label: 'Life mission (tikkun)', karma: 'Karma', mission: 'Mission', engine: 'Engine', conj: 'Conjunct', threshold: 'Threshold', doubled: 'the mission doubled',
       livedIn: 'Lived in the', north: 'North Node', south: 'South Node', mean: 'true node', road: 'Signs on the road', aspects: 'Aspect cards',
       gift: 'gift', lesson: 'lesson', fusion: 'fusion', weak: 'out of sign, weak', psalm: 'Psalm 119', noTime: 'no birth time: houses, Ascendant and Midheaven left out',
       symbolic: 'A symbolic reading, not a prediction. South Node, the karma the soul brings in; North Node, the mission. Sign → Hebrew letter after the Sefer Yetzirah, letter → card after the Golden Dawn.'
@@ -131,7 +131,7 @@
         'De la gloria personal al grupo: trabajar por una causa mayor, como amigo e innovador antes que como estrella.',
         'Del control, la crítica y la lista a la fe: confiar en el orden mayor, servir con compasión, dejar que la obra sea inspirada.'
       ],
-      label: 'Misión de vida (tikún)', karma: 'Karma', mission: 'Misión', engine: 'Motor', conj: 'Conjunción', threshold: 'Umbral', doubled: 'la misión duplicada',
+      nearSign: (dist, sign) => `a ${dist} de la cúspide de ${sign}`, label: 'Misión de vida (tikún)', karma: 'Karma', mission: 'Misión', engine: 'Motor', conj: 'Conjunción', threshold: 'Umbral', doubled: 'la misión duplicada',
       livedIn: 'Vivida en el', north: 'Nodo Norte', south: 'Nodo Sur', mean: 'nodo verdadero', road: 'Señales del camino', aspects: 'Cartas de los aspectos',
       gift: 'don', lesson: 'lección', fusion: 'fusión', weak: 'fuera de signo, débil', psalm: 'Salmo 119', noTime: 'sin hora de nacimiento: sin casas, Ascendente ni Medio Cielo',
       symbolic: 'Una lectura simbólica, no una predicción. Nodo Sur, el karma que trae el alma; Nodo Norte, la misión. Signo → letra hebrea según el Séfer Yetzirá, letra → carta según la Aurora Dorada.'
@@ -146,7 +146,9 @@
     return I().t('ui.tarot.' + ({ 0: 'fool', 12: 'hanged', 20: 'judgement' })[n]);
   }
   const letter = k => `${T().name[k]} (${T().letter[k]})`;
+  const arcmin = d => d >= 1 ? `${d.toFixed(1)}°` : `${Math.round(d * 60)}′`;
+  const near = t => T().nearSign(arcmin(t.dist), I().sign(t.sign));
   const cardOf = x => x.path ? major(x.card) : x.cards.map(major).join(' + ');
 
-  SD.tikkun = { of, aspectCard, major, letter, cardOf, text: T, SIGN, PLANET, PATH };
+  SD.tikkun = { of, aspectCard, major, letter, cardOf, near, text: T, SIGN, PLANET, PATH };
 })();
