@@ -1527,12 +1527,11 @@
     const strongOf = k => Y.cats[k].grade === 'strongPositive' || Y.cats[k].grade === 'strongFriction';
     const defining = ['friendship', 'business', 'pleasure'].filter((k, n) => key[n] !== 'z');
     const nStrong = defining.filter(strongOf).length;
-    const strong = key === 'ppp' ? nStrong === 3 && Y.balance > 0.10 && Y.intensity >= 0.55 : defining.length > 0 && nStrong === defining.length;   // deep bond: all three strong, the whole intense and harmonious
+    const strong = key === 'ppp' ? nStrong === 3 && Y.cell.row === 0 && Y.cell.col === 0 : defining.length > 0 && nStrong === defining.length;   // deep bond: all three strong, the whole intense and harmonious
     const flavor = i.t('cap.flavor')[romance ? 'romance' : 'safe'][key][strong ? 1 : 0];
     const rank = { strongPositive: 2, positive: 1, neutral: 0, mixed: 0, friction: -1, strongFriction: -2 }, sum = ['friendship', 'business', 'pleasure'].reduce((t, k) => t + rank[Y.cats[k].grade], 0);
     const tone = key.includes('p') && key.includes('m') ? 'polar' : key === 'ppp' && strong ? 'deepHarmony' : sum >= 3 ? 'harmony' : sum > 0 ? 'ease' : sum === 0 ? 'quiet' : sum <= -3 ? 'deepStrife' : 'strife';
-    const row = Y.intensity >= 0.55 ? 0 : Y.intensity >= 0.30 ? 1 : 2, colI = Y.balance > 0.10 ? 0 : Y.balance < -0.10 ? 2 : 1;
-    const overall = i.t('cap.overallIs')(i.t('cap.gridRow')[row], i.t('cap.gridCol')[colI]);
+    const overall = i.t('cap.overallIs')(i.t('cap.gridRow')[Y.cell.row], i.t('cap.gridCol')[Y.cell.col]);   // centred on the typical pair: no positive bias
     const el = st => st.elements ? i.t('ui.el.' + st.elements.dominant) : '';
     const col = (name, st, noTime) => { const T = fmtShortDate(st.date, st.loc), s3 = n => i.sign(n).slice(0, 3), B = st.bodies;
       return { head: name, lines: [`${T.date} · ${T.time}`, i.placeName(st.loc.name), `${P('sun')} ${s3(B.sun.sign)} · ${P('moon')} ${s3(B.moon.sign)}`, ...(noTime ? [] : [`ASC ${i.sign(Math.floor(st.asc / 30))}`]), `${i.t('cap.syn.dominant')} ${el(st)}`] }; };

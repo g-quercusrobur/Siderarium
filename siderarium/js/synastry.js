@@ -26,7 +26,12 @@
   const inCat = (k, a, b) => CAT[k].set ? CAT[k].set.has(a) && CAT[k].set.has(b) : has(CAT[k].pairs, a, b);
   /* C6: one shared normalization for harmony, strife and adjustment; the categories share their own. Calibrated on
      1,770 random couples so the grid's thresholds split them sensibly (DESIGN.md) */
-  const K_ALL = 22, K_CAT = 8;
+  const K_ALL = 45, K_CAT = 8;
+  /* no positive bias: the polarity rules count most contacts as harmony, so a raw balance above zero is ordinary (90% of
+     random pairs). The overall reading is centred on the median of random pairs born within ten years (+0.20), and its
+     intensity cut into thirds of the same pairs, so "harmony leads" and "strife leads" are equally rare, a quarter each */
+  const BAL_C = 0.20, INT_Q = [0.437, 0.50];
+  function cell(score, intensity) { return { row: intensity >= INT_Q[1] ? 0 : intensity >= INT_Q[0] ? 1 : 2, col: score > 0.10 ? 0 : score < -0.10 ? 2 : 1 }; }
   /* each category centred on the median of random pairs born within ten years (harmony outweighs strife by the polarity
      rules, so a raw positive is ordinary); a step of 0.10 to the first word, 0.40 to the strong one: about an eighth each side */
   const CAT_C = { friendship: 0.25, business: 0.21, pleasure: 0.21 }, CAT_S1 = 0.10, CAT_S2 = 0.40;
@@ -107,7 +112,7 @@
     const sum = f => contacts.reduce((t, c) => t + c[f], 0);
     const harmony = squash(sum('h'), K_ALL), strife = squash(sum('s'), K_ALL), adjustment = squash(sum('x'), K_ALL);
     const balance = harmony - strife + 0.05 * temper, intensity = (harmony + strife) / 2;   // F3: at most ±0.05
-    const label = gridLabel(balance, intensity);
+    const score = balance - BAL_C, label = gridLabel(score, intensity);
     // E: the three categories, each on the same scale as the whole
     const cats = {};
     for (const k of ['friendship', 'business', 'pleasure']) {
@@ -120,14 +125,14 @@
     // D4, D5: the featured contact, the strongest of each polarity (near-equal: angle-to-personal beats angle-to-outer)
     const pick = f => { const xs = contacts.filter(c => c[f] > 0).sort((x, y) => y[f] - x[f]); if (xs.length > 1 && xs[1][f] > 0.95 * xs[0][f] && isOuterAngle(xs[0]) && !isOuterAngle(xs[1])) return xs[1]; return xs[0] || null; };
     const overlays = (noA || noB) ? null : overlaysOf(A, B);
-    return { contacts, harmony, strife, adjustment, balance, intensity, label, temper, temperWord: temper > 0.33 ? 'compatible' : temper < -0.33 ? 'tense' : 'mixed',
+    return { contacts, harmony, strife, adjustment, balance, score, cell: cell(score, intensity), intensity, label, temper, temperWord: temper > 0.33 ? 'compatible' : temper < -0.33 ? 'tense' : 'mixed',
       cats, featured: contacts[0] || null, topH: pick('h'), topS: pick('s'), age, type: family && type !== 'parent' && type !== 'sibling' ? 'family' : type, overlays, noA, noB };
   }
   const isOuterAngle = c => (ANGLE.has(c.a) || ANGLE.has(c.b)) && (OUTER.has(c.a) || OUTER.has(c.b));
   /* D2: the grid; "aversion" only deep in strife */
-  function gridLabel(balance, intensity) {
-    if (balance < -0.30 && intensity >= 0.40) return 'aversion';
-    const col = balance > 0.10 ? 0 : balance < -0.10 ? 2 : 1, row = intensity >= 0.55 ? 0 : intensity >= 0.30 ? 1 : 2;
+  function gridLabel(score, intensity) {
+    const { row, col } = cell(score, intensity);
+    if (score < -0.30 && row <= 1) return 'aversion';
     return [['deepBond', 'charged', 'volatile'], ['ease', 'mixed', 'friction'], ['light', 'neutral', 'distance']][row][col];
   }
   /* G1: each person's Sun, Moon, Venus, Mars, Jupiter, Saturn in the other's houses; a gift in the other's 12th goes unseen */
@@ -182,5 +187,5 @@
     return out;
   }
 
-  SD.synastry = { of, activeNow, gridLabel, BODIES, W, K_ALL, K_CAT, CAT_S1, CAT_S2 };
+  SD.synastry = { of, activeNow, gridLabel, cell, BAL_C, BODIES, W, K_ALL, K_CAT, CAT_S1, CAT_S2 };
 })();
