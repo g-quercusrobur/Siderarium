@@ -27,6 +27,9 @@
   /* C6: one shared normalization for harmony, strife and adjustment; the categories share their own. Calibrated on
      1,770 random couples so the grid's thresholds split them sensibly (DESIGN.md) */
   const K_ALL = 22, K_CAT = 8;
+  /* each category centred on the median of random pairs born within ten years (harmony outweighs strife by the polarity
+     rules, so a raw positive is ordinary); a step of 0.10 to the first word, 0.40 to the strong one: about an eighth each side */
+  const CAT_C = { friendship: 0.25, business: 0.21, pleasure: 0.21 }, CAT_S1 = 0.10, CAT_S2 = 0.40;
   const squash = (x, k) => 1 - Math.exp(-Math.max(0, x) / k);
 
   const years = (a, b) => Math.abs(b.getTime() - a.getTime()) / (365.2425 * 864e5);
@@ -110,8 +113,9 @@
     for (const k of ['friendship', 'business', 'pleasure']) {
       const cs = contacts.filter(c => inCat(k, c.a, c.b));
       const ch = squash(cs.reduce((t, c) => t + c.h, 0), K_CAT), cst = squash(cs.reduce((t, c) => t + c.s, 0), K_CAT), bal = ch - cst, int = (ch + cst) / 2;
-      const grade = !cs.length ? 'neutral' : bal > 0.30 ? 'strongPositive' : bal > 0.10 ? 'positive' : bal < -0.30 ? 'strongFriction' : bal < -0.10 ? 'friction' : int >= 0.30 ? 'mixed' : 'neutral';
-      cats[k] = { balance: bal, intensity: int, grade, contacts: cs.slice(0, 5), n: cs.length };
+      const sc = bal - CAT_C[k];
+      const grade = !cs.length ? 'neutral' : sc > CAT_S2 ? 'strongPositive' : sc > CAT_S1 ? 'positive' : sc < -CAT_S2 ? 'strongFriction' : sc < -CAT_S1 ? 'friction' : int >= 0.30 ? 'mixed' : 'neutral';
+      cats[k] = { balance: bal, score: sc, intensity: int, grade, contacts: cs.slice(0, 5), n: cs.length };
     }
     // D4, D5: the featured contact, the strongest of each polarity (near-equal: angle-to-personal beats angle-to-outer)
     const pick = f => { const xs = contacts.filter(c => c[f] > 0).sort((x, y) => y[f] - x[f]); if (xs.length > 1 && xs[1][f] > 0.95 * xs[0][f] && isOuterAngle(xs[0]) && !isOuterAngle(xs[1])) return xs[1]; return xs[0] || null; };
@@ -178,5 +182,5 @@
     return out;
   }
 
-  SD.synastry = { of, activeNow, gridLabel, BODIES, W, K_ALL, K_CAT };
+  SD.synastry = { of, activeNow, gridLabel, BODIES, W, K_ALL, K_CAT, CAT_S1, CAT_S2 };
 })();
