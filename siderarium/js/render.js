@@ -1434,8 +1434,7 @@
     const when = a => { const sp = info.spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return ''; if (sp.exact) { const past = sp.exact.getTime() < state.date.getTime() - 3600e3; return ` · ${i.t(past ? 'cap.wasExact' : 'cap.exact')} ${fmtShort(sp.exact, state.loc)}`; } return sp.leave ? ` · ${i.t('cap.untilOrb')} ${fmtShort(sp.leave, state.loc)}` : ''; };
     const line = a => `${mine(a.a)} ${A(a.aspect)} ${nat(a.b)}`;
     const short = a => pr ? `${line(a)} · ${a.orb.toFixed(1)}°` : `${line(a)} · ${a.orb.toFixed(1)}° ${i.t(a.applying ? 'cap.applying' : 'cap.separating')}`;   // two fixed charts have no applying or separating
-    const verdict = inter ? inter.verdict : 'balanced';
-    const stateKey = verdict === 'harmonyPrevails' ? 'work' : verdict === 'strifePrevails' ? 'shelter' : 'watch';
+    const grade = inter ? inter.grade : 'quiet', stateKey = grade;   // seven steps from deep strife to deep harmony, each its own colour
     const fig = inter && inter.figures[0];
     const figTxt = fig ? (fig.name === 'setOff' ? `${mine(fig.t)} ${i.t('ui.r.setsOff')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}` : `${mine(fig.t)} ${i.t('ui.r.closes')} ${i.t('ui.r.fig.' + fig.name)} ${i.t('ui.r.with')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}`) : '';
     const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => pr ? i.t('cap.houseOf')(P(k), pr.b, i.roman(h), pr.a) : `${P(k)} ${i.t('cap.inYourHouse')} ${i.roman(h)}`).join(' · ');
@@ -1454,7 +1453,7 @@
       cols,
       label: x.c1(pr ? `${i.t('cap.synastryLabel')} · ${info.name}` : `${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
       stateKey,
-      state: x.c1(i.t('ui.r.' + verdict)),
+      state: x.c1(i.t('ui.grade.' + grade)),
       title: tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
       reason: pr ? x.c1(harmonyTxt) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
@@ -1462,11 +1461,14 @@
       detail2: state.stone ? x.cs(housesTxt) : x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
       detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
       detail4: pr ? x.c1(strifeTxt) : x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),   // the pair has no chord of its own: the strife row instead
-      pairLine: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}`) : '',
+      pairLine: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}${state.attraction && state.attraction.grade ? ' · ' + i.t('ui.desire.' + state.attraction.grade) : ''}`) : '',
+      note: pr && state.attraction && state.attraction.grade ? x.c1(i.t('ui.desire.' + state.attraction.grade)) : '',   // beside the state on the dial
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
   }
-  const STATE_INK = { work: '#6fcf8e', watch: '#e3b341', shelter: '#ff5a2a' };   // the one coloured text on the instrument
+  const STATE_INK = { work: '#6fcf8e', watch: '#e3b341', shelter: '#ff5a2a',   // the one coloured text on the instrument
+    // the grades of two skies: hot red through yellow to green, and cold blue for deep harmony, the hue of the harmony lines
+    deepStrife: '#ff3b1a', strife: '#ff5a2a', tension: '#e8894a', balanced: '#e3b341', ease: '#b9cf6e', harmony: '#6fcf8e', deepHarmony: '#7fa4e0', quiet: '#b8b2a4' };
   function drawCaption(ctx, state, Lt) {
     const u = Lt.u, m = Lt.S * 0.0625, k = u * Lt.tc;     // type scales up on small screens; the 2048 export is unchanged
     const c = captionLines(state);
@@ -1500,7 +1502,12 @@
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     // 2 · the state: do I work now. the one line in colour
     ctx.fillStyle = STATE_INK[c.stateKey] || INK; ctx.font = `500 ${Math.round(31 * k)}px ${SANS}`;
-    f = fit(c.state, left); put(c.state, m, row(1)); ctx.font = f;
+    f = fit(c.state, left); put(c.state, m, row(1));
+    if (c.note) {                                         // the pull between the two, in the ink, after the grade
+      const sw = ctx.measureText(c.state).width; ctx.font = f; ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(17 * k)}px ${SANS}`;
+      const g = fit(c.note, Math.max(40 * k, left - sw - 12 * k), 0.6); put(c.note, m + sw + 12 * k, row(1)); ctx.font = g;
+    }
+    ctx.font = f;
     // 3 · the title of the moment: the stage of life, the mother letter, the angel of the hour
     ctx.fillStyle = K.rgba(INK, 0.95); ctx.font = `500 ${Math.round(23 * k)}px ${SANS}`;
     f = fit(c.title, left); put(c.title, m, row(2)); ctx.font = f;

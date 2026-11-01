@@ -600,6 +600,25 @@
     return out.sort((x, y) => y.power - x.power);
   }
 
+  /* ---------- the pull between two charts ----------
+     The classical marker of desire between two people is Venus of one on Mars of the other, and the hard contacts
+     count as fully as the soft, since desire is tension before it is ease. Pluto with either deepens it (modern),
+     Mars on the other's lights or Ascendant quickens it, Venus on the lights warms it. Summed and squashed as the
+     harmony is, read on two steps. [SD] */
+  const DESIRE = [['venus', 'mars', 1.0], ['mars', 'pluto', 0.7], ['venus', 'pluto', 0.7], ['mars', 'sun', 0.5], ['mars', 'moon', 0.5], ['mars', 'ascendant', 0.5], ['venus', 'ascendant', 0.4], ['venus', 'sun', 0.35], ['venus', 'moon', 0.35], ['mars', 'mars', 0.4]];
+  function desireOf(contacts) {
+    let sum = 0; const parts = [];
+    for (const t of contacts) {
+      const row = DESIRE.find(([p, q]) => (t.a === p && t.b === q) || (t.a === q && t.b === p));
+      if (!row) continue;
+      const w = row[2] * t.power * (t.aspect === 'conjunction' || t.aspect === 'square' || t.aspect === 'opposition' ? 1.2 : 0.8);
+      sum += w; parts.push({ a: t.a, b: t.b, aspect: t.aspect, w });
+    }
+    const value = 1 - Math.exp(-sum);
+    const grade = value >= 0.65 ? 'strong' : value >= 0.5 ? 'some' : null;   // about one couple in ten, and one in four, among random pairs
+    return { value, grade, parts: parts.sort((x, y) => y.w - x.w).slice(0, 3) };
+  }
+
   /* ---------- what the two skies make together ----------
      A transiting planet that aspects both ends of a natal aspect sets that aspect off: the native's own strife or
      harmony brought to life. Three aspects close a figure: {trine, trine, trine} a grand trine, {opposition, square,
@@ -640,7 +659,14 @@
     }
     const harmony = 1 - Math.exp(-h), strife = 1 - Math.exp(-st);
     const verdict = harmony > strife * 1.25 ? 'harmonyPrevails' : strife > harmony * 1.25 ? 'strifePrevails' : 'balanced';
-    return { figures, harmony, strife, verdict };
+    /* the grade: the balance of harmony against strife read on seven steps, deep harmony to deep strife, with "quiet"
+       when the two skies barely touch. the verdict above is the coarse three-way reading the stone and the state use. [SD] */
+    const balance = harmony - strife, weight = harmony + strife;
+    // the steps are centred on the median of random couples (+0.04: soft contacts outnumber hard ones under these orbs),
+    // so that balanced holds about three couples in ten, each deep end about one in twenty
+    const bz = balance - 0.04;
+    const grade = weight < 0.15 ? 'quiet' : bz >= 0.30 ? 'deepHarmony' : bz >= 0.15 ? 'harmony' : bz >= 0.05 ? 'ease' : bz > -0.05 ? 'balanced' : bz > -0.15 ? 'tension' : bz > -0.30 ? 'strife' : 'deepStrife';
+    return { figures, harmony, strife, verdict, grade, balance };
   }
 
   /* the element of the sky: the four elements weighed by the bodies' signs, the luminaries and the ascendant heaviest */
@@ -766,5 +792,5 @@
     if (orbAt(tm) < Math.min(0.5, orbMax * 0.35)) exact = new Date(tm);
     return { exact, enter: enter ? new Date(enter) : null, leave: leave ? new Date(leave) : null, orbNow: o0 };
   }
-  SD.engine = { compute, computeTransits, computeInteractions, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  SD.engine = { compute, computeTransits, computeInteractions, desireOf, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});
