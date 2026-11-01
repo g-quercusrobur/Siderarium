@@ -117,11 +117,18 @@
     const B = state.bodies, day = state.sect === 'day';
     const sp = skyPoint(Lt, B.sun), mp = skyPoint(Lt, B.moon);
     const toU = p => ({ x: (p.x - Lt.cx) / Lt.R, y: (p.y - Lt.cy) / Lt.R });
-    return [
+    const L = [
       { name: 'ascendant', pos: { x: -1.0, y: 0 }, color: signColorAt(state.asc), w: 0.30, sigma: 0.62 },
       { name: 'sun', pos: toU(sp), color: signColorAt(B.sun.lon), w: (day ? 0.45 : 0.25) * (B.sun.alt > 0 ? 1 : 0.5), sigma: 0.55 },
       { name: 'moon', pos: toU(mp), color: signColorAt(B.moon.lon), w: (day ? 0.25 : 0.45) * (0.45 + 0.55 * state.moon.illum), sigma: 0.48 }
     ];
+    if (state.pair && state.natal) {                        // synastry: the second chart's lights join the field, so the ground is both skies blended
+      const N = state.natal, a2 = Math.PI + (N.asc - Lt.asc) * Math.PI / 180;
+      L.push({ name: 'ascendant2', pos: { x: Math.cos(a2), y: -Math.sin(a2) }, color: signColorAt(N.asc), w: 0.22, sigma: 0.6 });
+      L.push({ name: 'sun2', pos: toU(skyPoint(Lt, N.bodies.sun)), color: signColorAt(N.bodies.sun.lon), w: 0.3, sigma: 0.55 });
+      L.push({ name: 'moon2', pos: toU(skyPoint(Lt, N.bodies.moon)), color: signColorAt(N.bodies.moon.lon), w: 0.26, sigma: 0.48 });
+    }
+    return L;
   }
   const fieldCache = { key: null, canvas: null };
 
@@ -761,6 +768,41 @@
     return out;
   }
 
+  /* ---------- the contacts between two skies ----------
+     for each transit in orb, a chord from the first sky's planet to the second's point, bowed toward the pole: cold
+     for trine and sextile, warm for square, opposition and a malefic conjunction, pale for the other conjunctions;
+     weight and light by power. at the second sky's point a short arc on its ring and a soft glow of the same colour,
+     so the rim shows where the two skies agree and where they strain. in the sigil, solid ink, one weight. */
+  const COLD = '#7fa4e0', WARM = '#e08a62', PALE = '#e8e2d4';
+  function contactTone(a) {
+    const malefic = k => k === 'mars' || k === 'saturn' || k === 'pluto';
+    if (a.aspect === 'trine' || a.aspect === 'sextile') return COLD;
+    if (a.aspect === 'square' || a.aspect === 'opposition' || (a.aspect === 'conjunction' && (malefic(a.a) || malefic(a.b)))) return WARM;
+    return PALE;
+  }
+  function drawContacts(ctx, state, Lt, pos, npos, lw) {
+    const tr = (state.transits || []).slice(0, 10); if (!tr.length) return;
+    const top = tr[0].power || 1, u = Lt.u;
+    ctx.save();
+    for (let i = tr.length - 1; i >= 0; i--) {
+      const a = tr[i], p = pos[a.a], q = npos[a.b]; if (!p || !q) continue;
+      const col = contactTone(a), k = Math.min(1, a.power / top), al = PURE ? 1 : 0.32 + 0.55 * k;
+      const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, cx = mx + (Lt.cx - mx) * 0.35, cy = my + (Lt.cy - my) * 0.35;
+      ctx.strokeStyle = PURE ? '#fbf8f0' : K.rgba(col, al); ctx.lineWidth = PURE ? PURE_LW : lw * (0.8 + 1.4 * k); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.quadraticCurveTo(cx, cy, q.x, q.y); ctx.stroke();
+      if (PURE) continue;
+      // the zone at the second sky's point: a short arc on its ring and a glow
+      const th = q.th, r = q.r, span = (4 + 4 * k) * Math.PI / 180;
+      ctx.globalCompositeOperation = 'screen';
+      ctx.strokeStyle = K.rgba(col, 0.5 + 0.4 * k); ctx.lineWidth = 3 * u; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, r, -(th + span), -(th - span)); ctx.stroke();
+      const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, (22 + 18 * k) * u);
+      g.addColorStop(0, K.rgba(col, 0.5 * (0.4 + 0.6 * k))); g.addColorStop(1, K.rgba(col, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y, (22 + 18 * k) * u, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.restore();
+  }
+
   /* ---------- the intelligences as polygons ----------
      core   = the planet's own polygon (saturn 3, jupiter 4, mars 5, sun 6, venus 7, mercury 8), point up,
               in its tincture. the moon keeps its phase disc; the outer planets keep their optics.
@@ -1342,8 +1384,9 @@
   function transitCaption(state, x) {
     const i = I(), tr = state.transits, inter = state.interaction, info = state.transitInfo || { spans: {}, houses: {} };
     const pr = state.pair, P = k => i.planet(k), A = k => i.aspect(k);
-    const own = (k, who) => pr ? `${C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : 'MC'} (${who})` : (C.PLANETS[k] ? `${i.t('cap.your')} ${P(k)}` : k === 'ascendant' ? `${i.t('cap.your')} ASC` : `${i.t('cap.your')} MC`);
-    const nat = k => own(k, pr && pr.b), mine = k => pr ? `${P(k)} (${pr.a})` : P(k);
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : 'MC';
+    const own = (k, who) => pr ? i.t('cap.own')(who, pt(k)) : (C.PLANETS[k] ? `${i.t('cap.your')} ${P(k)}` : `${i.t('cap.your')} ${pt(k)}`);
+    const nat = k => own(k, pr && pr.b), mine = k => pr ? i.t('cap.own')(pr.a, P(k)) : P(k);
     const when = a => { const sp = info.spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return ''; if (sp.exact) { const past = sp.exact.getTime() < state.date.getTime() - 3600e3; return ` · ${i.t(past ? 'cap.wasExact' : 'cap.exact')} ${fmtShort(sp.exact, state.loc)}`; } return sp.leave ? ` · ${i.t('cap.untilOrb')} ${fmtShort(sp.leave, state.loc)}` : ''; };
     const line = a => `${mine(a.a)} ${A(a.aspect)} ${nat(a.b)}`;
     const short = a => pr ? `${line(a)} · ${a.orb.toFixed(1)}°` : `${line(a)} · ${a.orb.toFixed(1)}° ${i.t(a.applying ? 'cap.applying' : 'cap.separating')}`;   // two fixed charts have no applying or separating
@@ -1351,18 +1394,23 @@
     const stateKey = verdict === 'harmonyPrevails' ? 'work' : verdict === 'strifePrevails' ? 'shelter' : 'watch';
     const fig = inter && inter.figures[0];
     const figTxt = fig ? (fig.name === 'setOff' ? `${mine(fig.t)} ${i.t('ui.r.setsOff')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}` : `${mine(fig.t)} ${i.t('ui.r.closes')} ${i.t('ui.r.fig.' + fig.name)} ${i.t('ui.r.with')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}`) : '';
-    const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => pr ? `${P(k)} (${pr.b}) ${i.t('cap.inHouse')} ${i.roman(h)} (${pr.a})` : `${P(k)} ${i.t('cap.inYourHouse')} ${i.roman(h)}`).join(' · ');
+    const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => pr ? i.t('cap.houseOf')(P(k), pr.b, i.roman(h), pr.a) : `${P(k)} ${i.t('cap.inYourHouse')} ${i.roman(h)}`).join(' · ');
+    const soft = a => a.aspect === 'trine' || a.aspect === 'sextile', hardish = a => a.aspect === 'square' || a.aspect === 'opposition' || (a.aspect === 'conjunction' && ['mars', 'saturn', 'pluto'].some(m => m === a.a || m === a.b));
+    const topH = tr.find(soft), topS = tr.find(hardish);
+    const twoSides = `${i.t('cap.harmonyIs')} ${topH ? short(topH) : i.t('cap.noHarmony')} · ${i.t('cap.strifeIs')} ${topS ? short(topS) : i.t('cap.noStrife')}`;
+    const el = k => i.t('ui.el.' + k) === 'ui.el.' + k ? k : i.t('ui.el.' + k);
+    const blend = pr && state.elements && state.natal.elements ? `${i.t('cap.own')(pr.a, el(state.elements.dominant))} ${i.t('cap.meets')} ${i.t('cap.own')(pr.b, el(state.natal.elements.dominant))}` : '';
     const applying = tr.filter(a => a.applying).length;
     return {
       label: x.c1(pr ? `${i.t('cap.synastryLabel')} · ${info.name}` : `${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
       stateKey,
       state: x.c1(i.t('ui.r.' + verdict)),
       title: tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
-      reason: tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
+      reason: pr ? x.c1(twoSides) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}, ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)}`) : x.cs(housesTxt),
       detail2: state.stone ? x.cs(housesTxt) : x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
-      detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(pr ? i.t('cap.contactsN')(tr.length) : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
+      detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
       detail4: x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
@@ -1632,11 +1680,18 @@
           if (moonFig.n === 1) { ctx.strokeStyle = '#fbf8f0'; ctx.lineWidth = PURE_LW; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, Rp * 0.3, 0, TAU); ctx.stroke(); }   // the Moon's conjunction: one ring
           else drawFigure(ctx, state, Lt, moonFig, Rp * 0.46, 'secondary', lw, E, 0);
         }
+        // synastry: the common sigil carries each chart's own ruling figure, smaller, inside the figure of their contact
+        if (state.ownFigures && state.natal) {
+          const own = state.ownFigures;
+          if (own.a && !same(own.a, cf.primary)) drawFigure(ctx, state, Lt, own.a, Rp * 0.5, 'secondary', lw, E, 0);
+          if (own.b) drawFigure(ctx, { ...state, bodies: state.natal.bodies }, Lt, own.b, Rp * 0.5, 'secondary', lw, E, 0);
+        }
         drawGuardians(ctx, state, Lt, E);
       } finally { PURE = false; PURE_SIMPLE = false; }
       ctx.restore();
     }
 
+    if (state.transits && state.natal && !opts.sigil) drawContacts(ctx, state, Lt, pos, npos, lw);   // the contacts between the two skies, over the figure: cold for harmony, warm for strife
     if (!bare) {
       drawRete(ctx, state, Lt, lw);
       drawFrame(ctx, state, Lt, lw);
