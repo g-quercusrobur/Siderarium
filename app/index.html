@@ -26,7 +26,7 @@
       <span class="seg-ind" aria-hidden="true"></span>
       <button data-mode="clock" data-i18n="ui.clock">clock</button>
       <button data-mode="chart" data-i18n="ui.chart">chart</button>
-      <button data-mode="natal" data-i18n="ui.natal">natal</button>
+      <button data-mode="natal" data-i18n="ui.natal" title="hold to choose a chart">natal</button>
       <button data-mode="synastry" data-i18n="ui.synastry">transits</button>
       <button id="sigil" class="tog" data-i18n="ui.sigil" title="s">sigil</button>
     </nav>
@@ -76,6 +76,7 @@
     <button id="now-float" class="float-now" data-i18n="ui.now" hidden>now</button>
     <div class="dialwrap">
     <canvas id="dial" aria-label="the sky of the moment, as a dial"></canvas>
+    <div id="chart-pick" class="chart-pick" hidden role="menu" aria-label="choose a chart"></div>
     <a id="what-link" class="what-link" href="#read-title" hidden aria-label="what the title means"></a>
     <button id="listen-corner" class="corner-speaker" aria-label="listen to the chord" title="l"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 9.5v5h3.2l4.3 3.3V6.2L7.2 9.5H4z"/><path class="w1" d="M15 9.6a3.4 3.4 0 0 1 0 4.8"/><path class="w2" d="M17.6 7a7 7 0 0 1 0 10"/><line class="x" x1="4" y1="20" x2="20" y2="4" stroke-width="1.8"/></svg></button>
     </div>
