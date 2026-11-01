@@ -1520,19 +1520,31 @@
     const words = c => `${i.t('cap.own')(pr.a, pt(c.a))} ${A(c.aspect)} ${i.t('cap.own')(pr.b, pt(c.b))}${c.uncertain ? ` (${i.t('cap.syn.uncertain')})` : ''}`;
     const sign = g => g === 'positive' || g === 'strongPositive' ? 'p' : g === 'friction' || g === 'strongFriction' ? 'm' : 'z';
     const key = ['friendship', 'business', 'pleasure'].map(k => sign(Y.cats[k].grade)).join('');
-    const romance = Y.age.sexual && !Y.age.family && (Y.type === 'partner' || Y.type === 'other');   // the 27 names speak of lovers: adults, partners or unspecified
+    const romance = Y.age.sexual && !Y.age.family && (Y.type === 'partner' || Y.type === 'other');   // names that speak of lovers: adults, partners or unspecified only
     const temper = `${i.t('cap.syn.temper.' + Y.temperWord)}`;
+    /* the flavour: the three categories named, with a stronger name when every category that defines the key is strong.
+       "deep bond" is the strong form of all three in sympathy, and only with two strong and an intense, harmonious whole */
+    const strongOf = k => Y.cats[k].grade === 'strongPositive' || Y.cats[k].grade === 'strongFriction';
+    const defining = ['friendship', 'business', 'pleasure'].filter((k, n) => key[n] !== 'z');
+    const nStrong = defining.filter(strongOf).length;
+    const strong = key === 'ppp' ? nStrong === 3 && Y.balance > 0.10 && Y.intensity >= 0.55 : defining.length > 0 && nStrong === defining.length;   // deep bond: all three strong, the whole intense and harmonious
+    const flavor = i.t('cap.flavor')[romance ? 'romance' : 'safe'][key][strong ? 1 : 0];
+    const rank = { strongPositive: 2, positive: 1, neutral: 0, mixed: 0, friction: -1, strongFriction: -2 }, sum = ['friendship', 'business', 'pleasure'].reduce((t, k) => t + rank[Y.cats[k].grade], 0);
+    const tone = key.includes('p') && key.includes('m') ? 'polar' : key === 'ppp' && strong ? 'deepHarmony' : sum >= 3 ? 'harmony' : sum > 0 ? 'ease' : sum === 0 ? 'quiet' : sum <= -3 ? 'deepStrife' : 'strife';
+    const row = Y.intensity >= 0.55 ? 0 : Y.intensity >= 0.30 ? 1 : 2, colI = Y.balance > 0.10 ? 0 : Y.balance < -0.10 ? 2 : 1;
+    const overall = i.t('cap.overallIs')(i.t('cap.gridRow')[row], i.t('cap.gridCol')[colI]);
     const el = st => st.elements ? i.t('ui.el.' + st.elements.dominant) : '';
     const col = (name, st, noTime) => { const T = fmtShortDate(st.date, st.loc), s3 = n => i.sign(n).slice(0, 3), B = st.bodies;
       return { head: name, lines: [`${T.date} · ${T.time}`, i.placeName(st.loc.name), `${P('sun')} ${s3(B.sun.sign)} · ${P('moon')} ${s3(B.moon.sign)}`, ...(noTime ? [] : [`ASC ${i.sign(Math.floor(st.asc / 30))}`]), `${i.t('cap.syn.dominant')} ${el(st)}`] }; };
     return {
       cols: [col(pr.a, state, Y.noA), col(pr.b, state.natal, Y.noB)],
-      stateKey: LABEL_TONE[Y.label] || 'quiet',
-      state: i.t('cap.syn.label.' + Y.label),
-      title: romance ? i.t('cap.combo')[key] : x.c1(temper),
+      stateKey: tone,
+      state: flavor,
+      title: overall,
+      flavorKey: key + (strong ? '+' : ''),
       detail4: Y.featured ? x.c1(words(Y.featured)) : x.c1(i.t('cap.noTransit')),
       pairLine: x.cs(`${i.t('cap.harmonyIs')} ${Y.topH ? words(Y.topH) : i.t('cap.noHarmony')} · ${i.t('cap.strifeIs')} ${Y.topS ? words(Y.topS) : i.t('cap.noStrife')}`),
-      pairLine2: x.cs(`${romance ? temper + ' · ' : ''}${i.t('cap.contactsN')(Y.contacts.length)}`),
+      pairLine2: x.cs(`${temper} · ${i.t('cap.contactsN')(Y.contacts.length)}`),
       note: ''
     };
   }
@@ -1543,8 +1555,9 @@
   function tieScale(state) {
     const i = I(), Y = state.syn;
     if (Y) {                                              // v2.1: the category's balance between −0.6 and +0.6, ticks where the word changes
-      const at = v => 0.5 + 0.5 * Math.max(-1, Math.min(1, v / 0.6));
-      return ['friendship', 'business', 'pleasure'].map(k => ({ key: k, label: catName(Y, k), word: catWord(Y, k), color: CAT_INK[Y.cats[k].grade], pos: Y.cats[k].n ? at(Y.cats[k].balance) : 0.5, ticks: [at(-0.3), at(-0.1), 0.5, at(0.1), at(0.3)] }));
+      const at = v => 0.5 + 0.5 * Math.max(-1, Math.min(1, v / 0.65));
+      const s1 = SD.synastry.CAT_S1, s2 = SD.synastry.CAT_S2;   // the scale is centred on the typical pair, the ticks where the word changes
+      return ['friendship', 'business', 'pleasure'].map(k => ({ key: k, label: catName(Y, k), word: catWord(Y, k), color: CAT_INK[Y.cats[k].grade], pos: Y.cats[k].n ? at(Y.cats[k].score) : 0.5, ticks: [at(-s2), at(-s1), 0.5, at(s1), at(s2)] }));
     }
     const T = state.ties, steps = E_.tieSteps; if (!T) return [];
     return ['choice', 'need', 'pleasure'].map(k => {

@@ -692,7 +692,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const inter = st.interaction;
     const Y = st.syn, cap = SD.render.captionLines(st), lab = Y ? i.t('cap.syn.label.' + Y.label) : '';
     const des = st.attraction, desTxt = des && des.grade ? ` · ${i.t('ui.desire.' + des.grade)} ${des.value.toFixed(2)}` : '';
-    const verdict = Y ? `<p class="verdict state-${cap.stateKey}">${lab} · ${R('harmony')} ${Y.harmony.toFixed(2)} · ${R('strife')} ${Y.strife.toFixed(2)} · ${R('adjustment')} ${Y.adjustment.toFixed(2)}${desTxt}</p>` : '';
+    const verdict = Y ? `<p class="verdict state-${cap.stateKey}">${cap.state} · ${cap.title.replace(/^[^:]+:\s*/, '')} · ${R('harmony')} ${Y.harmony.toFixed(2)} · ${R('strife')} ${Y.strife.toFixed(2)} · ${R('adjustment')} ${Y.adjustment.toFixed(2)}${desTxt}</p>` : '';
     const types = ['partner', 'friend', 'colleague', 'parent', 'sibling', 'other'], cur = pairTypeOf(pr.ids[0], pr.ids[1]);
     const relSel = Y ? `<p class="rel nolink"><label>${i.cap1(i.t('ui.rel.label'))} <select id="pair-type">${types.map(t => `<option value="${t}"${t === cur ? ' selected' : ''}>${i.t('ui.rel.' + t)}</option>`).join('')}</select></label>${Y.age.forced ? ` <span class="dim">${i.t('ui.rel.forced')}</span>` : ''}</p>` : '';
     const flags = c => `${c.discounted ? ' · ' + R('discounted') : ''}${c.uncertain ? ' · ' + i.t('cap.syn.uncertain') : ''}`;
@@ -783,6 +783,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const ageTxt = Y.age.known ? Y.age.ages.map(a => Math.floor(a)).join(' / ') : '—';
       L.push(`## ${i.cap1(i.t('cap.synastryLabel'))}: ${plain(cap.state)}`);
       L.push(`- ${i.cap1(i.t('ui.rel.label'))}: ${i.t('ui.rel.' + (Y.type === 'family' ? 'parent' : Y.type))}${Y.age.forced ? ' · ' + i.t('ui.rel.forced') : ''} · ${i.t('ui.rel.ages')} ${ageTxt}`);
+      L.push(`- ${plain(cap.title)}`);
       L.push(`- ${i.cap1(i.t('ui.r.harmony'))} ${Y.harmony.toFixed(2)} · ${i.t('ui.r.strife')} ${Y.strife.toFixed(2)} · ${i.t('ui.r.adjustment')} ${Y.adjustment.toFixed(2)} · balance ${Y.balance.toFixed(2)} · intensity ${Y.intensity.toFixed(2)}`);
       L.push(`- ${plain(cap.detail4)}`, `- ${plain(cap.pairLine)}`, `- ${i.t('cap.syn.temper.' + Y.temperWord)} (${Y.temper.toFixed(2)})`);
       for (const k of ['friendship', 'business', 'pleasure']) { const t = Y.cats[k]; L.push(`- ${i.cap1(SD.render.catName(Y, k))}: ${SD.render.tieScale(st).find(g => g.key === k).word}${t.contacts.length ? ' · ' + t.contacts.map(x => `${contactWords(x, pr)} ${x.h >= x.s ? '+' : '−'}${Math.abs(x.h - x.s).toFixed(2)}`).join('; ') : ''}`); }
