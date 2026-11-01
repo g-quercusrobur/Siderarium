@@ -94,10 +94,11 @@
   function natalState() {
     if (!S.natal) return null;
     const place = S.relocate ? S.place : S.natal.place;     // relocated: the same instant, the houses of another horizon
-    const key = JSON.stringify([S.natal.date, place, S.houses]);
+    const key = JSON.stringify([S.natal.date, place, S.houses, S.natal.name]);
     if (natalCache.key !== key) {
       const st = SD.engine.compute(new Date(S.natal.date), place, { houses: S.houses });
       st.natalView = true; st.nextChord = null; st.relocated = S.relocate ? place.name : null;
+      st.chartName = S.natal.name || '';                   // the owner's name, after "birth chart" on the dial
       st.tikkun = SD.tikkun.of(st, { noTime: !!S.natal.unknownTime });   // the life mission, from the nodes
       natalCache.key = key; natalCache.state = st;
     }
@@ -160,7 +161,7 @@
     const c = SD.render.captionLines(viewState());
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
-    $('caption').innerHTML = `<button class="share-btn" aria-label="${esc(SD.i18n.t('ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
+    $('caption').innerHTML = `<button class="share-btn" aria-label="${esc(SD.i18n.t('ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -308,9 +309,16 @@
     ctx.drawImage(plate, 0, 0);
     ctx.setTransform(S.dpr * view.z, 0, 0, S.dpr * view.z, S.dpr * (view.x + S.ox), S.dpr * view.y);
     SD.render.overlay(ctx, info, t);
-    placeWhatLink(info);
+    placeWhatLink(info); placeCopyLink(info);
   }
   /* the "what it means" link drawn on the canvas gets a clickable area in the page, following zoom and pan */
+  function placeCopyLink(info) {                           // the copy icon drawn on the dial after the birth city: a button laid over it
+    const a = $('copy-link'); if (!a) return;
+    const e = info && info.layout && info.layout.copyHit;
+    if (!e || S.side < 560 || S.wall || document.body.classList.contains('bare')) { a.hidden = true; return; }
+    a.hidden = false;
+    a.style.left = `${view.x + S.ox + e.x * view.z}px`; a.style.top = `${view.y + e.y * view.z}px`; a.style.width = `${e.w * view.z}px`; a.style.height = `${e.h * view.z}px`;
+  }
   function placeWhatLink(info) {
     const a = $('what-link'); if (!a) return;
     const e = info && info.layout && info.layout.eyebrow;
@@ -571,13 +579,16 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     downloadBlob(new Blob([r.text], { type: 'text/markdown' }), `siderarium-report-${base}.md`);
   }
   /* the same report onto the clipboard, to paste into an interpreter; the old way when the clipboard refuses */
+  /* the copy icon: the chart report onto the clipboard, a tick for a moment as the answer */
+  async function copyWithTick(btn) { const ok = await copyReport(); if (ok === false) return; btn.classList.add('done'); setTimeout(() => btn.classList.remove('done'), 1600); }
   async function copyReport() {
-    const r = reportText(); if (!r) return;
+    const r = reportText(); if (!r) return false;
     const note = $('import-note'), i = SD.i18n;
-    try { await navigator.clipboard.writeText(r.text); note.textContent = i.cap1(i.t('ui.copied')); return; } catch (e) { /* fall through */ }
+    try { await navigator.clipboard.writeText(r.text); note.textContent = i.cap1(i.t('ui.copied')); return true; } catch (e) { /* fall through */ }
     const ta = document.createElement('textarea'); ta.value = r.text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
     document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove();
     note.textContent = i.cap1(i.t(ok ? 'ui.copied' : 'ui.copyFailed'));
+    return ok;
   }
   const stampOf = st => st.date.toISOString().slice(0, 16).replace(/[:T]/g, '');
   /* share: the art of the moment as an image, with its headline and the address; where the device cannot share files,
@@ -671,7 +682,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <h3>${H('hierarchy')}</h3><table>${top}</table>
       <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>
       ${st.tikkun ? tikkunCards(st) : ''}
-      <p class="dim">${i.cap1(R('sect'))} ${st.sect === 'day' ? R('day') : R('night')} · ASC ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · MC ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))} · ${R('dayRuler')} ${P(st.hour.dayRuler)} / ${i.name(st.hour.dayAngel)} · ${R('hour')} ${st.hour.index + 1} ${P(st.hour.hourRuler)} / ${i.name(st.hour.angel)}</p>`;
+      <p class="dim nolink">${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart'))} · ${i.cap1(R('ascendant'))} ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · ${R('midheaven')} ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))}<br>${i.cap1(R('dayOfIs')(st.hour.dayRuler, P(st.hour.dayRuler), i.name(st.hour.dayAngel)))} · ${R('hourIs')(i.ordinal(st.hour.index + 1), st.hour.hourRuler, P(st.hour.hourRuler), i.name(st.hour.angel))}</p>`;
     linkTerms($('readout'));
   }
 
@@ -846,7 +857,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <h4>${T.road}</h4><table class="cards">${t2}</table>
       ${recur.length ? `<p class="recur nolink">${recur.join('<br>')}</p>` : ''}
       <h4>${T.aspects}</h4><table class="cards">${t3}</table>
-      <p class="dim"><span class="tkmark"></span> ${T.tikkunMark}. ${T.symbolic} ${i.cap1(T.mean)}.${k.noTime ? ' ' + i.cap1(T.noTime) + '.' : ''}</p>`;
+      <p class="dim nolink"><span class="tkmark"></span> ${T.tikkunMark}.</p>
+      <p class="dim nolink">${T.symbolic}${k.noTime ? ' ' + i.cap1(T.noTime) + '.' : ''}</p>`;
   }
 
   /* the update button: ask the server for a newer service worker, let it install (it takes over at once), then reload.
@@ -984,7 +996,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const i = SD.i18n;
     $('set-lang').value = S.lang; $('set-houses').value = S.houses; $('set-field').value = !S.engrave ? 'glow' : S.field === 'guilloche' ? 'guilloche' : 'engraved'; $('set-bodies').value = S.luminous ? 'lights' : 'metal';
     $('set-relocate').value = S.relocate ? '1' : '0';
-    $('natal-summary').textContent = natalSummary();
+    $('natal-summary').innerHTML = `${esc(natalSummary())}${S.natal ? ` <button class="copy-btn" aria-label="${esc(i.t('ui.copyReport'))}" title="${esc(i.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}`;
     $('natal-saveas').disabled = !S.natal; $('natal-report').disabled = !S.natal; $('natal-copy').disabled = !S.natal;
     const ul = $('charts');
     ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${i.t('ui.useChart')}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(c.name)}</span><span class="ops"><button data-act="rename">${i.cap1(i.t('ui.rename'))}</button><button data-act="delete">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
@@ -1083,7 +1095,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('wallpaper').addEventListener('click', exportWallpaper);
     $('update').addEventListener('click', updateApp);
     $('share').addEventListener('click', shareArt);
-    $('caption').addEventListener('click', e => { if (e.target.closest('.share-btn')) shareArt(); });
+    $('caption').addEventListener('click', e => { if (e.target.closest('.share-btn')) shareArt(); const cb = e.target.closest('.copy-btn'); if (cb) copyWithTick(cb); });
+    $('copy-link').addEventListener('click', e => copyWithTick(e.currentTarget));
+    $('natal-summary').addEventListener('click', e => { const cb = e.target.closest('.copy-btn'); if (cb) copyWithTick(cb); });
     $('readout').addEventListener('change', e => {           // the relationship type of the pair on show
       if (e.target.id !== 'pair-type' || !S.state.pair) return;
       const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });

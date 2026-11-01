@@ -105,10 +105,10 @@
         'From personal glory to the group: work for a cause larger than the self, as the friend and the innovator rather than the star.',
         'From control, criticism and the list to faith: trust the larger order, serve through compassion, let the work be inspired.'
       ],
-      cards: 'Cards of the tikkun', place: 'Point', sign: 'Sign', card: 'Card', aspect: 'Aspect', quality: 'Quality', tikkunMark: 'the card of the Mission or the Engine', pathOf: 'path of', recurs: (card, n, where) => `${card} appears ${['', 'once', 'twice', 'three times', 'four times', 'five times', 'six times', 'seven times', 'eight times', 'nine times'][n]}: ${where}.`, nearSign: (dist, sign) => `${dist} from ${sign}`, label: 'Life mission (tikkun)', karma: 'Karma', mission: 'Mission', engine: 'Engine', conj: 'Conjunct', threshold: 'Threshold', doubled: 'the mission doubled',
+      cards: 'Cards of the tikkun', place: 'Point', sign: 'Sign', card: 'Card', aspect: 'Aspect', quality: 'Quality', tikkunMark: 'a green dot marks a card that is also the card of the Mission or of the Engine', pathOf: 'path of', recurs: (card, n, where) => `${card} appears ${['', 'once', 'twice', 'three times', 'four times', 'five times', 'six times', 'seven times', 'eight times', 'nine times'][n]}: ${where}.`, nearSign: (dist, sign) => `${dist} from ${sign}`, label: 'Life mission (tikkun)', karma: 'Karma', mission: 'Mission', engine: 'Engine', conj: 'Conjunct', threshold: 'Threshold', doubled: 'the mission doubled',
       livedIn: 'Lived in the', north: 'North Node', south: 'South Node', mean: 'true node', road: 'Signs on the road', aspects: 'Aspect cards',
       gift: 'gift', lesson: 'lesson', fusion: 'fusion', weak: 'out of sign, weak', psalm: 'Psalm 119', noTime: 'no birth time: houses, Ascendant and Midheaven left out',
-      symbolic: 'A symbolic reading, not a prediction. South Node, the karma the soul brings in; North Node, the mission. Sign → Hebrew letter after the Sefer Yetzirah, letter → card after the Golden Dawn.'
+      symbolic: 'How to read these cards: they are a symbolic reading, not a prediction. The South Node shows what the soul brings in, the North Node the mission of this life. Each sign has its Hebrew letter (from the Sefer Yetzirah), and each letter its tarot card (from the Golden Dawn). The nodes used are the true nodes.'
     },
     es: {
       letter: { heh: 'ventana', vav: 'clavo', zayin: 'espada', cheth: 'cerca', teth: 'serpiente', yod: 'mano', lamed: 'aguijada', nun: 'pez', samekh: 'sostén', ayin: 'ojo', tzaddi: 'anzuelo', qoph: 'nuca',
@@ -131,10 +131,10 @@
         'De la gloria personal al grupo: trabajar por una causa mayor, como amigo e innovador antes que como estrella.',
         'Del control, la crítica y la lista a la fe: confiar en el orden mayor, servir con compasión, dejar que la obra sea inspirada.'
       ],
-      cards: 'Cartas del tikún', place: 'Punto', sign: 'Signo', card: 'Carta', aspect: 'Aspecto', quality: 'Cualidad', tikkunMark: 'la carta de la Misión o del Motor', pathOf: 'sendero de', recurs: (card, n, where) => `${card} aparece ${['', 'una vez', 'dos veces', 'tres veces', 'cuatro veces', 'cinco veces', 'seis veces', 'siete veces', 'ocho veces', 'nueve veces'][n]}: ${where}.`, nearSign: (dist, sign) => `a ${dist} de ${sign}`, label: 'Misión de vida (tikún)', karma: 'Karma', mission: 'Misión', engine: 'Motor', conj: 'Conjunción', threshold: 'Umbral', doubled: 'la misión duplicada',
+      cards: 'Cartas del tikún', place: 'Punto', sign: 'Signo', card: 'Carta', aspect: 'Aspecto', quality: 'Cualidad', tikkunMark: 'un punto verde marca una carta que es también la de la Misión o la del Motor', pathOf: 'sendero de', recurs: (card, n, where) => `${card} aparece ${['', 'una vez', 'dos veces', 'tres veces', 'cuatro veces', 'cinco veces', 'seis veces', 'siete veces', 'ocho veces', 'nueve veces'][n]}: ${where}.`, nearSign: (dist, sign) => `a ${dist} de ${sign}`, label: 'Misión de vida (tikún)', karma: 'Karma', mission: 'Misión', engine: 'Motor', conj: 'Conjunción', threshold: 'Umbral', doubled: 'la misión duplicada',
       livedIn: 'Vivida en el', north: 'Nodo Norte', south: 'Nodo Sur', mean: 'nodo verdadero', road: 'Señales del camino', aspects: 'Cartas de los aspectos',
       gift: 'don', lesson: 'lección', fusion: 'fusión', weak: 'fuera de signo, débil', psalm: 'Salmo 119', noTime: 'sin hora de nacimiento: sin casas, Ascendente ni Medio Cielo',
-      symbolic: 'Una lectura simbólica, no una predicción. Nodo Sur, el karma que trae el alma; Nodo Norte, la misión. Signo → letra hebrea según el Séfer Yetzirá, letra → carta según la Aurora Dorada.'
+      symbolic: 'Cómo leer estas cartas: son una lectura simbólica, no una predicción. El Nodo Sur muestra lo que trae el alma, el Nodo Norte la misión de esta vida. Cada signo tiene su letra hebrea (del Séfer Yetzirá) y cada letra su carta del tarot (de la Aurora Dorada). Se usan los nodos verdaderos.'
     }
   };
   const T = () => TEXT[(I().locale() || 'en').startsWith('es') ? 'es' : 'en'];

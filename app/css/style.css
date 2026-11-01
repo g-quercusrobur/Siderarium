@@ -253,6 +253,10 @@ body.wall .dialwrap, body.wall #dial { display: block; width: 100vw; height: 100
 
 /* the clickable area over the canvas eyebrow, and the link in the phone caption */
 .what-link { position: absolute; display: block; z-index: 3; cursor: pointer; background: transparent; }
+.copy-link { position: absolute; display: block; z-index: 3; cursor: pointer; background: transparent; border: 0; padding: 0; border-radius: 4px; }   /* over the icon drawn on the dial */
+.copy-link.done { background: rgba(111, 207, 142, 0.18); }
+.copy-btn { display: inline-flex; vertical-align: -3px; align-items: center; justify-content: center; width: 22px; height: 18px; min-height: 0; margin-left: 2px;   /* sits on the line, not above it (overrides the 44 px touch minimum) */ padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); cursor: pointer; }
+.copy-btn .ico-done { display: none; } .copy-btn.done .ico-copy { display: none; } .copy-btn.done .ico-done { display: inline; color: #6fcf8e; }
 .what-link:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
 body.small #caption .eyebrow a.what { color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; margin-left: 8px; letter-spacing: 0; font-weight: 400; }
 
