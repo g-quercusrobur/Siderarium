@@ -183,6 +183,9 @@ body.reading #readout { width: min(480px, 40vw); padding: 18px 22px; border-left
 #readout table.pair td { width: 40%; } #readout table.pair td:first-child { width: 20%; } #readout table.pair tr.head td { color: var(--ink); font-weight: 500; padding-bottom: 6px; }   /* a pair: two equal columns under the two names */
 body.small #caption .pair-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font: 400 13.5px/1.55 var(--sans); color: var(--ink-2); margin: 0 0 8px; } body.small #caption .pair-cols b { color: var(--ink); font-weight: 500; }
 #readout .dim { margin-top: 14px; color: var(--ink-3); white-space: normal; }
+#readout .tie { display: grid; gap: 4px; margin: 0 0 12px; } #readout .tie .th { display: flex; justify-content: space-between; font: 500 13px/1.5 var(--sans); color: var(--ink); }
+#readout .tie .track { position: relative; height: 6px; border-radius: 3px; background: var(--ink-3); opacity: 0.9; } #readout .tie .track::before { content: ''; position: absolute; left: 50%; top: -3px; width: 1px; height: 12px; background: var(--ink-2); }
+#readout .tie .track i { position: absolute; top: -3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--ink); } #readout .tie p { margin: 0; font-size: 12.5px; color: var(--ink-2); white-space: normal; }
 
 body.bare { grid-template-areas: "stage stage" "stage stage" "stage stage"; }
 body.bare .bar, body.bare #readout { display: none; }

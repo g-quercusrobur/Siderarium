@@ -600,6 +600,130 @@
     return out.sort((x, y) => y.power - x.power);
   }
 
+  /* ---------- the Lot of Fortune ----------
+     Ptolemy's lot: by day the Ascendant plus the Moon less the Sun, by night the reverse. Of the ties between two
+     charts it governs the one "by need" (Tetrabiblos IV.7). */
+  function fortuneOf(st) { return norm360(st.sect === 'day' ? st.asc + st.bodies.moon.lon - st.bodies.sun.lon : st.asc + st.bodies.sun.lon - st.bodies.moon.lon); }
+
+  /* ---------- the composite: the pair's own chart ----------
+     Every body at the midpoint of the two natal positions along the short arc, the Ascendant and Midheaven likewise
+     (Townley 1973, Hand 1975): the mean of the two charts, and a chart like any other. Its figure is found by the
+     same rule as a nativity's, so the pair's mandala emerges from its chart rather than from a fitting of two shapes.
+     Houses equal from the composite Ascendant; the sect by the composite Sun's side of its horizon. [SD] */
+  function compositeOf(Ac, Bc) {
+    const mid = (x, y) => norm360(x + norm180(y - x) / 2);
+    const asc = mid(Ac.asc, Bc.asc), mc = mid(Ac.mc, Bc.mc), cusps = equalHouses(asc), B = {};
+    for (const key of C.ORDER) {
+      const a = Ac.bodies[key], b = Bc.bodies[key], lon = mid(a.lon, b.lon), speed = (a.speed + b.speed) / 2;
+      B[key] = { key, lon, speed, retro: speed < 0, station: false, slow: key === 'sun' || key === 'moon' ? 0 : (a.slow + b.slow) / 2,
+        alt: 0, az: 0, house: houseIn(cusps, lon), angular: Math.min(sep(lon, asc), sep(lon, asc + 180), sep(lon, mc), sep(lon, mc + 180)) < 5,
+        sign: Math.floor(lon / 30), deg: lon % 30, combust: false, cazimi: false, beams: false, oob: false, decan: C.decanOf(lon), mansion: C.mansionOf(lon) };
+    }
+    const dSun = sep(B.sun.lon, asc);                        // above the horizon: on the western side of the Ascendant
+    const isDay = norm360(B.sun.lon - asc) > 180;
+    for (const key of C.ORDER) { B[key].dignity = dignity(key, B[key].sign, B[key].deg, isDay); B[key].clarity = Math.max(0.18, Math.min(1, 0.62 + B[key].dignity.score / 16)); }
+    const aspects = findAspects(B), configs = selectConfigs(aspects, [], B);
+    const st = { date: Ac.date, loc: Ac.loc, asc, mc, bodies: B, sect: isDay ? 'day' : 'night', moon: { illum: 0.5, waxing: true }, aspects, events: [], configs, cusps, houses: 'equal', composite: true };
+    st.elements = elements(st); st.fortune = fortuneOf(st);
+    void dSun;
+    return st;
+  }
+
+  /* ---------- the three ties ----------
+     Ptolemy, Tetrabiblos IV.7: friendship and enmity are of three kinds. By choice, read from the places of the two
+     charts' luminaries; by need, from their Lots of Fortune; by pleasure, from their Ascendants. The tie is firm when
+     the places share a sign or exchange signs, the Ascendants within 17° "secure and indissoluble"; disjunct or
+     opposite signs the deepest enmity; trine and sextile lessen sympathy, square lessens antipathy. He adds the
+     occasional ties by planet pair: for profit Saturn with Jupiter, Saturn with Mercury, Jupiter with Mars; for
+     pleasure Mars with Venus; for quarrels Saturn with Mars; for lawsuits Mars with Mercury. Lilly adds the
+     partnership rules (lords of the first and seventh agreeing, Saturn or Mars in the seventh spoiling it) and the
+     eleventh for friends; the moderns Sun–Moon and Moon–Moon for the bond, Saturn as structure, Mercury as talk,
+     the square of Moon or Venus to Saturn and of Mercury to Mercury as the breakers. Each tie is a signed sum,
+     squashed as the harmony is, its zero at the median of random couples. The weights are Siderarium's reading. [SD] */
+  const S_ = { conjunction: 'c', sextile: 's', trine: 's', square: 'q', opposition: 'o' };
+  // rows: [p, q, { c: conjunction, s: sextile or trine, q: square, o: opposition }], per contact, times its power
+  const TIE = {
+    choice: [
+      ['sun', 'moon', { c: 1.0, s: 0.9, q: -0.9, o: 0.5 }], ['moon', 'moon', { c: 1.0, s: 0.8, q: -0.9, o: 0.3 }], ['sun', 'sun', { c: 0.6, s: 0.5, q: -0.5, o: 0.3 }],
+      ['moon', 'ascendant', { c: 0.8, s: 0.3, q: -0.3, o: 0.4 }], ['sun', 'ascendant', { c: 0.6, s: 0.3, q: -0.4, o: 0.7 }],
+      ['jupiter', 'sun', { c: 0.5, s: 0.5, q: 0.1, o: 0.1 }], ['jupiter', 'moon', { c: 0.5, s: 0.5, q: 0.1, o: 0.1 }],
+      ['mercury', 'mercury', { c: 0.5, s: 0.5, q: -0.9, o: -0.3 }], ['venus', 'venus', { c: 0.4, s: 0.4, q: -0.2, o: -0.1 }],
+      ['saturn', 'moon', { c: -0.7, s: 0.4, q: -1.0, o: -0.8 }], ['saturn', 'sun', { c: -0.3, s: 0.3, q: -0.6, o: -0.5 }], ['saturn', 'venus', { c: -0.3, s: 0.3, q: -0.8, o: -0.6 }],
+      ['mars', 'moon', { c: -0.2, s: 0.1, q: -0.6, o: -0.5 }]
+    ],
+    need: [
+      ['saturn', 'jupiter', { c: 0.8, s: 0.8, q: 0.2, o: 0.2 }], ['saturn', 'mercury', { c: 0.8, s: 0.8, q: -0.3, o: -0.2 }], ['jupiter', 'mars', { c: 0.7, s: 0.7, q: 0.1, o: 0.1 }],
+      ['saturn', 'sun', { c: 0.5, s: 0.5, q: -0.5, o: -0.4 }], ['saturn', 'midheaven', { c: 0.5, s: 0.4, q: -0.3, o: 0.2 }], ['jupiter', 'midheaven', { c: 0.5, s: 0.4, q: 0.1, o: 0.2 }],
+      ['mercury', 'mercury', { c: 0.5, s: 0.5, q: -0.6, o: -0.2 }], ['jupiter', 'venus', { c: 0.3, s: 0.3, q: 0, o: 0 }], ['mercury', 'jupiter', { c: 0.4, s: 0.4, q: 0, o: 0 }],
+      ['mars', 'saturn', { c: -0.8, s: 0.2, q: -1.2, o: -1.2 }], ['mars', 'mercury', { c: -0.3, s: 0.1, q: -0.6, o: -0.6 }], ['mars', 'mars', { c: 0, s: 0.1, q: -0.4, o: -0.4 }]
+    ]
+  };
+  /* Ptolemy's places: the same sign, the exchange of signs, the conjunction within orb; the trine and sextile a
+     lesser sympathy; the square, the opposition and the disjunct signs antipathy */
+  function placeTie(pA, pB, orb) {
+    const sa = Math.floor(pA / 30), sb = Math.floor(pB / 30), d = sep(pA, pB), dist = Math.min((sb - sa + 12) % 12, (sa - sb + 12) % 12);
+    let v = 0;
+    if (dist === 0) v += 0.8 + (d <= orb ? 0.7 * (1 - d / orb) : 0);
+    else if (dist === 4) v += 0.35; else if (dist === 2) v += 0.25;
+    else if (dist === 6) v -= 0.6; else if (dist === 3) v -= 0.5; else v -= 0.3;   // 1 and 5: disjunct
+    return v;
+  }
+  const exchange = (a1, a2, b1, b2) => Math.floor(a1 / 30) === Math.floor(b2 / 30) && Math.floor(a2 / 30) === Math.floor(b1 / 30) ? 0.9 : 0;
+  function angleContacts(src, asc, mc) {                      // the second chart's planets on the first chart's angles: the contact list runs the other way only
+    const out = [];
+    for (const k of C.ORDER) for (const [key, lon] of [['ascendant', asc], ['midheaven', mc]]) {
+      const d = sep(src.bodies[k].lon, lon), near = [[0, 'conjunction', 6], [180, 'opposition', 6], [90, 'square', 5], [120, 'trine', 4], [60, 'sextile', 3]].find(([deg, , o]) => Math.abs(d - deg) <= o);
+      if (near) out.push({ a: k, b: key, aspect: near[1], orb: Math.abs(d - near[0]), power: 0.6 * (1 - Math.abs(d - near[0]) / near[2]), rev: true });
+    }
+    return out;
+  }
+  function tieSum(rows, contacts) {
+    let sum = 0; const parts = [];
+    for (const t of contacts) {
+      const s = S_[t.aspect]; if (!s) continue;
+      const row = rows.find(([p, q]) => (t.a === p && t.b === q) || (t.a === q && t.b === p)); if (!row) continue;
+      const w = row[2][s] * t.power; if (!w) continue;
+      sum += w; parts.push({ a: t.a, b: t.b, aspect: t.aspect, w, rev: !!t.rev });
+    }
+    return { sum, parts };
+  }
+  function tiesOf(A, B, contacts) {
+    const all = contacts.concat(angleContacts(B, A.asc, A.mc));
+    const hIn = (st, other, k) => houseIn(other.cusps, st.bodies[k].lon);
+    // by choice: the luminaries' places, then the contacts; the lights in the other's first, seventh or eleventh
+    const ch = tieSum(TIE.choice, all);
+    const lum = 0.5 * (placeTie(A.bodies.sun.lon, B.bodies.sun.lon, 8) + placeTie(A.bodies.moon.lon, B.bodies.moon.lon, 8) + placeTie(A.bodies.sun.lon, B.bodies.moon.lon, 8) + placeTie(A.bodies.moon.lon, B.bodies.sun.lon, 8)) / 2
+      + exchange(A.bodies.sun.lon, A.bodies.moon.lon, B.bodies.sun.lon, B.bodies.moon.lon);
+    let chH = 0; for (const [st, other] of [[A, B], [B, A]]) for (const k of ['sun', 'moon']) if ([1, 7, 11].includes(hIn(st, other, k))) chH += 0.3;
+    const choice = ch.sum + lum + chH;
+    ch.parts.push({ place: 'luminaries', w: lum }); if (chH) ch.parts.push({ place: 'houses', w: chH });
+    // by need: the Lots of Fortune, then the profit pairs; benefics and Mercury in the other's second, sixth, tenth; malefics in the seventh
+    const nd = tieSum(TIE.need, all);
+    const lot = 0.8 * placeTie(A.fortune, B.fortune, 8);
+    let ndH = 0;
+    for (const [st, other] of [[A, B], [B, A]]) {
+      for (const k of ['sun', 'mercury', 'jupiter', 'saturn']) if ([2, 6, 10].includes(hIn(st, other, k))) ndH += 0.25;
+      for (const k of ['mars', 'saturn']) if (hIn(st, other, k) === 7) ndH -= 0.3;
+    }
+    const need = nd.sum + lot + ndH;
+    nd.parts.push({ place: 'fortune', w: lot }); if (ndH) nd.parts.push({ place: 'houses', w: ndH });
+    // by pleasure: the Ascendants' places (within 17°, Ptolemy's "indissoluble"), then the pull of the bodies
+    const pl = desireOf(contacts, A, B);
+    const horo = 0.8 * placeTie(A.asc, B.asc, 17);
+    const pleasure = pl.sum + horo;
+    const plParts = pl.parts.concat([{ place: 'ascendants', w: horo }]);
+    const grade = (v, T) => v >= T.c + T.s2 ? 'strongSympathy' : v >= T.c + T.s1 ? 'sympathy' : v <= T.c - T.s2 ? 'strongAntipathy' : v <= T.c - T.s1 ? 'antipathy' : 'none';
+    const top = ps => ps.filter(x => Math.abs(x.w) >= 0.005).sort((x, y) => Math.abs(y.w) - Math.abs(x.w)).slice(0, 5);
+    return {
+      choice: { value: choice, grade: grade(choice, TIE_T.choice), parts: top(ch.parts) },
+      need: { value: need, grade: grade(need, TIE_T.need), parts: top(nd.parts) },
+      pleasure: { value: pleasure, grade: grade(pleasure, TIE_T.pleasure), parts: top(plParts), desire: pl }
+    };
+  }
+  // the steps: the median of 1,770 random couples at Rome as zero; s1 and s2 the half-widths that leave the middle
+  // two fifths as "none" and the outer tenths as strong (recalibrated whenever the weights move)
+  const TIE_T = { choice: { c: 0.30, s1: 0.28, s2: 0.69 }, need: { c: 0.51, s1: 0.34, s2: 0.80 }, pleasure: { c: 0.53, s1: 0.30, s2: 0.75 } };
+
   /* ---------- the pull between two charts ----------
      What the sources agree on, old and new. Ptolemy (Tetrabiblos IV.5) keeps the two matters apart: the luminaries in
      harmony make a marriage last, while Venus with Mars "produces merely amorous dispositions", ardent and impetuous;
@@ -626,7 +750,7 @@
   ];
   function desireOf(contacts, A, B) {
     let sum = 0; const parts = []; let vmA = false, vmB = false;
-    const add = (a, b, aspect, power, w) => { sum += w; parts.push({ a, b, aspect, w }); };
+    const add = (a, b, aspect, power, w, rev) => { sum += w; parts.push({ a, b, aspect, w, rev: !!rev }); };
     for (const t of contacts) {
       if (!PTOLEMAIC.has(t.aspect)) continue;              // the five aspects only, as every source reads them
       const row = DESIRE.find(([p, q]) => (t.a === p && t.b === q) || (t.a === q && t.b === p));
@@ -641,16 +765,16 @@
       // the second chart's Venus and Mars on the first chart's Ascendant: the contacts list runs the other way only
       for (const k of ['mars', 'venus']) {
         const d = sep(B.bodies[k].lon, A.asc), near = [[0, 'conjunction', 6], [180, 'opposition', 6], [90, 'square', 5]].find(([deg, , orb]) => Math.abs(d - deg) <= orb);
-        if (near) { const orb = Math.abs(d - near[0]), power = 1 - orb / near[2], base = k === 'mars' ? 0.5 : 0.35; add(k, 'ascendant', near[1], power, base * power * (k === 'mars' ? 1.1 : 1)); }
+        if (near) { const orb = Math.abs(d - near[0]), power = 1 - orb / near[2], base = k === 'mars' ? 0.5 : 0.35; add(k, 'ascendant', near[1], power, base * power * (k === 'mars' ? 1.1 : 1), true); }
       }
       // Mars in the other's fifth or eighth house: the houses of pleasure and of the bed (modern)
-      if ([5, 8].includes(houseIn(A.cusps, B.bodies.mars.lon))) add('mars', 'house', 'in', 1, 0.3);
+      if ([5, 8].includes(houseIn(A.cusps, B.bodies.mars.lon))) add('mars', 'house', 'in', 1, 0.3, true);
       if ([5, 8].includes(houseIn(B.cusps, A.bodies.mars.lon))) add('mars', 'house', 'in', 1, 0.3);
     }
     if (vmA && vmB) sum *= 1.2;                              // Venus on Mars both ways: the strongest form
     const value = 1 - Math.exp(-Math.max(0, sum));
     const grade = value >= DESIRE_STRONG ? 'strong' : value >= DESIRE_SOME ? 'some' : null;
-    return { value, grade, parts: parts.sort((x, y) => y.w - x.w).slice(0, 4) };
+    return { value, grade, sum, parts: parts.sort((x, y) => y.w - x.w).slice(0, 4) };
   }
   const DESIRE_SOME = 0.6, DESIRE_STRONG = 0.71;              // the top quarter and the top tenth of 1,770 random couples at Rome
 
@@ -790,6 +914,7 @@
     st.mode = modeOf(st); st.windows = windowsOf(st);
     st.title = { house: st.bodies.moon.house, mode: st.mode.key, state: stateOf(st) };   // the title of the moment: stage of life, mother letter, time to work / watch / rest
     st.veil = veilOf(st);
+    st.fortune = fortuneOf(st);
     st.wheel = wheelOf(st);
     // the planets on the angles: within 5° of the Ascendant, Midheaven, Descendant or Imum Coeli, with the orb
     st.onAngles = [];
@@ -827,5 +952,5 @@
     if (orbAt(tm) < Math.min(0.5, orbMax * 0.35)) exact = new Date(tm);
     return { exact, enter: enter ? new Date(enter) : null, leave: leave ? new Date(leave) : null, orbNow: o0 };
   }
-  SD.engine = { compute, computeTransits, computeInteractions, desireOf, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  SD.engine = { compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});

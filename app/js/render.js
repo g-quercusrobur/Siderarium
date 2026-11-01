@@ -819,6 +819,22 @@
     }
     return p;
   }
+  /* the mandala of a pair: the composite chart's ruling figure, drawn by the rule every figure follows, on the first
+     chart's dial; behind it the two natal figures as faint outlines, the parents of the shape. [SD] */
+  function drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t) {
+    const comp = state.composite, own = state.ownFigures;
+    if (own && own.a && own.b && state.natal) {
+      const stB = { ...state, bodies: state.natal.bodies };
+      const pa = regionPath(own.a, state.bodies, state, Lt, Rp * 0.92), pb = regionPath(own.b, state.natal.bodies, state, Lt, Rp * 0.92);
+      ctx.save(); ctx.globalAlpha = PURE ? 0.3 : 0.2 * E; ctx.lineWidth = PURE ? PURE_LW * 0.4 : lw * 0.7; ctx.lineJoin = 'round';
+      ctx.strokeStyle = PURE ? '#fbf8f0' : figureColor(state, own.a); ctx.stroke(pa);
+      ctx.strokeStyle = PURE ? '#fbf8f0' : figureColor(stB, own.b); ctx.stroke(pb);
+      ctx.restore();
+    }
+    if (!comp || !comp.configs.primary) return null;
+    const cs = { ...state, bodies: comp.bodies };              // the composite's bodies, placed on the first chart's wheel
+    return drawFigure(ctx, cs, Lt, comp.configs.primary, Rp, 'primary', lw, E, t);
+  }
   function drawPairFigure(ctx, state, Lt, Rp, lw, E) {
     const own = state.ownFigures; if (!own || !own.a || !own.b || !state.natal) return;
     const stB = { ...state, bodies: state.natal.bodies };
@@ -1449,20 +1465,34 @@
     const col = (name, st) => { const T = fmtShortDate(st.date, st.loc), s3 = n => i.sign(n).slice(0, 3), B = st.bodies;
       return { head: name, lines: [`${T.date} · ${T.time}`, i.placeName(st.loc.name), `${P('sun')} ${s3(B.sun.sign)} · ${P('moon')} ${s3(B.moon.sign)}`, `ASC ${s3(Math.floor(st.asc / 30))}${st.elements ? ' · ' + el(st.elements.dominant) : ''}`] }; };
     const cols = pr ? [col(pr.a, state), col(pr.b, state.natal)] : null;
+    /* the pointer: the kind of tie that leads, in Ptolemy's words; a second kind when it also reaches sympathy;
+       enmity named when a kind reaches strong antipathy */
+    const ties = state.ties, TK = ['choice', 'need', 'pleasure'], rank = g => ({ strongSympathy: 2, sympathy: 1, none: 0, antipathy: -1, strongAntipathy: -2 })[g] || 0;
+    const tieName = k => i.t('ui.tie.' + k), TT = i.t('cap.tie');
+    let tiePhrase = '', tieRow = '';
+    if (pr && ties) {
+      const sym = TK.filter(k => rank(ties[k].grade) > 0).sort((a, b) => ties[b].value - ties[a].value), ant = TK.filter(k => rank(ties[k].grade) < 0).sort((a, b) => ties[a].value - ties[b].value);
+      if (sym.length === 3) tiePhrase = TT.all; else if (sym.length === 2) tiePhrase = TT.two(tieName(sym[0]), tieName(sym[1])); else if (sym.length === 1) tiePhrase = TT.one(tieName(sym[0]));
+      else tiePhrase = ant.length >= 2 ? TT.enmityTwo(tieName(ant[0]), tieName(ant[1])) : ant.length ? TT.enmity(tieName(ant[0])) : TT.none;
+      const hard = ant.filter(k => ties[k].grade === 'strongAntipathy');
+      if (sym.length && hard.length) tiePhrase += ' · ' + TT.enmity(tieName(hard[0]));
+      tieRow = TK.map(k => `${i.cap1(tieName(k))}: ${i.t('ui.tieGrade.' + ties[k].grade)}`).join(' · ');
+    }
     return {
       cols,
       label: x.c1(pr ? `${i.t('cap.synastryLabel')} · ${info.name}` : `${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
       stateKey,
       state: x.c1(i.t('ui.grade.' + grade)),
-      title: tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
-      reason: pr ? x.c1(harmonyTxt) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
+      title: pr ? x.c1(tiePhrase) : tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
+      reason: pr ? x.c1(tieRow) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}, ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)}`) : x.cs(housesTxt),
       detail2: state.stone ? x.cs(housesTxt) : x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
       detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
-      detail4: pr ? x.c1(strifeTxt) : x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),   // the pair has no chord of its own: the strife row instead
-      pairLine: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}${state.attraction && state.attraction.grade ? ' · ' + i.t('ui.desire.' + state.attraction.grade) : ''}`) : '',
-      note: pr && state.attraction && state.attraction.grade ? x.c1(i.t('ui.desire.' + state.attraction.grade)) : '',   // beside the state on the dial
+      detail4: pr ? x.c1(tr[0] ? line(tr[0]) : i.t('cap.noTransit')) : x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),   // the pair has no chord of its own: its strongest contact instead
+      pairLine: pr ? x.cs(`${harmonyTxt} · ${strifeTxt}`) : '',
+      pairLine2: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}${state.attraction && state.attraction.grade ? ' · ' + i.t('ui.desire.' + state.attraction.grade) : ''}`) : '',
+      note: '',
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
   }
@@ -1642,9 +1672,10 @@
       });
     }
     // secondary first, primary on top; a pair of charts draws its own figure instead
-    if (state.pair && state.ownFigures) drawPairFigure(ctx, state, Lt, Rp, lw, E);
+    if (state.pair && state.composite) { const g = drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t); if (g) geos.push(g); }
+    else if (state.pair && state.ownFigures) drawPairFigure(ctx, state, Lt, Rp, lw, E);
     else cf.secondary.slice().reverse().forEach(c => geos.push(drawFigure(ctx, state, Lt, c, Rp, 'secondary', lw * 0.7, E, t)));
-    if (cf.primary && !(state.pair && state.ownFigures)) {
+    if (cf.primary && !(state.pair && (state.composite || state.ownFigures))) {
       // the cut: a wedge removed toward the planet that afflicts the figure
       let wedge = null;
       if (cf.cut) {
@@ -1725,7 +1756,18 @@
       PURE = true; PURE_SIMPLE = true; PURE_LW = Math.max(lw * 2.2, 4.2 * Lt.u); PURE_BASE = lw; PURE_ALPHA = 1;
       try {
         // the sigil: the ruling figure's lines and the guardians' stars, one weight, nothing else. a key, not a drawing
-        if (state.pair && state.ownFigures) {                 // a pair: the shared region of the two ruling figures, and the two ruling planets' glyphs
+        if (state.pair && state.composite) {                  // a pair: the composite's ruling figure, the two natal figures faint, the composite's two planets' glyphs
+          drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t);
+          const cp = state.composite.configs.primary;
+          if (cp) {
+            const cs = { ...state, bodies: state.composite.bodies };
+            const glyphAt3 = (key) => { const q = polar(Lt, eclAngle(cs, cs.bodies[key].lon), Rp + 34 * Lt.u); G.planet(ctx, key, q.x, q.y, PURE_LW / 0.12 * 1.25, '#fbf8f0', 0.12); };
+            glyphAt3(cp.a); glyphAt3(cp.b);
+          }
+          drawGuardians(ctx, state, Lt, E);
+          throw { skip: true };
+        }
+        if (state.pair && state.ownFigures) {                 // a pair without a composite (older state): the shared region of the two ruling figures
           drawPairFigure(ctx, state, Lt, Rp, lw, E);
           const own = state.ownFigures, stB = { ...state, bodies: state.natal.bodies };
           const vA = starVerts(Lt.cx, Lt.cy, Rp, Math.max(own.a.n, 1), eclAngle(state, state.bodies[own.a.a].lon))[0], vB = starVerts(Lt.cx, Lt.cy, Rp, Math.max(own.b.n, 1), eclAngle(stB, state.natal.bodies[own.b.a].lon))[0];
