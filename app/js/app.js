@@ -404,8 +404,8 @@
   }
 
   /* ---------- the birth chart report: everything an interpreter, human or machine, needs, as plain text ---------- */
-  function chartReport() {
-    const st = natalState(); if (!st) return;
+  function chartReportText() {
+    const st = natalState(); if (!st) return null;
     const i = SD.i18n, C = SD.corr, n = S.natal, R = k => i.t('ui.rep.' + k);
     const P = k => i.cap1(i.planet(k)), A = k => i.aspect(k);
     const lonTxt = lon => { const L = ((lon % 360) + 360) % 360, sg = Math.floor(L / 30), d = L - sg * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(sg)} (${L.toFixed(2)}°)`; };
@@ -421,7 +421,8 @@
     if (st.relocated) L.push(`- ${R('relocated')}: ${i.placeName(st.relocated)}`);
     L.push(`- ${R('system')}: ${R('zodiac')} · ${S.houses} · ${st.sect === 'day' ? R('dayChart') : R('nightChart')}`, '');
     L.push(`## ${R('angles')}`);
-    L.push(`- ASC ${lonTxt(st.asc)}`, `- MC ${lonTxt(st.mc)}`, `- DSC ${lonTxt(st.asc + 180)}`, `- IC ${lonTxt(st.mc + 180)}`, '');
+    L.push(`- ASC ${lonTxt(st.asc)}`, `- MC ${lonTxt(st.mc)}`, `- DSC ${lonTxt(st.asc + 180)}`, `- IC ${lonTxt(st.mc + 180)}`);
+    L.push(`- ${i.cap1(i.t('ui.r.onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${P(x.planet)} ${A('conjunction')} ${i.t('ui.r.angle.' + x.angle)} ${x.orb.toFixed(1)}°`).join(' · ') : i.t('ui.r.noneOnAngles')}`, '');
     L.push(`## ${R('houses')}`);
     for (let h = 1; h <= 12; h++) L.push(`- ${i.roman(h)} ${lonTxt(st.cusps[h])}`);
     L.push('');
@@ -468,8 +469,21 @@
       L.push('');
     }
     L.push(`— ${R('footer')} · siderarium.com · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
-    const base = (n.name || 'chart').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
-    downloadBlob(new Blob([L.join('\n')], { type: 'text/markdown' }), `siderarium-report-${base}.md`);
+    return { text: L.join('\n'), name: n.name || 'chart' };
+  }
+  function chartReport() {
+    const r = chartReportText(); if (!r) return;
+    const base = r.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+    downloadBlob(new Blob([r.text], { type: 'text/markdown' }), `siderarium-report-${base}.md`);
+  }
+  /* the same report onto the clipboard, to paste into an interpreter; the old way when the clipboard refuses */
+  async function copyReport() {
+    const r = chartReportText(); if (!r) return;
+    const note = $('import-note'), i = SD.i18n;
+    try { await navigator.clipboard.writeText(r.text); note.textContent = i.cap1(i.t('ui.copied')); return; } catch (e) { /* fall through */ }
+    const ta = document.createElement('textarea'); ta.value = r.text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove();
+    note.textContent = i.cap1(i.t(ok ? 'ui.copied' : 'ui.copyFailed'));
   }
   const stampOf = st => st.date.toISOString().slice(0, 16).replace(/[:T]/g, '');
   function exportPNG(px) {
@@ -632,7 +646,7 @@
     $('set-lang').value = S.lang; $('set-houses').value = S.houses; $('set-field').value = !S.engrave ? 'glow' : S.field === 'guilloche' ? 'guilloche' : 'engraved'; $('set-bodies').value = S.luminous ? 'lights' : 'metal';
     $('set-relocate').value = S.relocate ? '1' : '0';
     $('natal-summary').textContent = natalSummary();
-    $('natal-saveas').disabled = !S.natal; $('natal-report').disabled = !S.natal;
+    $('natal-saveas').disabled = !S.natal; $('natal-report').disabled = !S.natal; $('natal-copy').disabled = !S.natal;
     const ul = $('charts');
     ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${i.t('ui.useChart')}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(c.name)}</span><span class="ops"><button data-act="rename">${i.cap1(i.t('ui.rename'))}</button><button data-act="delete">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
       : `<li class="empty">${i.cap1(i.t('ui.noCharts'))}</li>`;
@@ -661,6 +675,7 @@
     $('natal-edit').addEventListener('click', () => { openMenu(false); openBirth(); });
     $('natal-new').addEventListener('click', () => { openMenu(false); openBirth(true); });   // a blank form; the loaded chart stays until the new one is saved
     $('natal-report').addEventListener('click', chartReport);
+    $('natal-copy').addEventListener('click', copyReport);
     const showKey = e => { e.preventDefault(); openMenu(true); const sec = $('read-title'); if (sec) sec.scrollIntoView({ block: 'start' }); };
     $('what-link').addEventListener('click', showKey);
     $('caption').addEventListener('click', e => { if (e.target.closest('a.what')) showKey(e); });

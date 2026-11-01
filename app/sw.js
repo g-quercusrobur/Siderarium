@@ -1,5 +1,5 @@
 /* siderarium — service worker. network first, cache fallback: the clock works offline after one visit. */
-const VERSION = 'sd-2026-11-27a';
+const VERSION = 'sd-2026-11-27b';
 const SHELL = ['./', './index.html', './css/style.css', './js/vendor/astronomy.browser.min.js', './js/color.js', './js/correspondences.js', './js/i18n.js',
   './js/engine.js', './js/glyphs.js', './js/render.js', './js/glossary.js', './js/app.js', './manifest.webmanifest', './icons/siderarium-192.png', './icons/siderarium-512.png',
   './fonts/Geist-Regular.woff2', './fonts/Geist-Medium.woff2', './fonts/GeistMono-Regular.woff2'];
