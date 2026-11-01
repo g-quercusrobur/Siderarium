@@ -757,10 +757,10 @@
       ctx.fillStyle = K.rgba(NATAL_INK, 0.92); ctx.strokeStyle = K.rgba(NATAL_INK, 0.92); ctx.lineWidth = 1.2 * u; ctx.lineJoin = 'round';
       if (shape === 'asc') { const p = polar(Lt, a, rN + 9 * u), l = polar(Lt, a + 0.035, rN - 6 * u), r = polar(Lt, a - 0.035, rN - 6 * u); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(l.x, l.y); ctx.lineTo(r.x, r.y); ctx.closePath(); ctx.fill(); return; }
       if (shape === 'mc') { const p0 = polar(Lt, a, rN - 8 * u), p1 = polar(Lt, a, rN + 8 * u); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); return; }
-      const n = POLY[key];
-      ctx.fill(polyPath(q.x, q.y, 5.5 * u, n, Math.PI / 2));
-      const g = polar(Lt, a, rN - 19 * u);
-      G.planet(ctx, key, g.x, g.y, 15 * u, K.rgba(NATAL_INK, 0.7), 0.12);
+      const n = POLY[key], big = !!state.pair;              // two charts: the second's planets large enough to be read as the other end of a line
+      ctx.fill(polyPath(q.x, q.y, (big ? 7.5 : 5.5) * u, n, Math.PI / 2));
+      const g = polar(Lt, a, rN - (big ? 24 : 19) * u);
+      G.planet(ctx, key, g.x, g.y, (big ? 20 : 15) * u, K.rgba(NATAL_INK, big ? 0.95 : 0.7), 0.12);
     };
     for (const k of C.ORDER) mark(k, N.bodies[k].lon, 'planet');
     mark('ascendant', N.asc, 'asc'); mark('midheaven', N.mc, 'mc');
@@ -781,15 +781,14 @@
     return PALE;
   }
   function drawContacts(ctx, state, Lt, pos, npos, lw) {
-    const tr = (state.transits || []).slice(0, 10); if (!tr.length) return;
+    const tr = (state.transits || []).slice(0, 6); if (!tr.length) return;   // the six strongest: a drawing, not a net
     const top = tr[0].power || 1, u = Lt.u;
     ctx.save();
     for (let i = tr.length - 1; i >= 0; i--) {
       const a = tr[i], p = pos[a.a], q = npos[a.b]; if (!p || !q) continue;
       const col = contactTone(a), k = Math.min(1, a.power / top), al = PURE ? 1 : 0.32 + 0.55 * k;
-      const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, cx = mx + (Lt.cx - mx) * 0.35, cy = my + (Lt.cy - my) * 0.35;
       ctx.strokeStyle = PURE ? '#fbf8f0' : K.rgba(col, al); ctx.lineWidth = PURE ? PURE_LW : lw * (0.8 + 1.4 * k); ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.quadraticCurveTo(cx, cy, q.x, q.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();   // straight: a connection reads as a connection
       if (PURE) continue;
       // the zone at the second sky's point: a short arc on its ring and a glow
       const th = q.th, r = q.r, span = (4 + 4 * k) * Math.PI / 180;
