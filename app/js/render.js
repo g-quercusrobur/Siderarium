@@ -114,28 +114,25 @@
 
   /* ---------- the field: three lights, midnight between ---------- */
   function lights(state, Lt) {
-    const B = state.bodies, day = state.sect === 'day';
-    const sp = skyPoint(Lt, B.sun), mp = skyPoint(Lt, B.moon);
     const toU = p => ({ x: (p.x - Lt.cx) / Lt.R, y: (p.y - Lt.cy) / Lt.R });
-    const L = [
-      { name: 'ascendant', pos: { x: -1.0, y: 0 }, color: signColorAt(state.asc), w: 0.30, sigma: 0.62 },
-      { name: 'sun', pos: toU(sp), color: signColorAt(B.sun.lon), w: (day ? 0.45 : 0.25) * (B.sun.alt > 0 ? 1 : 0.5), sigma: 0.55 },
-      { name: 'moon', pos: toU(mp), color: signColorAt(B.moon.lon), w: (day ? 0.25 : 0.45) * (0.45 + 0.55 * state.moon.illum), sigma: 0.48 }
-    ];
-    if (state.pair && state.natal) {                        // synastry: the second chart's lights join the field, so the ground is both skies blended
-      const N = state.natal, a2 = Math.PI + (N.asc - Lt.asc) * Math.PI / 180;
-      L.push({ name: 'ascendant2', pos: { x: Math.cos(a2), y: -Math.sin(a2) }, color: signColorAt(N.asc), w: 0.22, sigma: 0.6 });
-      L.push({ name: 'sun2', pos: toU(skyPoint(Lt, N.bodies.sun)), color: signColorAt(N.bodies.sun.lon), w: 0.3, sigma: 0.55 });
-      L.push({ name: 'moon2', pos: toU(skyPoint(Lt, N.bodies.moon)), color: signColorAt(N.bodies.moon.lon), w: 0.26, sigma: 0.48 });
-    }
-    return L;
+    const of = (st, scale, tag) => {                         // one chart's three lights, on the dial of the first chart (Lt.asc)
+      const B = st.bodies, day = st.sect === 'day', a = Math.PI + (st.asc - Lt.asc) * Math.PI / 180;
+      return [
+        { name: 'ascendant' + tag, pos: { x: Math.cos(a), y: -Math.sin(a) }, color: signColorAt(st.asc), w: 0.30 * scale, sigma: 0.62 },
+        { name: 'sun' + tag, pos: toU(skyPoint(Lt, B.sun)), color: signColorAt(B.sun.lon), w: (day ? 0.45 : 0.25) * (B.sun.alt > 0 ? 1 : 0.5) * scale, sigma: 0.55 },
+        { name: 'moon' + tag, pos: toU(skyPoint(Lt, B.moon)), color: signColorAt(B.moon.lon), w: (day ? 0.25 : 0.45) * (0.45 + 0.55 * st.moon.illum) * scale, sigma: 0.48 }
+      ];
+    };
+    if (state.pair && state.natal) return of(state, 0.85, '').concat(of(state.natal, 0.85, '2'));   // synastry: both skies' lights at equal standing, so the ground is the two blended
+    return of(state, 1, '');
   }
   const fieldCache = { key: null, canvas: null };
+  const pairKey = state => state.pair && state.natal ? 'p' + Math.round(state.natal.date.getTime() / 60000) + '|' + state.natal.loc.lat : '';   // a pair is another ground
 
   /* The field: three lights over midnight — ascendant from the eastern horizon, sun and moon where
      they stand, in their sign colours, weighted by sect. Pure light, no texture: a colour field. */
   function buildLight(state, Lt, N) {
-    const key = ['l', N, Lt.ext || 1, Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon].join('|');
+    const key = ['l', N, Lt.ext || 1, Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon, pairKey(state)].join('|');
     if (fieldCache.key === key) return fieldCache.canvas;
     const cv = fieldCache.canvas && fieldCache.canvas.width === N ? fieldCache.canvas : document.createElement('canvas');
     cv.width = cv.height = N;
@@ -170,7 +167,7 @@
   }
 
   function buildField(state, Lt, N) {
-    const key = [N, Lt.ext || 1, Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon].join('|');
+    const key = [N, Lt.ext || 1, Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon, pairKey(state)].join('|');
     if (fieldCache.key === key) return fieldCache.canvas;
     const cv = fieldCache.canvas && fieldCache.canvas.width === N ? fieldCache.canvas : document.createElement('canvas');
     cv.width = cv.height = N;
@@ -229,7 +226,7 @@
   function drawEngravedField(ctx, state, Lt, density = 1) {
     const m = ctx.getTransform(), k = m.a;
     const ext = Lt.ext || 1;
-    const key = [Lt.S, Lt.R, k.toFixed(3), density, ext, GUILLOCHE ? 'g' : 'e', Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon].join('|');
+    const key = [Lt.S, Lt.R, k.toFixed(3), density, ext, GUILLOCHE ? 'g' : 'e', Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon, pairKey(state)].join('|');
     const px = Math.ceil(Lt.R * 2 * ext * k) + 4;
     if (engraveCache.key !== key) {
       const cv = engraveCache.canvas || document.createElement('canvas');
@@ -1373,6 +1370,11 @@
     const extra = m.flags.filter(f => f !== 'void of course')[0];
     return extra ? `${head} · ${i.flag(extra === 'under the beams' ? 'beams' : extra)}` : head;
   }
+  function fmtShortDate(date, loc) {
+    const f = new Intl.DateTimeFormat(I().locale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: loc.tz || 'UTC' });
+    const p = Object.fromEntries(f.formatToParts(date).map(x => [x.type, x.value]));
+    return { date: `${p.day} ${p.month.replace(/\.$/, '')} ${p.year}`, time: `${p.hour}:${p.minute}` };
+  }
   function fmtShort(date, loc) {
     const f = new Intl.DateTimeFormat(I().locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: loc.tz || 'UTC' });
     const p = Object.fromEntries(f.formatToParts(date).map(x => [x.type, x.value]));
@@ -1439,21 +1441,28 @@
     const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => pr ? i.t('cap.houseOf')(P(k), pr.b, i.roman(h), pr.a) : `${P(k)} ${i.t('cap.inYourHouse')} ${i.roman(h)}`).join(' · ');
     const soft = a => a.aspect === 'trine' || a.aspect === 'sextile', hardish = a => a.aspect === 'square' || a.aspect === 'opposition' || (a.aspect === 'conjunction' && ['mars', 'saturn', 'pluto'].some(m => m === a.a || m === a.b));
     const topH = tr.find(soft), topS = tr.find(hardish);
-    const twoSides = `${i.t('cap.harmonyIs')} ${topH ? short(topH) : i.t('cap.noHarmony')} · ${i.t('cap.strifeIs')} ${topS ? short(topS) : i.t('cap.noStrife')}`;
+    const bare = a => pr ? line(a) : short(a);           // the band of a pair has no room for orbs: the reading has them
+    const harmonyTxt = `${i.t('cap.harmonyIs')} ${topH ? bare(topH) : i.t('cap.noHarmony')}`, strifeTxt = `${i.t('cap.strifeIs')} ${topS ? bare(topS) : i.t('cap.noStrife')}`;
     const el = k => i.t('ui.el.' + k) === 'ui.el.' + k ? k : i.t('ui.el.' + k);
     const blend = pr && state.elements && state.natal.elements ? `${i.t('cap.own')(pr.a, el(state.elements.dominant))} ${i.t('cap.meets')} ${i.t('cap.own')(pr.b, el(state.natal.elements.dominant))}` : '';
     const applying = tr.filter(a => a.applying).length;
+    /* a pair lists both charts or neither: the same five lines for each, side by side. the single chart's hour, chord and houses are not the pair's */
+    const col = (name, st) => { const T = fmtShortDate(st.date, st.loc), s3 = n => i.sign(n).slice(0, 3), B = st.bodies;
+      return { head: name, lines: [`${T.date} · ${T.time}`, i.placeName(st.loc.name), `${P('sun')} ${s3(B.sun.sign)} · ${P('moon')} ${s3(B.moon.sign)}`, `ASC ${s3(Math.floor(st.asc / 30))}${st.elements ? ' · ' + el(st.elements.dominant) : ''}`] }; };
+    const cols = pr ? [col(pr.a, state), col(pr.b, state.natal)] : null;
     return {
+      cols,
       label: x.c1(pr ? `${i.t('cap.synastryLabel')} · ${info.name}` : `${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
       stateKey,
       state: x.c1(i.t('ui.r.' + verdict)),
       title: tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
-      reason: pr ? x.c1(twoSides) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
+      reason: pr ? x.c1(harmonyTxt) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}, ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)}`) : x.cs(housesTxt),
       detail2: state.stone ? x.cs(housesTxt) : x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
       detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
-      detail4: x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),
+      detail4: pr ? x.c1(strifeTxt) : x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),   // the pair has no chord of its own: the strife row instead
+      pairLine: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}`) : '',
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
   }
@@ -1468,7 +1477,7 @@
       if (mrx > 0.3 && !PURE) { const a = ctx.globalAlpha, f = ctx.fillStyle; ctx.globalAlpha = a * 0.32 * mrx; ctx.fillText(txt, x + 2.2 * u * mrx, y); ctx.globalAlpha = a; ctx.fillStyle = f; }
       ctx.fillText(txt, x, y);
     };
-    const fit = (txt, maxW) => { const f = ctx.font, w = ctx.measureText(txt).width; if (w > maxW) { const px = parseFloat(f.match(/(\d+)px/)[1]); ctx.font = f.replace(/\d+px/, `${Math.round(Math.max(px * 0.72, px * maxW / w))}px`); } return f; };
+    const fit = (txt, maxW, floor = 0.72) => { const f = ctx.font, w = ctx.measureText(txt).width; if (w > maxW) { const px = parseFloat(f.match(/(\d+)px/)[1]); ctx.font = f.replace(/\d+px/, `${Math.round(Math.max(px * floor, px * maxW / w))}px`); } return f; };
     ctx.save();
     ctx.textBaseline = 'alphabetic';
     ctx.strokeStyle = K.rgba(INK, 0.22); ctx.lineWidth = 1 * u;
@@ -1497,15 +1506,27 @@
     f = fit(c.title, left); put(c.title, m, row(2)); ctx.font = f;
     // 4 · the reason: the sky and the Moon
     ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(20 * k)}px ${SANS}`;
-    f = fit(c.reason, left); put(c.reason, m, row(3)); ctx.font = f;
-    // 7 · the sound
+    f = fit(c.reason, left, c.cols ? 0.6 : 0.72); put(c.reason, m, row(3)); ctx.font = f;
+    // 7 · the sound (a pair: the strife row)
     ctx.fillStyle = K.rgba(INK, 0.72);
-    f = fit(c.detail4, left); put(c.detail4, m, row(4)); ctx.font = f;
+    f = fit(c.detail4, left, c.cols ? 0.6 : 0.72); put(c.detail4, m, row(4)); ctx.font = f;
+    if (c.cols) {                                         // a pair: the two charts' basics side by side, each column left-aligned, the names as heads
+      const gap = 16 * k, cw = (right - gap) / 2, x0 = Lt.S - m - right;
+      ctx.textAlign = 'left';
+      c.cols.forEach((col, n) => {
+        const x = x0 + n * (cw + gap);
+        ctx.fillStyle = K.rgba(INK, 0.9); ctx.font = `500 ${Math.round(17 * k)}px ${SANS}`;
+        f = fit(col.head, cw); put(col.head, x, row(0)); ctx.font = f;
+        ctx.fillStyle = K.rgba(INK, 0.72); ctx.font = `400 ${Math.round(16 * k)}px ${SANS}`;
+        col.lines.forEach((txt, r) => { f = fit(txt, cw, 0.66); put(txt, x, row(r + 1)); ctx.font = f; });
+      });
+    } else {
     // 5 · the moment, and 6 · the day's colour, on the right
     ctx.textAlign = 'right'; ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(20 * k)}px ${SANS}`;
     f = fit(c.l1, right); put(c.l1, Lt.S - m, row(1)); ctx.font = f;
     ctx.fillStyle = K.rgba(INK, 0.72);
     for (const [txt, r] of [[c.detail1, 2], [c.detail2, 3], [c.detail3, 4]]) { f = fit(txt, right); put(txt, Lt.S - m, row(r)); ctx.font = f; }
+    }
     // every print carries the notice
     ctx.textAlign = 'left'; ctx.fillStyle = K.rgba(INK, 0.45); ctx.font = `400 ${Math.round(14 * k)}px ${SANS}`;
     ctx.fillText(NOTICE(), m, Math.min(row(5) + 2 * k, Lt.S - 6 * u));
