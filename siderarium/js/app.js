@@ -667,7 +667,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const inter = st.interaction;
     const des = st.attraction, desTxt = des && des.grade ? ` · ${i.t('ui.desire.' + des.grade)} ${des.value.toFixed(2)}` : '';
     const cap = SD.render.captionLines(st);
-    const verdict = inter ? `<p class="verdict state-${inter.grade}">${cap.title ? cap.title + ' · ' : ''}${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}${desTxt}</p>` : '';
+    const verdict = inter ? `<p class="verdict state-${inter.grade}">${st.ties ? cap.state + ' · ' : ''}${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}${desTxt}</p>` : '';
     const contact = x => `${own(pr.a, P(x.a))} ${A(x.aspect)} ${own(pr.b, C.PLANETS[x.b] ? P(x.b) : x.b === 'ascendant' ? 'ASC' : 'MC')}`;
     const contacts = st.transits.slice(0, 12).map(x => `<tr><td>${contact(x)}</td><td class="nw">${x.orb.toFixed(2)}°</td><td class="nw">${x.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`;
     const sentence = f => f.name === 'setOff' ? `${own(pr.a, P(f.t))} ${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${own(pr.a, P(f.t))} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`;
@@ -702,7 +702,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
      dot in its colour; warm for antipathy, neutral for none, cool for sympathy. the same scale on the dial and the phone */
   function tieScales(st) {
     const i = SD.i18n, T = st.ties; if (!T) return '';
-    return `<div class="scales">${SD.render.tieScale(st).map(g => `<div class="scale"><span class="sl">${i.cap1(g.label)}</span><div class="sline">${g.ticks.map(x => `<i style="left:${(x * 100).toFixed(1)}%"${x === 0.5 ? ' class="mid"' : ''}></i>`).join('')}<b style="left:${(g.pos * 100).toFixed(1)}%;background:${g.color}"></b></div><span class="sw" style="color:${g.color};left:${(Math.min(0.82, Math.max(0.18, g.pos)) * 100).toFixed(1)}%">${g.word}</span></div>`).join('')}</div>`;
+    return `<div class="scales">${SD.render.tieScale(st).map(g => `<div class="scale"><span class="sl">${i.cap1(g.label)}</span><div class="sline">${g.ticks.map(x => `<i style="left:${(x * 100).toFixed(1)}%"${x === 0.5 ? ' class="mid"' : ''}></i>`).join('')}<b style="left:${(g.pos * 100).toFixed(1)}%;background:${g.color}"></b></div><span class="sw" style="color:${g.color};${g.pos < 0.25 ? 'left:0;transform:none' : g.pos > 0.75 ? 'right:0;transform:none' : `left:${(g.pos * 100).toFixed(1)}%`}">${g.word}</span></div>`).join('')}</div>`;
   }
   function tiesHtml(st) {
     const T = st.ties, pr = st.pair; if (!T) return '';
