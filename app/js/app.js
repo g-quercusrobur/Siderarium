@@ -1110,6 +1110,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
         if (t24) { const [h, m] = t24.split(':').map(Number); if (mode === '24') el.value = t24; else if ((mode === 'pm') === (h >= 12)) el.value = `${h % 12 || 12}:${String(m).padStart(2, '0')}`; else if (prev === '24') { el.value = `${h % 12 || 12}:${String(m).padStart(2, '0')}`; $('birth-ampm').value = h >= 12 ? 'pm' : 'am'; } }
         prev = $('birth-ampm').value; }); }
     $('when').addEventListener('change', commit);
+    $('when-go').addEventListener('click', () => commit({ target: $('when') }));
     $('when').addEventListener('keydown', e => { if (e.key === 'Enter') { commit(e); e.target.blur(); } });
     $('here').addEventListener('click', () => locate(true));
     bindChartPick();
@@ -1297,6 +1298,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
   /* a moment typed in the clock: a date alone means noon; an hour alone (2026-07-12 14) means on the hour */
   const normStamp = txt => {
+    const sep = txt.trim().match(/^(\d{4})\D(\d{1,2})\D(\d{1,2})(?:\s+(\d{1,2})(?::?(\d{2}))?)?$/) || txt.trim().match(/^(\d{1,2})\D(\d{1,2})\D(\d{4})(?:\s+(\d{1,2})(?::?(\d{2}))?)?$/);
+    if (sep) {                                                // written with its own separators: read by them, so 2026-7-12 9:5 is fine
+      const ymd = sep[1].length === 4 ? [sep[1], sep[2], sep[3]] : [sep[3], sep[2], sep[1]], p2 = x => String(x).padStart(2, '0');
+      txt = `${ymd[0]}${p2(ymd[1])}${p2(ymd[2])}${sep[4] ? p2(sep[4]) + (sep[5] || '00') : ''}`;
+    }
     const d = digitsOf(txt); if (d.length < 8) return txt.trim();
     const t = d.slice(8, 12), day = normDate(d.slice(0, 8)), [y, m, dd] = day.split('-').map(Number), x = new Date(Date.UTC(y, m - 1, dd));
     if (!(y >= 1000 && y <= 3000 && x.getUTCMonth() === m - 1 && x.getUTCDate() === dd)) return txt.trim();   // 2026-13-40 or 31 February: refused, not rolled over
@@ -1312,12 +1318,23 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const timePat = (d, top = 23) => (d.length >= 2 && d.length < 4 && +d.slice(0, 2) > top) ? 'd:dd' : 'dd:dd';   // three digits: 905 reads 9:05 (130 reads 1:30 in 12-hour); four are always hh:mm, so 2510 stays 25:10 and is refused
   const PATTERNS = { date: datePat, time: timePat, stamp: d => datePat(d.slice(0, 8)) + ' ' + timePat(d.slice(8)) };
   function liveFormat(el, kind) {
-    el.addEventListener('input', () => {
+    /* the caret stays where the hand put it: a digit changed in the middle is changed in place, and the separators
+       re-form around it. backspace over a separator deletes the digit before it */
+    let prev = el.value;
+    el.addEventListener('focus', () => { prev = el.value; });
+    el.addEventListener('input', e => {
       if (kind === 'time' && $('birth-ampm') && el.id === 'birth-time') { const ap = ampmOf(el.value); if (ap) $('birth-ampm').value = ap; }   // "pm" typed moves into the chooser
       const twelve = kind === 'time' && el.id === 'birth-time' && $('birth-ampm') && $('birth-ampm').value !== '24';
-      const digits = digitsOf(el.value), pattern = twelve ? timePat(digits, 12) : PATTERNS[kind](digits); let out = '', k = 0;
+      const v = el.value, pos = el.selectionStart == null ? v.length : el.selectionStart;
+      if (pos < v.length) { prev = v; return; }              // an edit inside the line is left exactly as typed; the separators form only at the end
+      let digits = digitsOf(v), before = digitsOf(v.slice(0, pos)).length;
+      if (e.inputType === 'deleteContentBackward' && digits === digitsOf(prev) && before > 0) { digits = digits.slice(0, before - 1) + digits.slice(before); before--; }
+      const pattern = twelve ? timePat(digits, 12) : PATTERNS[kind](digits); let out = '', k = 0;
       for (const ch of pattern) { if (k >= digits.length) break; if (ch === 'd') out += digits[k++]; else out += ch; }
-      if (out !== el.value) { el.value = out; try { el.setSelectionRange(out.length, out.length); } catch (e) { /* number keyboards */ } }
+      let c = 0; for (let n = 0; c < out.length && n < before; c++) if (/\d/.test(out[c])) n++;
+      if (out !== v) el.value = out;
+      if (out !== v || c !== pos) { try { el.setSelectionRange(c, c); } catch (err) { /* number keyboards */ } }
+      prev = out;
     });
   }
   function fromStamp(txt, tz) {
