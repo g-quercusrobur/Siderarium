@@ -524,7 +524,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       L.push(`- ${T.mission}: ${T.north} ${lonTxt(k.north.lon)}${hs(k.north.house)} · ${Lt(k.north.letter)} · ${M(k.north.card)} · ${T.psalm} ${k.north.psalm}`);
       L.push(`- ${T.engine}: ${P(k.engine.planet)}, ${i.t('ui.rep.rulerOf')} ${i.sign(k.north.sign)}, ${i.t('ui.rep.inSign')} ${i.sign(k.engine.sign)}${hs(k.engine.house)} · ${Lt(k.engine.letter)} · ${M(k.engine.card)} · ${T.psalm} ${k.engine.psalm}${k.engine.doubled ? ' · ' + T.doubled : ''}`);
       for (const c of k.conj) L.push(`- ${T.conj}: ${P(c.planet)} ${A('conjunction')} ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${M(c.card)}`);
-      for (const t of k.threshold) L.push(`- ${T.threshold}: ${t.node === 'north' ? T.north : T.south} → ${i.sign(t.sign)} · ${Lt(t.letter)} · ${M(t.card)}`);
+      for (const t of k.threshold) L.push(`- ${T.threshold}: ${t.node === 'north' ? T.north : T.south} ${SD.tikkun.near(t)} · ${Lt(t.letter)} · ${M(t.card)}`);
       L.push(`- ${T.mission}, ${i.t('ui.rep.inWords')}: ${T.long[k.north.sign]}${k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : ''}`);
       L.push(`- ${T.road}: ${k.placements.map(p => `${M(p.card)}${p.count > 1 ? ' ×' + p.count : ''} (${p.keys.map(nm).join(', ')})${p.tikkun ? ' ★' : ''}`).join(' · ')}`);
       L.push(`- ${T.aspects}: ${k.aspects.map(a => `${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} ${a.orb.toFixed(1)}° → ${SD.tikkun.cardOf(a)}${a.path ? ` (${Lt(a.letter)})` : ''}, ${T[a.quality]}${a.weak ? ', ' + T.weak : ''}`).join(' · ')}`);
@@ -771,7 +771,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       row(T.mission, `${T.north} ${dm(k.north.lon)}${hs(k.north.house)}`, k.north.letter, k.north.card),
       row(T.engine, `${P(k.engine.planet)} ${i.sign(k.engine.sign)}${hs(k.engine.house)}`, k.engine.letter, k.engine.card, k.engine.doubled ? ` · ${T.doubled}` : ''),
       ...k.conj.map(c => `<tr><td>${T.conj}</td><td colspan="2">${P(c.planet)} ${A('conjunction')} ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${M(c.card)}</td></tr>`),
-      ...k.threshold.map(t => `<tr><td>${T.threshold}</td><td colspan="2">${t.node === 'north' ? T.north : T.south} → ${i.sign(t.sign)} · ${L(t.letter)} · ${M(t.card)}</td></tr>`)
+      ...k.threshold.map(t => `<tr><td>${T.threshold}</td><td colspan="2">${t.node === 'north' ? T.north : T.south} ${SD.tikkun.near(t)} · ${L(t.letter)} · ${M(t.card)}</td></tr>`)
     ].join('');
     const nm = x => x === 'ascendant' ? 'ASC' : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
     const road = k.placements.map(p => `${M(p.card)}${p.count > 1 ? ' ×' + p.count : ''} (${p.keys.map(nm).join(', ')})`).join(' · ');
