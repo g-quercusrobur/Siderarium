@@ -127,6 +127,7 @@
         const Bs = pairCache.state, tr = SD.engine.computeTransits(A, Bs).filter(x => x.power > 0.04);
         S.state = { ...A, natalView: true, natal: Bs, transits: tr, pair: { a: S.natal.name || '', b: Bc.name || '' } };
         S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
+        S.state.attraction = SD.engine.desireOf(tr);        // the pull between two bodies: Venus and Mars across the charts, and their kin
         S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
         S.state.configs = { ...A.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
         S.state.ownFigures = { a: A.configs.primary, b: Bs.configs.primary };   // each chart's own ruling figure, for the common sigil
@@ -541,7 +542,7 @@
     const inter = st.interaction;
     const interSentence = f => f.name === 'setOff' ? `${P(f.t)} ${R('setsOff')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}` : `${P(f.t)} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}`;
     const interRows = inter ? (inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${i.cap1(R(f.tone))}</td><td colspan="2">${interSentence(f)}</td></tr><tr class="sub"><td></td><td colspan="2">${P(f.t)} ${A(f.x.aspect)} ${P(f.a)} ${f.x.orb.toFixed(1)}° · ${P(f.t)} ${A(f.y.aspect)} ${P(f.b)} ${f.y.orb.toFixed(1)}° · ${f.power.toFixed(2)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`) : '';
-    const verdict = inter ? `<p class="verdict">${i.cap1(R('harmony'))} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)} · ${R(inter.verdict)}</p>` : '';
+    const verdict = inter ? `<p class="verdict state-${inter.grade}">${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
     const tz = st.loc.tz || 'UTC';
     const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
     const dec = b => `${i.decanOrd(b.decan.decan)} ${i.t('cap.decanOf')} ${i.sign(b.sign)} · ${P(b.decan.ruler)}`;
@@ -592,7 +593,8 @@
     const figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} · {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
     const of = st.ownFigures || {};
     const inter = st.interaction;
-    const verdict = inter ? `<p class="verdict state-${st.title.state}">${i.cap1(R(inter.verdict))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
+    const des = st.attraction, desTxt = des && des.grade ? ` · ${i.t('ui.desire.' + des.grade)} ${des.value.toFixed(2)}` : '';
+    const verdict = inter ? `<p class="verdict state-${inter.grade}">${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}${desTxt}</p>` : '';
     const contact = x => `${own(pr.a, P(x.a))} ${A(x.aspect)} ${own(pr.b, C.PLANETS[x.b] ? P(x.b) : x.b === 'ascendant' ? 'ASC' : 'MC')}`;
     const contacts = st.transits.slice(0, 12).map(x => `<tr><td>${contact(x)}</td><td class="nw">${x.orb.toFixed(2)}°</td><td class="nw">${x.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`;
     const sentence = f => f.name === 'setOff' ? `${own(pr.a, P(f.t))} ${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${own(pr.a, P(f.t))} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`;

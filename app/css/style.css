@@ -54,6 +54,8 @@ body {
 .corner-speaker:not(.on) svg .x { display: initial; }
 .corner-speaker:not(.on) svg .w1, .corner-speaker:not(.on) svg .w2 { display: none; }   /* sound off: one bar struck through the whole speaker */
 .corner-speaker:not(.on) { color: var(--ink-3); }
+/* the grades of two skies, deep strife to deep harmony: hot to cold */
+.state-deepStrife, body.small #caption .h1.state-deepStrife { color: #ff3b1a; } .state-strife, body.small #caption .h1.state-strife { color: #ff5a2a; } .state-tension, body.small #caption .h1.state-tension { color: #e8894a; } .state-balanced, body.small #caption .h1.state-balanced { color: #e3b341; } .state-ease, body.small #caption .h1.state-ease { color: #b9cf6e; } .state-harmony, body.small #caption .h1.state-harmony { color: #6fcf8e; } .state-deepHarmony, body.small #caption .h1.state-deepHarmony { color: #7fa4e0; } .state-quiet, body.small #caption .h1.state-quiet { color: var(--ink-2); }
 .state-work, body.small #caption .h1.state-work { color: #6fcf8e; } .state-watch, body.small #caption .h1.state-watch { color: #e3b341; } .state-shelter, body.small #caption .h1.state-shelter { color: #ff5a2a; }   /* the one coloured text */
 .sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(360px, 100vw); z-index: 12; background: var(--void); border-left: 1px solid var(--ink-3);
   overflow-y: auto; padding: 0 20px max(32px, env(safe-area-inset-bottom, 0px)); box-shadow: -24px 0 48px rgba(0, 0, 0, 0.45); }
