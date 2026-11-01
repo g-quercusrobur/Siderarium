@@ -377,4 +377,4 @@ Top left: update. Bottom left: sigil. Bottom right: sound. The sigil and sound b
 
 ## Birth time: 24-hour or am / pm
 The birth time accepts both notations. A chooser beside the field reads 24 h, am or pm (a. m., p. m. in Spanish); "am", "pm", "a.m.", "p" typed into the field move into the chooser, so it works on numeric phone keyboards and full ones alike. Switching the chooser converts the time already typed (16:30 ⇄ 4:30 pm). 12 am is midnight, 12 pm noon. Three digits read h:mm (905 → 9:05; in 12-hour, 130 → 1:30); four are always hh:mm, so an impossible time (25:10, 13:00 pm) is refused with a message instead of being reshaped into another time, as the old formatter did (2510 had become 2:51). The chart is always stored in 24-hour time.
-
+- **The third category is attraction, never 'pleasure'**: adults read "attraction", family readings and the age rule "affection". Its scale words are chemistry (química) and warmth (calidez), with "strong" forms, so the label and the word differ. The Golden Dawn titles (Lord of Pleasure) and the traditional meanings of Venus and the fifth house keep their word.
