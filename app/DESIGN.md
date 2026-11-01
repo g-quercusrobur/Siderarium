@@ -396,3 +396,14 @@ The birth time accepts both notations. A chooser beside the field reads 24 h, am
 - Files are named `siderarium-<view>-<who or where>-<yyyymmdd>[-extra].png`.
 - Every exported image says "for entertainment" in its notice line, and the About sheet carries the entertainment statement plus links to the terms, privacy and credits pages.
 - Site changes: the FAQ was rewritten as 14 questions (the FAQPage schema is generated from the same list), and terms.html and credits.html were added (credits holds the full MIT notice for Astronomy Engine, plus GeoNames CC BY 4.0 and Geist OFL). The privacy page now covers sharing, backups and third-party birth data.
+
+## The harmonic rose (the Synastry dial)
+
+The pair's dial has no planets. Overlaid, two charts were noise, and the reading lives in the contacts, so each contact is drawn as a curve instead.
+
+- **Harmonic per aspect, after John Addey:** conjunction 1, opposition 2, trine 3, square 4, sextile 6, quincunx 12. Each contact is a raised-cosine petal curve, `((1 + cos n(θ − θA)) / 2)^(1.5 + 0.75n)`. It is turned to the first chart's point θA, so its petals also reach the second chart's point. The exponent sharpens the petals as the harmonic rises.
+- **Two summed layers:** one for harmony (each contact's `h`) and one for strife (its `s`), normalised to the strongest direction of the two together. The radius is `R0 + (R1 − R0)·√v`, so area grows with weight. Harmony is blue `#7fa4e0` and strife red `#ff5a2a`, blended with screen over a dark veil. Beneath them run up to 18 single contacts, faint, in the blend of their two signs' colours.
+- **Dropped in pair mode:** the bodies, the second chart's ring, the contact lines, the composite figure, the stations, the planet optics and the planet notches on the zodiac ring. The houses, the zodiac, the field and the guardians at the pole stay.
+- **Sigil:** the two outlines in ink, with strife as the lighter line.
+- **Reading:** a "the rose" section gives the leading symmetries and their share of the weight, for example "three-fold, from trines (35%)". It also appears in the copied report and has a glossary entry. The composite chart is still read in the text but no longer drawn.
+- The Lissajous runner-up was previewed (curves of the two chord roots in just intonation) and not adopted. It reduces a pair to one interval of twelve, and the many pairs whose chords share a root would all get the same ellipse.

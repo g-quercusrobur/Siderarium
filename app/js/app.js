@@ -735,6 +735,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <tr><td>${i.cap1(R('figure'))}</td><td>${figOf(of.a)}</td><td>${figOf(of.b)}</td></tr>
       <tr><td>${i.cap1(R('sect'))}</td><td>${a.sect === 'day' ? R('day') : R('night')}</td><td>${b.sect === 'day' ? R('day') : R('night')}</td></tr></table>
       ${relSel}
+      ${roseHtml(st)}
       <h3>${H('ties')}</h3>${tiesHtml(st)}
       <p class="dim">${i.cap1(R(Y && !Y.age.sexual ? 'tiesNoteFamily' : 'tiesNote'))}</p>
       ${act ? `<h3>${H('active')}</h3>${act}` : ''}
@@ -744,6 +745,16 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <h3>${H('contacts')}</h3><table>${contacts}</table>
       <h3>${H('between')}</h3><table>${figures}</table>
       <p class="dim">${i.cap1(R('pairNote'))}</p>`;
+  }
+  /* the rose in words: its leading symmetries and their share of the weight */
+  function roseLine(st) {
+    const i = SD.i18n, R = k => i.t('ui.r.' + k), rs = SD.render.roseSummary(st); if (!rs) return '';
+    const top = rs.folds.filter((f, k) => k === 0 || f.share >= 0.15).slice(0, 2).map(f => `${R('fold')[f.n]} (${Math.round(100 * f.share)}%)`);
+    return i.t('ui.r.roseIs')(rs.n, top.join(i.locale().startsWith('es') ? ' y ' : ' and '));
+  }
+  function roseHtml(st) {
+    const i = SD.i18n, line = roseLine(st); if (!line) return '';
+    return `<h3>${i.cap1(i.t('ui.h.rose'))}</h3><p>${i.cap1(line)}.</p><p class="dim">${i.cap1(i.t('ui.r.roseNote'))}</p>`;
   }
   /* a contact between the two charts in words, whichever way it runs */
   function contactWords(x, pr) {
@@ -815,6 +826,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (Y.overlays) { L.push(`## ${i.cap1(i.t('ui.h.overlays'))}`); for (const o of Y.overlays) L.push(`- ${i.t('cap.own')(o.who === 'a' ? pr.a : pr.b, P(o.planet))} ${i.t('cap.inHouseOf')(o.who === 'a' ? pr.b : pr.a, i.roman(o.house))}${o.unseen ? ' · ' + i.t('ui.r.unseen') : ''}`); L.push(''); }
       if ((st.synActive || []).length) { L.push(`## ${i.cap1(i.t('ui.h.active'))}`); for (const x of st.synActive) L.push('- ' + plain(activeLine(x, st)).replace(/\s+/g, ' ')); L.push(''); }
     }
+    { const rl = roseLine(st); if (rl) L.push(`## ${i.cap1(i.t('ui.h.rose'))}`, i.cap1(rl) + '.', ''); }
     const c = st.composite;
     if (c) {
       L.push(`## ${i.cap1(i.t('ui.h.composite'))}`);
