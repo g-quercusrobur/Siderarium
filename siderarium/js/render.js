@@ -1445,7 +1445,8 @@
     const i = I(), tr = state.transits, inter = state.interaction, info = state.transitInfo || { spans: {}, houses: {} };
     const pr = state.pair, P = k => i.planet(k), A = k => i.aspect(k);
     const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : 'MC';
-    const own = (k, who) => pr ? i.t('cap.own')(who, pt(k)) : (C.PLANETS[k] ? `${i.t('cap.your')} ${P(k)}` : `${i.t('cap.your')} ${pt(k)}`);
+    const chartName = info.name || '';                    // the chart's own name: the app never assumes whose chart it is
+    const own = (k, who) => pr ? i.t('cap.own')(who, pt(k)) : chartName ? i.t('cap.own')(chartName, pt(k)) : `${pt(k)} ${i.t('cap.natalOf')}`;
     const nat = k => own(k, pr && pr.b), mine = k => pr ? i.t('cap.own')(pr.a, P(k)) : P(k);
     const when = a => { const sp = info.spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return ''; if (sp.exact) { const past = sp.exact.getTime() < state.date.getTime() - 3600e3; return ` · ${i.t(past ? 'cap.wasExact' : 'cap.exact')} ${fmtShort(sp.exact, state.loc)}`; } return sp.leave ? ` · ${i.t('cap.untilOrb')} ${fmtShort(sp.leave, state.loc)}` : ''; };
     const line = a => `${mine(a.a)} ${A(a.aspect)} ${nat(a.b)}`;
@@ -1453,7 +1454,7 @@
     const grade = inter ? inter.grade : 'quiet', stateKey = grade;   // seven steps from deep strife to deep harmony, each its own colour
     const fig = inter && inter.figures[0];
     const figTxt = fig ? (fig.name === 'setOff' ? `${mine(fig.t)} ${i.t('ui.r.setsOff')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}` : `${mine(fig.t)} ${i.t('ui.r.closes')} ${i.t('ui.r.fig.' + fig.name)} ${i.t('ui.r.with')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}`) : '';
-    const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => pr ? i.t('cap.houseOf')(P(k), pr.b, i.roman(h), pr.a) : `${P(k)} ${i.t('cap.inYourHouse')} ${i.roman(h)}`).join(' · ');
+    const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => pr ? i.t('cap.houseOf')(P(k), pr.b, i.roman(h), pr.a) : `${P(k)} ${i.t('cap.inHouseOf')(chartName, i.roman(h))}`).join(' · ');
     const soft = a => a.aspect === 'trine' || a.aspect === 'sextile', hardish = a => a.aspect === 'square' || a.aspect === 'opposition' || (a.aspect === 'conjunction' && ['mars', 'saturn', 'pluto'].some(m => m === a.a || m === a.b));
     const topH = tr.find(soft), topS = tr.find(hardish);
     const bare = a => pr ? line(a) : short(a);           // the band of a pair has no room for orbs: the reading has them
@@ -1572,9 +1573,8 @@
         for (const tx of g.ticks) { const hgt = (tx === 0.5 ? 7 : 4) * k; ctx.beginPath(); ctx.moveTo(X(tx), yline - hgt); ctx.lineTo(X(tx), yline + hgt); ctx.stroke(); }
         ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(X(g.pos), yline, 7.5 * k, 0, TAU); ctx.fill();
         ctx.fillStyle = g.color; ctx.beginPath(); ctx.arc(X(g.pos), yline, 5.5 * k, 0, TAU); ctx.fill();
-        ctx.font = `500 ${Math.round(17 * k)}px ${SANS}`; const ww = ctx.measureText(g.word).width;
-        const wx = Math.max(x0, Math.min(x0 + gw - ww, X(g.pos) - ww / 2));   // the word under the dot, kept inside its scale
-        ctx.fillStyle = g.color; ctx.fillText(g.word, wx, yw);
+        ctx.font = `500 ${Math.round(17 * k)}px ${SANS}`; const ff = fit(g.word, gw, 0.7);   // centred under its own scale, never into the next
+        ctx.textAlign = 'center'; ctx.fillStyle = g.color; ctx.fillText(g.word, x0 + gw / 2, yw); ctx.font = ff; ctx.textAlign = 'left';
       });
     } else {
     // 4 · the reason: the sky and the Moon
