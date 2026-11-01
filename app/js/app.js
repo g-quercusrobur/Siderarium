@@ -435,7 +435,13 @@ No preamble. Open with the one fact that governs the chart: usually the chart ru
 5. VOCATION: MC sign, its ruler's placement, aspects to MC, 10th house planets.
 6. MONEY: 2nd house sign, its ruler's placement, planets inside. End with one line: the income model that actually works.
 7. THE CRITICAL ASPECT: the tightest hard aspect. How the two planets misfire together, concrete risk zones, 2-3 literal operating rules.
-8. OCCULT LAYER, only if present: Pluto, Neptune, Uranus, 8th and 12th houses. 8th = eros, shared resources, inheritance, power, depth-work; not death and crisis.`;
+8. OCCULT LAYER, only if present: Pluto, Neptune, Uranus, 8th and 12th houses. 8th = eros, shared resources, inheritance, power, depth-work; not death and crisis.
+9. OVERVIEW: element and modality balance and what it means in behaviour. Close with the current transits to the angles and nodes (given in the data).
+10. TAROT, Golden Dawn: Majors for signs and planets, Minors for decans (decan card with its title). Cover Sun, Moon, Ascendant, chart ruler, MC, Saturn, the critical aspect, the nodes. End with one single card for the whole nativity.
+Sections 1-8 each end with two italic lines:
+*Vibrazione bassa:* how the configuration misfires.
+*Vibrazione alta:* how to raise it; concrete and operational, not inspirational.
+Style: discursive prose, dense and exact. Explain each technical term once, briefly, for a first-time reader. State orbs. No confidence tags, no hedging, no "may suggest": commit to readings. Don't flatter the chart. End flat, no uplifting closer. Reply in the language the user writes in; with no other text, in the language of this report.`;
   /* the mean lunar node (Meeus 47.7): the nodes are not among the bodies, and the spec reads them */
   function meanNode(date) {
     const T = (date.getTime() / 864e5 + 2440587.5 - 2451545) / 36525;
@@ -494,7 +500,22 @@ No preamble. Open with the one fact that governs the chart: usually the chart ru
     L.push(`- ${R('dayRuler')}: ${P(h.dayRuler)} · ${R('angel')} ${i.name(h.dayAngel)}`);
     L.push(`- ${R('hourRuler')}: ${P(h.hourRuler)} · ${R('angel')} ${i.name(h.angel)} · ${R('hourIndex')} ${h.index + 1} ${h.isDay ? R('ofDay') : R('ofNight')}${h.polar ? ' · ' + R('polar') : ''}`, '');
     L.push(`## ${R('elements')}`);
-    L.push(Object.entries(st.elements.shares).map(([k, v]) => `${i.t('elements.' + k) === 'elements.' + k ? k : i.t('elements.' + k)} ${Math.round(v * 100)}%`).join(' · '), '');
+    L.push(Object.entries(st.elements.shares).map(([k, v]) => `${i.t('ui.el.' + k)} ${Math.round(v * 100)}%`).join(' · '));
+    { const W = { sun: 3, moon: 3, mercury: 1.5, venus: 1.5, mars: 1.5, jupiter: 1, saturn: 1, uranus: 0.4, neptune: 0.4, pluto: 0.4 }, m = { cardinal: 0, fixed: 0, mutable: 0 };   // the same weights as the elements
+      for (const k in W) m[C.SIGNS[st.bodies[k].sign].mode] += W[k];
+      m[C.SIGNS[Math.floor(st.asc / 30)].mode] += 2.5; m[C.SIGNS[Math.floor(st.mc / 30)].mode] += 1;
+      const tot = m.cardinal + m.fixed + m.mutable;
+      L.push(`${R('modalities')}: ${['cardinal', 'fixed', 'mutable'].map(k => `${R(k)} ${Math.round(m[k] / tot * 100)}%`).join(' · ')} (${R('weights')})`, ''); }
+    /* the Golden Dawn's cards for the points the spec reads: the sign's Major, the planet's Major, the decan's Minor with its title */
+    { const ruler = k => Object.keys(C.DOMICILE).find(p => C.CHALDEAN.includes(p) && C.DOMICILE[p].includes(C.SIGNS[Math.floor(k / 30)].key));
+      const rk = ruler(st.asc), nn = meanNode(new Date(n.date)), rows = [['sun', st.bodies.sun.lon], ['moon', st.bodies.moon.lon], ['ascendant', st.asc], [rk, st.bodies[rk].lon, R('chartRuler')], ['midheaven', st.mc], ['saturn', st.bodies.saturn.lon], ['northNode', nn], ['southNode', SD.engine.norm360(nn + 180)]];
+      L.push(`## ${R('tarot')}`);
+      L.push(`| ${R('point')} | ${R('position')} | ${R('signCard')} | ${R('planetCard')} | ${R('decanCard')} |`, '|---|---|---|---|---|');
+      for (const [k, lon, tag] of rows) {
+        const sg = Math.floor(lon / 30), d = C.decanOf(lon), name = C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : R(k);
+        L.push(`| ${name}${tag ? ' (' + tag + ')' : ''} | ${lonTxt(lon)} | ${i.trumpSign(sg)} | ${C.PLANETS[k] && i.trumpPlanet(k) ? i.trumpPlanet(k) : '—'} | ${i.card(d)} · ${i.title(d)} |`);
+      }
+      L.push(''); }
     L.push(`## ${R('layers')}`);
     const pr = st.configs.primary;
     if (pr) L.push(`- ${R('figure')}: ${P(pr.a)} ${A(pr.aspect)} ${P(pr.b)} · {${pr.n}/${pr.k}} · ${R('orb')} ${pr.orb.toFixed(2)}°${st.configs.cut ? ` · ${R('cut')} ${P(st.configs.cut.by)}` : ''}`);
@@ -502,9 +523,16 @@ No preamble. Open with the one fact that governs the chart: usually the chart ru
     L.push(`- ${R('windows')}: ${Object.entries(st.windows).map(([k, v]) => `${i.window(k)} ${v.toFixed(2)}`).join(' · ')}`);
     L.push(`- ${R('titleOf')}: ${i.state(st.title.state)} · ${i.house12(st.title.house)} · ${i.window(st.title.mode)}`);
     L.push(`- ${R('veil')}: ${st.veil.v.toFixed(2)}${st.veil.factors.length ? ' · ' + st.veil.factors.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}`, '');
-    if (S.state) {                                          // the sky of now against this chart
-      const tr = SD.engine.computeTransits(S.state, st).filter(x => x.power > 0.04), inter = SD.engine.computeInteractions(S.state, st, tr);
-      L.push(`## ${R('transits')} · ${placeStamp(S.state.date)} ${S.place.tz}`);
+    {                                                       // the sky of now against this chart: the real now, whatever the dial shows
+      const nowSt = SD.engine.compute(new Date(), S.place, { light: true, houses: S.houses });
+      const tr = SD.engine.computeTransits(nowSt, st).filter(x => x.power > 0.04), inter = SD.engine.computeInteractions(nowSt, st, tr);
+      const nn = meanNode(new Date(n.date)), pts = [['ascendant', st.asc], ['midheaven', st.mc], ['northNode', nn], ['southNode', SD.engine.norm360(nn + 180)]];
+      const asp = [[0, 'conjunction', 3], [180, 'opposition', 3], [90, 'square', 3], [120, 'trine', 2.5], [60, 'sextile', 2]], hits = [];
+      for (const k of C.ORDER) { if (k === 'moon') continue;     // the Moon crosses every point monthly: left out
+        for (const [pk, plon] of pts) { const d = SD.engine.sep(nowSt.bodies[k].lon, plon), a = asp.find(([deg, , o]) => Math.abs(d - deg) <= o); if (a) hits.push(`- ${P(k)} ${A(a[1])} ${R('natal')} ${pk === 'ascendant' ? 'ASC' : pk === 'midheaven' ? 'MC' : R(pk)} · ${Math.abs(d - a[0]).toFixed(2)}°${nowSt.bodies[k].retro ? ' · ' + R('retrograde') : ''}`); } }
+      L.push(`## ${R('anglesNodes')} · ${placeStamp(nowSt.date)} ${S.place.tz}`);
+      L.push(...(hits.length ? hits : [`- ${R('noneInOrb')}`]), '');
+      L.push(`## ${R('transits')} · ${placeStamp(nowSt.date)} ${S.place.tz}`);
       L.push(`- ${R('verdict')}: ${i.t('ui.r.' + inter.verdict) === 'ui.r.' + inter.verdict ? inter.verdict : i.t('ui.r.' + inter.verdict)} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}`);
       for (const a of tr.slice(0, 14)) L.push(`- ${P(a.a)} ${A(a.aspect)} ${R('natal')} ${C.PLANETS[a.b] ? P(a.b) : a.b === 'ascendant' ? 'ASC' : 'MC'} · ${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')} · ${a.power.toFixed(2)}`);
       L.push('');
