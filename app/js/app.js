@@ -129,6 +129,7 @@
         S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
         S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
         S.state.configs = { ...A.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
+        S.state.ownFigures = { a: A.configs.primary, b: Bs.configs.primary };   // each chart's own ruling figure, for the common sigil
       } else { S.state = { ...A, natalView: true, pairMissing: true }; }
     }
     if (S.mode === 'synastry' && S.natal) {                 // the sky of now against the nativity: the figure is the strongest transit
