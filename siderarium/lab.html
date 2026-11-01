@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex">
+<title>Siderarium · mandala preview</title>
+<link rel="icon" type="image/png" href="icons/siderarium-192.png">
+<style>
+  @font-face { font-family: Geist; font-weight: 400; font-display: swap; src: url("fonts/Geist-Regular.woff2") format("woff2"); }
+  @font-face { font-family: Geist; font-weight: 500; font-display: swap; src: url("fonts/Geist-Medium.woff2") format("woff2"); }
+  @font-face { font-family: "Geist Mono"; font-weight: 400; font-display: swap; src: url("fonts/GeistMono-Regular.woff2") format("woff2"); }
+  :root { --ink: #ebe7dc; --ink-2: rgba(235, 231, 220, 0.76); --ink-3: rgba(235, 231, 220, 0.52); --sans: Geist, "Helvetica Neue", Arial, sans-serif; --mono: "Geist Mono", ui-monospace, Menlo, monospace; color-scheme: dark; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font-family: var(--sans); -webkit-text-size-adjust: 100%; }
+  html, body { height: auto; min-height: 100%; background: #000; }
+  body { overflow-x: hidden; overflow-y: auto; }
+  .lab { max-width: 1240px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 64px; display: grid; gap: 20px; }
+  .lab header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .lab h1 { font: 500 15px/1.2 var(--sans); letter-spacing: 0.18em; text-transform: uppercase; margin: 0; }
+  .lab h1 small { display: block; font: 400 12px/1.4 var(--mono); letter-spacing: 0; text-transform: none; color: var(--ink-3); margin-top: 4px; }
+  .lab a.back { color: var(--ink-2); font: 400 14px var(--sans); text-decoration: none; border: 1px solid var(--ink-3); border-radius: 8px; padding: 8px 12px; }
+  .pick { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 10px; align-items: center; }
+  .pick select { width: 100%; min-width: 0; background: #0b0b0b; color: var(--ink); border: 1px solid var(--ink-3); border-radius: 8px; padding: 10px; font: 400 15px var(--sans); }
+  .pick .x { color: var(--ink-3); font: 400 15px var(--sans); }
+  .pick button { background: none; color: var(--ink); border: 1px solid var(--ink-3); border-radius: 8px; padding: 10px 12px; font: 400 14px var(--sans); white-space: nowrap; }
+  .pick button.on { border-color: var(--ink); }
+  .note { color: var(--ink-3); font: 400 12px/1.5 var(--mono); margin: 0; }
+  .panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  .panel { display: grid; gap: 10px; align-content: start; }
+  .panel canvas { width: 100%; aspect-ratio: 1; display: block; }
+  .panel h2 { font: 500 13px/1.2 var(--sans); letter-spacing: 0.14em; text-transform: uppercase; margin: 0; color: var(--ink); }
+  .panel h2 span { color: var(--ink-3); letter-spacing: 0.04em; text-transform: none; font-weight: 400; }
+  .panel p { margin: 0; color: var(--ink-2); font: 400 14px/1.5 var(--sans); }
+  .panel p b { color: var(--ink); font-weight: 500; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--ink-3); font: 400 12px var(--mono); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  @media (max-width: 860px) {
+    .panels { grid-template-columns: 1fr; }
+    .pick { grid-template-columns: 1fr auto 1fr; }
+    .pick button { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<main class="lab">
+  <header>
+    <h1>Mandala preview<small>synastry without planets · not part of the app yet</small></h1>
+    <a class="back" href="./">Back</a>
+  </header>
+  <div class="pick">
+    <select id="a" aria-label="first chart"></select><span class="x">×</span><select id="b" aria-label="second chart"></select>
+    <button id="play" aria-pressed="false">Hear the interval</button>
+  </div>
+  <p class="note" id="src"></p>
+  <section class="panels">
+    <div class="panel">
+      <h2>1 · Harmonic rose <span>recommended</span></h2>
+      <canvas id="rose" width="1080" height="1080"></canvas>
+      <div class="legend"><span><i style="background:#7fa4e0"></i>harmony</span><span><i style="background:#ff5a2a"></i>strife</span><span><i style="background:#b8b2a4"></i>each contact</span></div>
+      <p id="rose-t"></p>
+    </div>
+    <div class="panel">
+      <h2>2 · Lissajous <span>runner-up</span></h2>
+      <canvas id="liss" width="1080" height="1080"></canvas>
+      <p id="liss-t"></p>
+    </div>
+    <div class="panel">
+      <h2>3 · Both <span>rose as dial, Lissajous as sigil</span></h2>
+      <canvas id="both" width="1080" height="1080"></canvas>
+      <p>The rose fills the dial and the interval curve sits at its centre, where the sigil sits now. The picture reads the contacts and the sound draws the curve.</p>
+    </div>
+  </section>
+</main>
+<script src="js/vendor/astronomy.browser.min.js"></script>
+<script src="js/color.js"></script>
+<script src="js/correspondences.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/tikkun.js"></script>
+<script src="js/synastry.js"></script>
+<script>
+(function () {
+  const SD = window.SD, E = SD.engine, C = SD.corr, K = SD.color;
+  const get = (k, d) => { try { const v = localStorage.getItem('cw.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+  const houses = get('houses', 'regiomontanus');
+  /* the charts saved on this device; two invented ones when fewer than two are saved */
+  let charts = (get('charts', []) || []).filter(c => c && c.date && c.place);
+  const natal = get('natal', null);
+  if (natal && natal.date && natal.place && !charts.some(c => c.id === natal.id)) charts.unshift(natal);
+  const sample = charts.length < 2;
+  if (sample) charts = [
+    { id: 's1', name: 'Sample A', date: '1984-03-12T08:20:00Z', place: { name: 'Milan', lat: 45.464, lon: 9.19, tz: 'Europe/Rome' } },
+    { id: 's2', name: 'Sample B', date: '1987-11-02T21:45:00Z', place: { name: 'Madrid', lat: 40.417, lon: -3.704, tz: 'Europe/Madrid' } },
+    { id: 's3', name: 'Sample C', date: '1979-07-23T15:05:00Z', place: { name: 'Lisbon', lat: 38.722, lon: -9.139, tz: 'Europe/Lisbon' } }];
+  document.getElementById('src').textContent = sample
+    ? 'No saved charts found in this app, so these are three invented charts. Open this page from the app menu to use your own.'
+    : `${charts.length} charts saved on this device. Nothing leaves it.`;
+  const selA = document.getElementById('a'), selB = document.getElementById('b');
+  const opt = c => `<option value="${String(c.id).replace(/"/g, '')}">${(c.name || 'unnamed').replace(/[<&]/g, '')}</option>`;
+  selA.innerHTML = selB.innerHTML = charts.map(opt).join('');
+  const qp = new URLSearchParams(location.search);
+  selA.value = qp.get('a') || charts[0].id; selB.value = qp.get('b') || charts[1].id;
+
+  const cache = new Map();
+  const stateOf = c => { const k = c.id + c.date; if (!cache.has(k)) cache.set(k, E.compute(new Date(c.date), c.place, { houses })); return cache.get(k); };
+  const HARM = { conjunction: 1, opposition: 2, trine: 3, square: 4, sextile: 6, quincunx: 12 };
+  const HARM_WORD = { 1: 'one-fold (conjunctions)', 2: 'two-fold (oppositions)', 3: 'three-fold (trines)', 4: 'four-fold (squares)', 6: 'six-fold (sextiles)', 12: 'twelve-fold (quincunxes)' };
+  const NOTE = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  /* just intonation for the twelve intervals: the ratio is the figure */
+  const RATIO = [[1, 1, 'unison'], [16, 15, 'minor second'], [9, 8, 'major second'], [6, 5, 'minor third'], [5, 4, 'major third'], [4, 3, 'fourth'],
+    [45, 32, 'tritone'], [3, 2, 'fifth'], [8, 5, 'minor sixth'], [5, 3, 'major sixth'], [9, 5, 'minor seventh'], [15, 8, 'major seventh']];
+  const HARMONY = '#7fa4e0', STRIFE = '#ff5a2a', INK = '#ebe7dc';
+  const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let P = null;
+  function build() {
+    const ca = charts.find(c => c.id == selA.value), cb = charts.find(c => c.id == selB.value);
+    if (!ca || !cb) return;
+    const A = stateOf(ca), B = stateOf(cb);
+    const syn = SD.synastry.of(A, B, { at: new Date(), type: 'other', noTimeA: !!ca.unknownTime, noTimeB: !!cb.unknownTime });
+    const lonA = k => k === 'ascendant' ? A.asc : k === 'midheaven' ? A.mc : A.bodies[k] && A.bodies[k].lon;
+    const lonB = k => k === 'ascendant' ? B.asc : k === 'midheaven' ? B.mc : B.bodies[k] && B.bodies[k].lon;
+    const sCol = lon => Number.isFinite(lon) ? C.SIGNS[Math.floor(((lon % 360) + 360) % 360 / 30)].color : '#b8b2a4';
+    const cs = syn.contacts.filter(c => HARM[c.aspect] && lonA(c.a) != null).map(c => ({ ...c, n: HARM[c.aspect], th: lonA(c.a), col: K.mixLight(sCol(lonA(c.a)), sCol(lonB(c.b)), 0.5) }));
+    const wMax = cs.reduce((t, c) => t + c.w, 0) || 1;
+    const byN = {}; for (const c of cs) byN[c.n] = (byN[c.n] || 0) + c.w;
+    const top = Object.entries(byN).sort((x, y) => y[1] - x[1]).slice(0, 2).map(([n, w]) => `${HARM_WORD[n]} ${Math.round(100 * w / wMax)}%`);
+    const ra = A.chord.root, rb = B.chord.root, iv = ((rb - ra) % 12 + 12) % 12, [p, q, name] = RATIO[iv];
+    P = { A, B, ca, cb, syn, cs, wMax, top, ra, rb, iv, p, q, name, asc: ca.unknownTime ? 0 : A.asc };
+    const h = Math.round(100 * syn.harmony), s = Math.round(100 * syn.strife);
+    document.getElementById('rose-t').innerHTML = `<b>${cs.length} contacts</b> between ${esc(ca.name)} and ${esc(cb.name)}. Each one is a petal curve of its aspect's harmonic, turned to where it falls in the zodiac. Summed, the symmetry is mostly <b>${top.join(', ')}</b>. Harmony ${h}, strife ${s}.`;
+    document.getElementById('liss-t').innerHTML = `${esc(ca.name)}'s chord rests on <b>${NOTE[ra]}</b> and ${esc(cb.name)}'s on <b>${NOTE[rb]}</b>: a <b>${name}</b>, ${p}:${q}. ${p + q <= 7 ? 'Simple ratios close into simple loops.' : p + q <= 13 ? 'A middle ratio draws a woven knot.' : 'A complex ratio tangles into a dense mesh.'}`;
+    history.replaceState(null, '', `?a=${encodeURIComponent(ca.id)}&b=${encodeURIComponent(cb.id)}`);
+    if (audio.on) tone(true);
+  }
+  const esc = t => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+  /* screen angle of a longitude: the first chart's Ascendant on the left, the zodiac counter-clockwise, as on the dial */
+  const ang = lon => Math.PI - (lon - P.asc) * Math.PI / 180;
+
+  function ring(ctx, S, R) {
+    ctx.strokeStyle = 'rgba(235,231,220,0.28)'; ctx.lineWidth = S * 0.0018;
+    ctx.beginPath(); ctx.arc(S / 2, S / 2, R, 0, 2 * Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(S / 2, S / 2, R * 1.075, 0, 2 * Math.PI); ctx.stroke();
+    ctx.font = `${Math.round(S * 0.026)}px Geist, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const GL = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+    for (let i = 0; i < 12; i++) {
+      const a0 = ang(i * 30), am = ang(i * 30 + 15);
+      ctx.beginPath(); ctx.moveTo(S / 2 + Math.cos(a0) * R, S / 2 - Math.sin(a0) * R); ctx.lineTo(S / 2 + Math.cos(a0) * R * 1.075, S / 2 - Math.sin(a0) * R * 1.075); ctx.stroke();
+      ctx.fillStyle = C.SIGNS[i].color; ctx.globalAlpha = 0.85;
+      ctx.fillText(GL[i] + '︎', S / 2 + Math.cos(am) * R * 1.0375, S / 2 - Math.sin(am) * R * 1.0375); ctx.globalAlpha = 1;
+    }
+  }
+  /* one contact's petals: a raised cosine of its harmonic, sharpened so the petals separate */
+  const petal = (n, th, a) => { const x = (1 + Math.cos(n * (a - th))) / 2; return Math.pow(x, 1.5 + n * 0.75); };
+  function rose(ctx, S, R0, R1, t) {
+    const STEPS = 720, breathe = reduced ? 1 : 1 + 0.025 * Math.sin(t * 0.6);
+    const curve = f => { const pts = []; for (let i = 0; i <= STEPS; i++) { const lon = i / STEPS * 360, a = ang(lon), r = R0 + (R1 - R0) * Math.sqrt(Math.max(0, f(lon * Math.PI / 180))) * breathe; pts.push([S / 2 + Math.cos(a) * r, S / 2 - Math.sin(a) * r]); } return pts; };
+    const path = pts => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); };
+    // normalise so the strongest direction reaches the outer radius
+    const sum = (key, lr) => P.cs.reduce((t, c) => t + c[key] * petal(c.n, c.th * Math.PI / 180, lr), 0);
+    let mx = 0; for (let i = 0; i < 360; i++) { const lr = i * Math.PI / 180; mx = Math.max(mx, sum('h', lr) + sum('s', lr)); }
+    mx = mx || 1;
+    // each contact, faint, in the blend of its two signs' colours
+    ctx.lineWidth = S * 0.0014;
+    for (const c of P.cs.slice(0, 18)) {
+      const pts = curve(lr => 0.85 * (c.w / P.cs[0].w) * petal(c.n, c.th * Math.PI / 180, lr));
+      path(pts); ctx.strokeStyle = K.rgba(c.col, 0.22 + 0.5 * c.w / P.cs[0].w); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    for (const [key, col] of [['h', HARMONY], ['s', STRIFE]]) {
+      const pts = curve(lr => sum(key, lr) / mx);
+      path(pts);
+      const g = ctx.createRadialGradient(S / 2, S / 2, R0 * 0.6, S / 2, S / 2, R1);
+      g.addColorStop(0, K.rgba(col, 0.04)); g.addColorStop(1, K.rgba(col, 0.32));
+      ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = K.rgba(col, 0.9); ctx.lineWidth = S * 0.0022; ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function liss(ctx, cx, cy, R, t, alpha = 1) {
+    const phi = reduced ? Math.PI / 4 : t * 0.35, N = 2400, colA = C.SIGNS[P.A.bodies.sun.sign].color, colB = C.SIGNS[P.B.bodies.sun.sign].color;
+    const per = 2 * Math.PI;
+    ctx.lineWidth = Math.max(R * 0.008, 3.5); ctx.lineJoin = 'round';
+    let px, py;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N * per, x = cx + R * Math.sin(P.p * u + phi), y = cy - R * Math.sin(P.q * u);
+      if (i) { ctx.strokeStyle = K.rgba(K.mixLight(colA, colB, (Math.sin(P.p * u + phi) + 1) / 2), 0.85 * alpha); ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke(); }
+      px = x; py = y;
+    }
+  }
+  const cvs = ['rose', 'liss', 'both'].map(id => document.getElementById(id)), ctxs = cvs.map(c => c.getContext('2d'));
+  function draw(ts) {
+    const t = ts / 1000, S = 1080;
+    if (!P) return;
+    // 1. the rose on its zodiac
+    let ctx = ctxs[0]; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
+    ring(ctx, S, S * 0.43); rose(ctx, S, S * 0.07, S * 0.42, t);
+    // 2. the Lissajous of the two roots
+    ctx = ctxs[1]; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = 'rgba(235,231,220,0.18)'; ctx.lineWidth = 2; ctx.strokeRect(S * 0.1, S * 0.1, S * 0.8, S * 0.8);
+    liss(ctx, S / 2, S / 2, S * 0.38, t);
+    ctx.fillStyle = INK; ctx.font = `500 ${S * 0.03}px Geist, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`${NOTE[P.ra]} : ${NOTE[P.rb]}  ·  ${P.p}:${P.q}`, S / 2, S * 0.965);
+    // 3. both
+    ctx = ctxs[2]; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
+    ring(ctx, S, S * 0.43); rose(ctx, S, S * 0.15, S * 0.42, t);
+    ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.13, 0, 2 * Math.PI); ctx.fill();
+    liss(ctx, S / 2, S / 2, S * 0.1, t);
+    if (!reduced) requestAnimationFrame(draw);
+  }
+
+  /* the two roots as two soft sines, so the ear hears what the curve draws */
+  const audio = { on: false, ctx: null, nodes: [] };
+  function tone(on) {
+    if (!audio.ctx) audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ac = audio.ctx, now = ac.currentTime;
+    audio.nodes.forEach(({ o, g }) => { g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value, now); g.gain.linearRampToValueAtTime(0, now + 0.25); o.stop(now + 0.3); });
+    audio.nodes = [];
+    if (!on) return;
+    ac.resume();
+    const base = 220 * Math.pow(2, (P.ra - 9) / 12);
+    for (const f of [base, base * P.p / P.q]) {
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.12, now + 1.2);
+      o.connect(g).connect(ac.destination); o.start(); audio.nodes.push({ o, g });
+    }
+  }
+  const play = document.getElementById('play');
+  play.addEventListener('click', () => { audio.on = !audio.on; play.classList.toggle('on', audio.on); play.setAttribute('aria-pressed', audio.on); play.textContent = audio.on ? 'Stop' : 'Hear the interval'; tone(audio.on); });
+  selA.addEventListener('change', () => { build(); if (reduced) draw(0); });
+  selB.addEventListener('change', () => { build(); if (reduced) draw(0); });
+  build();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => requestAnimationFrame(draw));
+})();
+</script>
+</body>
+</html>
