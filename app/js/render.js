@@ -1425,7 +1425,7 @@
       l1: c1(`${state.natalView ? i.t('cap.nativity') + (state.relocated ? ' · ' + i.t('cap.relocated') + ' ' + i.placeName(state.relocated) : '') + ' · ' : ''}${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: cs(`${i.t('cap.dayOf')} ${i.planet(H.dayRuler)} · ${i.t('cap.hourOf')} ${i.planet(H.hourRuler)} · ${i.t('cap.sunIn')} ${i.t('cap.house')} ${i.roman(B.sun.house)} · ${dms(B.sun.deg)} ${i.sign(B.sun.sign)}`),
       detail2: cs(`${i.t('cap.decanOf')} ${i.planet(d.ruler)} · ${i.card(d)} · ${i.title(d)}`),
-      detail3: cs(`${i.ordinal(B.moon.mansion.index)} ${i.t('cap.mansion')} · ${i.name(B.moon.mansion.name)}`),
+      detail3: state.tikkun ? c1(`${SD.tikkun.text().label}: ${SD.tikkun.text().short[state.tikkun.north.sign]} · ${SD.tikkun.major(state.tikkun.north.card)}`) : cs(`${i.ordinal(B.moon.mansion.index)} ${i.t('cap.mansion')} · ${i.name(B.moon.mansion.name)}`),   // a birth chart: its life mission in place of the Moon's mansion
       detail4: cs(`${chordTxt}${nextTxt ? ' · ' + nextTxt : ''}`),
       // the older keys, for the readout and the sky renders
       l2: cs(`${i.t('cap.dayOf')} ${i.planet(H.dayRuler)} · ${i.t('cap.hourOf')} ${i.planet(H.hourRuler)} · ${i.t('cap.angel')} ${i.name(H.angel)}`),
