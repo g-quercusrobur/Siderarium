@@ -730,6 +730,10 @@
     st.title = { house: st.bodies.moon.house, mode: st.mode.key, state: stateOf(st) };   // the title of the moment: stage of life, mother letter, time to work / watch / rest
     st.veil = veilOf(st);
     st.wheel = wheelOf(st);
+    // the planets on the angles: within 5° of the Ascendant, Midheaven, Descendant or Imum Coeli, with the orb
+    st.onAngles = [];
+    for (const k of C.ORDER) { const lon = B[k].lon; for (const [key, a] of [['asc', ang.asc], ['mc', ang.mc], ['dsc', ang.asc + 180], ['ic', ang.mc + 180]]) { const o = sep(lon, a); if (o < 5) st.onAngles.push({ planet: k, angle: key, orb: o }); } }
+    st.onAngles.sort((a, b) => a.orb - b.orb);
     return st;
   }
 
