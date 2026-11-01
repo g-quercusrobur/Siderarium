@@ -1527,12 +1527,13 @@
     const strongOf = k => Y.cats[k].grade === 'strongPositive' || Y.cats[k].grade === 'strongFriction';
     const defining = ['friendship', 'business', 'pleasure'].filter((k, n) => key[n] !== 'z');
     const nStrong = defining.filter(strongOf).length;
-    const strong = key === 'ppp' ? nStrong === 3 && Y.balance > 0.10 && Y.intensity >= 0.55 : defining.length > 0 && nStrong === defining.length;   // deep bond: all three strong, the whole intense and harmonious
-    const flavor = i.t('cap.flavor')[romance ? 'romance' : 'safe'][key][strong ? 1 : 0];
+    const strong = key === 'ppp' ? nStrong === 3 && Y.cell.row === 0 && Y.cell.col === 0 : defining.length > 0 && nStrong === defining.length;   // deep bond: all three strong, the whole intense and harmonious
+    // two or more categories in the middle while the whole is intense: the categories say little, the intensity says it
+    const quietCats = key.split('').filter(c => c === 'z').length >= 2 && Y.cell.row === 0;
+    const flavor = quietCats ? i.t('cap.intenseName')[Y.cell.col] : i.t('cap.flavor')[romance ? 'romance' : 'safe'][key][strong ? 1 : 0];
     const rank = { strongPositive: 2, positive: 1, neutral: 0, mixed: 0, friction: -1, strongFriction: -2 }, sum = ['friendship', 'business', 'pleasure'].reduce((t, k) => t + rank[Y.cats[k].grade], 0);
-    const tone = key.includes('p') && key.includes('m') ? 'polar' : key === 'ppp' && strong ? 'deepHarmony' : sum >= 3 ? 'harmony' : sum > 0 ? 'ease' : sum === 0 ? 'quiet' : sum <= -3 ? 'deepStrife' : 'strife';
-    const row = Y.intensity >= 0.55 ? 0 : Y.intensity >= 0.30 ? 1 : 2, colI = Y.balance > 0.10 ? 0 : Y.balance < -0.10 ? 2 : 1;
-    const overall = i.t('cap.overallIs')(i.t('cap.gridRow')[row], i.t('cap.gridCol')[colI]);
+    const tone = quietCats ? ['harmony', 'polar', 'strife'][Y.cell.col] : key.includes('p') && key.includes('m') ? 'polar' : key === 'ppp' && strong ? 'deepHarmony' : sum >= 3 ? 'harmony' : sum > 0 ? 'ease' : sum === 0 ? 'quiet' : sum <= -3 ? 'deepStrife' : 'strife';
+    const overall = i.t('cap.overallIs')(i.t('cap.gridRow')[Y.cell.row], i.t('cap.gridCol')[Y.cell.col]);   // centred on the typical pair: no positive bias
     const el = st => st.elements ? i.t('ui.el.' + st.elements.dominant) : '';
     const col = (name, st, noTime) => { const T = fmtShortDate(st.date, st.loc), s3 = n => i.sign(n).slice(0, 3), B = st.bodies;
       return { head: name, lines: [`${T.date} · ${T.time}`, i.placeName(st.loc.name), `${P('sun')} ${s3(B.sun.sign)} · ${P('moon')} ${s3(B.moon.sign)}`, ...(noTime ? [] : [`ASC ${i.sign(Math.floor(st.asc / 30))}`]), `${i.t('cap.syn.dominant')} ${el(st)}`] }; };
@@ -1556,8 +1557,8 @@
     const i = I(), Y = state.syn;
     if (Y) {                                              // v2.1: the category's balance between −0.6 and +0.6, ticks where the word changes
       const at = v => 0.5 + 0.5 * Math.max(-1, Math.min(1, v / 0.65));
-      const s1 = SD.synastry.CAT_S1, s2 = SD.synastry.CAT_S2;   // the scale is centred on the typical pair, the ticks where the word changes
-      return ['friendship', 'business', 'pleasure'].map(k => ({ key: k, label: catName(Y, k), word: catWord(Y, k), color: CAT_INK[Y.cats[k].grade], pos: Y.cats[k].n ? at(Y.cats[k].score) : 0.5, ticks: [at(-s2), at(-s1), 0.5, at(s1), at(s2)] }));
+      return ['friendship', 'business', 'pleasure'].map(k => { const s1 = SD.synastry.CAT_S1[k], s2 = SD.synastry.CAT_S2[k], at2 = v => at(v * 0.40 / s2);   // centred on the typical pair, each category on its own spread
+        return { key: k, label: catName(Y, k), word: catWord(Y, k), color: CAT_INK[Y.cats[k].grade], pos: Y.cats[k].n ? at2(Y.cats[k].score) : 0.5, ticks: [at2(-s2), at2(-s1), 0.5, at2(s1), at2(s2)] }; });
     }
     const T = state.ties, steps = E_.tieSteps; if (!T) return [];
     return ['choice', 'need', 'pleasure'].map(k => {
