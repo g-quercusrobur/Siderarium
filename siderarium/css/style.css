@@ -178,6 +178,8 @@ body.reading #readout { width: min(480px, 40vw); padding: 18px 22px; border-left
 #readout table { border-collapse: collapse; width: 100%; table-layout: auto; }
 #readout td { padding: 2px 8px 2px 0; vertical-align: top; white-space: normal; overflow-wrap: break-word; }
 #readout td:first-child, #readout td.nw { white-space: nowrap; }
+#readout table.pair td { width: 40%; } #readout table.pair td:first-child { width: 20%; } #readout table.pair tr.head td { color: var(--ink); font-weight: 500; padding-bottom: 6px; }   /* a pair: two equal columns under the two names */
+body.small #caption .pair-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font: 400 13.5px/1.55 var(--sans); color: var(--ink-2); margin: 0 0 8px; } body.small #caption .pair-cols b { color: var(--ink); font-weight: 500; }
 #readout .dim { margin-top: 14px; color: var(--ink-3); white-space: normal; }
 
 body.bare { grid-template-areas: "stage stage" "stage stage" "stage stage"; }

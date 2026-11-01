@@ -147,7 +147,7 @@
     const c = SD.render.captionLines(viewState());
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
-    $('caption').innerHTML = `<p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p><p class="reason">${c.reason}</p><p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`;
+    $('caption').innerHTML = `<p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p><p class="reason">${c.reason}</p>${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -555,6 +555,7 @@
     const top = st.aspects.slice(0, 12).map(a =>
       `<tr><td>${figName(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>`).join('');
     const ev = st.events.map(e => i.event(e.type) + (e.planet ? ' ' + P(e.planet) : '') + (e.kind ? ' ' + evName(e.kind) : '') + (e.direction ? ' ' + i.event(e.direction) : '')).join(' · ') || '—';
+    if (st.pair && st.natal) { $('readout').innerHTML = pairReadout(st); linkTerms($('readout')); return; }
     $('readout').innerHTML = `
       ${lead}
       <h3>${H('bodies')}</h3><table>${rows}</table>
@@ -574,6 +575,40 @@
       <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>
       <p class="dim">${i.cap1(R('sect'))} ${st.sect === 'day' ? R('day') : R('night')} · ASC ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · MC ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))} · ${R('dayRuler')} ${P(st.hour.dayRuler)} / ${i.name(st.hour.dayAngel)} · ${R('hour')} ${st.hour.index + 1} ${P(st.hour.hourRuler)} / ${i.name(st.hour.angel)}</p>`;
     linkTerms($('readout'));
+  }
+
+  /* the reading of a pair: two columns, one per chart, the same rows for each; then what passes between them.
+     the hour, the chord, the tarot and the Moon's verdict are one chart's and are left out: a pair lists both or neither */
+  function pairReadout(st) {
+    const C = SD.corr, i = SD.i18n, R = k => i.t('ui.r.' + k), H = k => i.cap1(i.t('ui.h.' + k)), P = k => i.planet(k), A = k => i.aspect(k);
+    const a = st, b = st.natal, pr = st.pair, own = (who, what) => i.t('cap.own')(who, what);
+    const pos = x => `${Math.floor(x.deg)}°${String(Math.floor((x.deg % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign)} · ${R('house')} ${i.roman(x.house)}`;
+    const dig = (k, x) => C.PLANETS[k].kind === 'optic' ? i.flag('noDignity') : `${x.dignity.score > 0 ? '+' : ''}${x.dignity.score} · ${x.dignity.labels.map(l => i.dignity(l)).join(', ') || '—'}${x.retro ? ' · ' + i.flag('retrograde') : ''}`;
+    const head = `<tr class="head"><td></td><td>${esc(pr.a)}</td><td>${esc(pr.b)}</td></tr>`;
+    const when = x => { const d = new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: x.loc.tz || 'UTC' }).format(x.date); return `${d}<br>${esc(i.placeName(x.loc.name))}`; };
+    const angle = (lab, la, lb) => `<tr><td>${lab}</td><td>${Math.floor(la % 30)}° ${i.sign(Math.floor(la / 30))}</td><td>${Math.floor(lb % 30)}° ${i.sign(Math.floor(lb / 30))}</td></tr>`;
+    const rows = C.ORDER.map(k => `<tr><td>${P(k)}</td><td>${pos(a.bodies[k])}</td><td>${pos(b.bodies[k])}</td></tr><tr class="sub"><td></td><td>${i.cap1(dig(k, a.bodies[k]))}</td><td>${i.cap1(dig(k, b.bodies[k]))}</td></tr>`).join('');
+    const elem = x => x.elements ? `${i.t('ui.el.' + x.elements.dominant)} ${Math.round(x.elements.shares[x.elements.dominant] * 100)}% · ${i.t('ui.el.' + x.elements.order[1])} ${Math.round(x.elements.shares[x.elements.order[1]] * 100)}%` : '—';
+    const figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} · {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
+    const of = st.ownFigures || {};
+    const inter = st.interaction;
+    const verdict = inter ? `<p class="verdict state-${st.title.state}">${i.cap1(R(inter.verdict))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
+    const contact = x => `${own(pr.a, P(x.a))} ${A(x.aspect)} ${own(pr.b, C.PLANETS[x.b] ? P(x.b) : x.b === 'ascendant' ? 'ASC' : 'MC')}`;
+    const contacts = st.transits.slice(0, 12).map(x => `<tr><td>${contact(x)}</td><td class="nw">${x.orb.toFixed(2)}°</td><td class="nw">${x.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`;
+    const sentence = f => f.name === 'setOff' ? `${own(pr.a, P(f.t))} ${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${own(pr.a, P(f.t))} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`;
+    const figures = inter && inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${i.cap1(R(f.tone))}</td><td colspan="2">${sentence(f)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`;
+    return `
+      ${verdict}
+      <h3>${H('bodies')}</h3><table class="pair">${head}
+      <tr><td>${i.cap1(R('born'))}</td><td>${when(a)}</td><td>${when(b)}</td></tr>
+      ${angle(i.cap1(R('ascendant')), a.asc, b.asc)}${angle('MC', a.mc, b.mc)}
+      ${rows}
+      <tr><td>${i.cap1(R('element'))}</td><td>${elem(a)}</td><td>${elem(b)}</td></tr>
+      <tr><td>${i.cap1(R('figure'))}</td><td>${figOf(of.a)}</td><td>${figOf(of.b)}</td></tr>
+      <tr><td>${i.cap1(R('sect'))}</td><td>${a.sect === 'day' ? R('day') : R('night')}</td><td>${b.sect === 'day' ? R('day') : R('night')}</td></tr></table>
+      <h3>${H('contacts')}</h3><table>${contacts}</table>
+      <h3>${H('between')}</h3><table>${figures}</table>
+      <p class="dim">${i.cap1(R('pairNote'))}</p>`;
   }
 
   function updateControls() {
