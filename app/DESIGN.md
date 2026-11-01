@@ -365,3 +365,6 @@ Five couples with public birth data (Newman–Woodward, Taylor–Burton with Bur
 - **Tried and reverted**: a wider category scaling (constant 20) smeared contact-rich categories to "mixed" and raised the distance to 16.
 - Final verdicts: Newman–Woodward "Kindred spirits"; Taylor–Burton "Rivals"; Charles–Diana "Ill at ease"; Pitt–Jolie "Volatile"; the Clintons "Different worlds".
 
+## Corner buttons
+Top left: update. Bottom left: sigil. Bottom right: sound. The sigil and sound buttons mirror each other on every screen (40 px at 16% + 8 px from the dial's foot on wide screens, 44 px at 4 px from the corner on phones). The share button sits on the caption's eyebrow line at the right, with the three-joined-dots share icon; the eyebrow and headline keep a 52 px right margin so no text runs under it, checked against the longest headline in both languages.
+

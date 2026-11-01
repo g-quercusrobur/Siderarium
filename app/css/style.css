@@ -220,6 +220,7 @@ body.bare #stage { grid-row: 1 / 4; grid-column: 1 / 3; }
   .brand .tag { display: none; }
   .float-now { top: 10px; right: 10px; min-height: 44px; }
   .corner-speaker { width: 44px; height: 44px; right: 4px; bottom: 4px; }
+  .dialwrap .corner-sigil { width: 44px; height: 44px; left: 4px; bottom: 4px; }   /* mirrors the sound button */
   body.reading #readout { padding: 16px 16px 24px; font-size: 13px; }
   .top .seg { order: 3; width: 100%; display: flex; }
   .top .seg button { flex: 1; padding: 0; }
@@ -283,10 +284,10 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 .chart-pick button.new { border-top: 1px solid rgba(235, 231, 220, 0.14); margin-top: 4px; padding-top: 11px; color: var(--ink); }
 
 /* the sigil toggle at the top right of the art, a twin of the speaker */
-.corner-sigil { position: absolute; right: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.corner-sigil { position: absolute; left: calc(var(--ox, 0px) + 6px); bottom: calc(16% + 8px);   /* the bottom-left corner, level with the sound button */ z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .corner-update { position: absolute; left: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; -webkit-user-select: none; user-select: none; touch-action: manipulation; }   /* the top-left corner: fetch the newest version and reload */
-body.small #caption { position: relative; }
-.share-btn { display: none; } body.small #caption .share-btn { display: inline-flex; position: absolute; right: 8px; top: 46px; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: transparent; color: var(--ink-2); align-items: center; justify-content: center; }   /* beside the headline */
+body.small #caption { position: relative; } body.small #caption .eyebrow, body.small #caption .h1 { padding-right: 52px; }   /* the share button's column: no text runs under it */
+.share-btn { display: none; } body.small #caption .share-btn { display: inline-flex; position: absolute; right: 8px; top: 2px; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: transparent; color: var(--ink-2); align-items: center; justify-content: center; }   /* beside the headline */
 #readout p.rel { margin: 4px 0 12px; } #readout p.rel select { margin-left: 6px; }
 .corner-update:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
 .corner-update.busy { color: var(--ink); border-color: var(--ink-2); } .corner-update.busy svg { animation: sd-spin 0.9s linear infinite; }
