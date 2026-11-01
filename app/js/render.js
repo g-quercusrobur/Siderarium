@@ -1496,6 +1496,17 @@
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
   }
+  /* the three ties as scales: position of the score between strong antipathy and strong sympathy, the ticks where the
+     word changes, the word and its colour. read by the dial and by the page */
+  const TIE_INK = { strongSympathy: '#7fa4e0', sympathy: '#6fcf8e', none: '#b8b2a4', antipathy: '#e8894a', strongAntipathy: '#ff5a2a' };
+  function tieScale(state) {
+    const i = I(), T = state.ties, steps = E_.tieSteps; if (!T) return [];
+    return ['choice', 'need', 'pleasure'].map(k => {
+      const t = T[k], S_ = steps[k], span = 1.6 * S_.s2, at = v => 0.5 + 0.5 * Math.max(-1, Math.min(1, v / span));
+      return { key: k, label: i.t('ui.tie.' + k), word: i.t('ui.tieGrade.' + t.grade), color: TIE_INK[t.grade], pos: at(t.value - S_.c),
+        ticks: [at(-S_.s2), at(-S_.s1), 0.5, at(S_.s1), at(S_.s2)] };
+    });
+  }
   const STATE_INK = { work: '#6fcf8e', watch: '#e3b341', shelter: '#ff5a2a',   // the one coloured text on the instrument
     // the grades of two skies: hot red through yellow to green, and cold blue for deep harmony, the hue of the harmony lines
     deepStrife: '#ff3b1a', strife: '#ff5a2a', tension: '#e8894a', balanced: '#e3b341', ease: '#b9cf6e', harmony: '#6fcf8e', deepHarmony: '#7fa4e0', quiet: '#b8b2a4' };
@@ -1541,12 +1552,31 @@
     // 3 · the title of the moment: the stage of life, the mother letter, the angel of the hour
     ctx.fillStyle = K.rgba(INK, 0.95); ctx.font = `500 ${Math.round(23 * k)}px ${SANS}`;
     f = fit(c.title, left); put(c.title, m, row(2)); ctx.font = f;
+    if (c.cols && state.ties) {                         // a pair: the three ties as scales, in the rows of the reason and the sound
+      const gs = tieScale(state), gap = 22 * k, gw = (left - 2 * gap) / 3, yl = row(3) + 4 * k, yline = row(3) + 0.66 * pitch, yw = row(4) + 0.6 * pitch;   // air under the title
+      gs.forEach((g, n) => {
+        const x0 = m + n * (gw + gap), X = p => x0 + p * gw;
+        ctx.textAlign = 'left'; ctx.fillStyle = K.rgba(INK, 0.72); ctx.font = `500 ${Math.round(14 * k)}px ${SANS}`;
+        if ('letterSpacing' in ctx) ctx.letterSpacing = `${(0.8 * k).toFixed(1)}px`;
+        ctx.fillText(I().cap1(g.label).toUpperCase(), x0, yl);
+        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+        ctx.strokeStyle = K.rgba(INK, 0.32); ctx.lineWidth = Math.max(1, 1.2 * u);
+        ctx.beginPath(); ctx.moveTo(x0, yline); ctx.lineTo(x0 + gw, yline); ctx.stroke();
+        for (const tx of g.ticks) { const hgt = (tx === 0.5 ? 7 : 4) * k; ctx.beginPath(); ctx.moveTo(X(tx), yline - hgt); ctx.lineTo(X(tx), yline + hgt); ctx.stroke(); }
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(X(g.pos), yline, 7.5 * k, 0, TAU); ctx.fill();
+        ctx.fillStyle = g.color; ctx.beginPath(); ctx.arc(X(g.pos), yline, 5.5 * k, 0, TAU); ctx.fill();
+        ctx.font = `500 ${Math.round(17 * k)}px ${SANS}`; const ww = ctx.measureText(g.word).width;
+        const wx = Math.max(x0, Math.min(x0 + gw - ww, X(g.pos) - ww / 2));   // the word under the dot, kept inside its scale
+        ctx.fillStyle = g.color; ctx.fillText(g.word, wx, yw);
+      });
+    } else {
     // 4 · the reason: the sky and the Moon
     ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(20 * k)}px ${SANS}`;
     f = fit(c.reason, left, c.cols ? 0.6 : 0.72); put(c.reason, m, row(3)); ctx.font = f;
     // 7 · the sound (a pair: the strife row)
     ctx.fillStyle = K.rgba(INK, 0.72);
     f = fit(c.detail4, left, c.cols ? 0.6 : 0.72); put(c.detail4, m, row(4)); ctx.font = f;
+    }
     if (c.cols) {                                         // a pair: the two charts' basics side by side, each column left-aligned, the names as heads
       const gap = 16 * k, cw = (right - gap) / 2, x0 = Lt.S - m - right;
       ctx.textAlign = 'left';
@@ -1965,5 +1995,5 @@
     return render(ctx, state, S, t, { ...opts, mode: 'clock', bare: { W, H }, caption: false });
   }
 
-  SD.render = { render, renderWallpaper, overlay, ground, captionLines, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
+  SD.render = { render, renderWallpaper, overlay, ground, captionLines, tieScale, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
 })(window.SD = window.SD || {});
