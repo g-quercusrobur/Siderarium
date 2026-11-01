@@ -580,7 +580,7 @@
     const i = SD.i18n, lang = i.locale().startsWith('es') ? 'es' : 'en', GL = SD.glossary;
     if (glossaryLang === lang) return; glossaryLang = lang;
     const groups = { ...GL.groups[lang], tarot: i.t('ui.tarot.group') };
-    const tarot = tarotEntries(lang); GL.setDynamic(lang, tarot);
+    glossaryTerms(); const tarot = GL.dynamic(lang);
     const order = [...GL.order.slice(0, GL.order.indexOf('time') + 1), 'tarot', ...GL.order.slice(GL.order.indexOf('time') + 1)];
     $('glossary-index').innerHTML = order.map(g => `<a href="#gg-${g}">${groups[g]}</a>`).join('');
     $('glossary-body').innerHTML = order.map(g => {
@@ -609,6 +609,8 @@
     for (const [el, [n, k]] of Object.entries(elemTrump)) push(n, T(k), T('elem.' + el));
     return out.sort((a, b) => (a.key < b.key ? -1 : 1));
   }
+  /* the card entries must exist before the first readout is linked, and again when the language changes */
+  function glossaryTerms() { try { const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en'; if (!SD.glossary.dynamic(lang).length) SD.glossary.setDynamic(lang, tarotEntries(lang)); } catch (e) { /* the glossary is a nicety */ } }
   function openGlossary(key) {
     buildGlossary();
     $('glossary').hidden = false; $('about').hidden = true;
@@ -988,7 +990,7 @@
   }
 
   function setLang(l) {
-    S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply();
+    S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply(); glossaryTerms(); glossaryLang = null;
     if ($('set-lang').value !== l) $('set-lang').value = l;
     requestAnimationFrame(slideSeg);
     if (!$('menu').hidden) refreshMenu();
@@ -1005,7 +1007,7 @@
     } catch (e) { /* fonts are a nicety */ }
     if (natalModes.includes(S.mode) && !S.natal) S.mode = 'clock';
     document.body.classList.toggle('reading', S.reading && !S.wall); document.body.classList.toggle('wall', S.wall);
-    bind(); bindMenu(); if (!S.wall) bindGesture(); size(); recompute(); drawNexts(); requestAnimationFrame(slideSeg);
+    bind(); bindMenu(); if (!S.wall) bindGesture(); size(); glossaryTerms(); recompute(); drawNexts(); requestAnimationFrame(slideSeg);
     if (!S.wall && (S.firstVisit || S.place.name === 'here')) locate(false);   // a wallpaper never asks for the position: it takes the address's place or the device's zone
     requestAnimationFrame(frame);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});   // ask the browser not to evict the saved charts under storage pressure

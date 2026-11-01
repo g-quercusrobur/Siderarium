@@ -285,8 +285,7 @@
   function matcher(lang) {
     if (cache[lang]) return cache[lang];
     const words = [];
-    for (const g of [...G, ...(dynamic[lang] || [])]) {
-      if (!ORDER.includes(g.group)) continue;                     // only the groups on show link
+    for (const g of [...G.filter(x => ORDER.includes(x.group)), ...(dynamic[lang] || [])]) {   // only the groups on show link; the dynamic entries always
       const t = g[lang][0].replace(/\s*\(.*\)$/, '');            // the term without its bracket
       const list = [t, ...(g.aliases[lang] || [])];
       for (const w of list) if (w && w.length > 2) words.push({ w, key: g.key });
