@@ -133,7 +133,7 @@
      they stand, in their sign colours, weighted by sect. Pure light, no texture: a colour field. */
   function buildLight(state, Lt, N) {
     const key = ['l', N, Lt.ext || 1, Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon, pairKey(state)].join('|');
-    if (fieldCache.key === key) return fieldCache.canvas;
+    if (fieldCache.key === key || (FAST && fieldCache.canvas)) return fieldCache.canvas;   // turning the dial: the last field, redrawn once at release
     const cv = fieldCache.canvas && fieldCache.canvas.width === N ? fieldCache.canvas : document.createElement('canvas');
     cv.width = cv.height = N;
     const g = cv.getContext('2d');
@@ -168,7 +168,7 @@
 
   function buildField(state, Lt, N) {
     const key = [N, Lt.ext || 1, Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon, pairKey(state)].join('|');
-    if (fieldCache.key === key) return fieldCache.canvas;
+    if (fieldCache.key === key || (FAST && fieldCache.canvas)) return fieldCache.canvas;   // turning the dial: the last field, redrawn once at release
     const cv = fieldCache.canvas && fieldCache.canvas.width === N ? fieldCache.canvas : document.createElement('canvas');
     cv.width = cv.height = N;
     const g = cv.getContext('2d');
@@ -228,7 +228,7 @@
     const ext = Lt.ext || 1;
     const key = [Lt.S, Lt.R, k.toFixed(3), density, ext, GUILLOCHE ? 'g' : 'e', Math.round(state.date.getTime() / 60000), state.loc.lat, state.loc.lon, pairKey(state)].join('|');
     const px = Math.ceil(Lt.R * 2 * ext * k) + 4;
-    if (engraveCache.key !== key) {
+    if (engraveCache.key !== key && !(FAST && engraveCache.canvas && engraveCache.canvas.width === px)) {   // turning the dial: the last engraving, not a new plate each frame
       const cv = engraveCache.canvas || document.createElement('canvas');
       const g = cv.getContext('2d');
       if (cv.width !== px) cv.width = cv.height = px; else { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, px, px); }   // clear under the identity: under the old transform only part of the plate was wiped, and the next minute's rings were drawn over the rest, a doubled rectangle
@@ -1420,7 +1420,7 @@
       label: i.t('cap.clockLabel'),
       stateKey: T2.state,
       state: i.state(T2.state),
-      title: `${i.t('cap.modeOf')} ${c1(i.window(T2.mode))} · ${i.realm(T2.house)} · ${i.t('cap.under')} ${i.name(H.angel)}`,   // the mode first, named as a mode; the house as a realm; the angel
+      title: `${i.t('cap.modeOf')} ${c1(i.window(T2.mode))} · ${i.realm(T2.house)} · ${i.t('cap.under')}\u00a0${i.name(H.angel)}`,   // 'under' and the angel never part across a line; the mode first, named as a mode; the house as a realm; the angel
       reason: `${c1(figLine)} · ${c1(mv)}${mn}`,
       copy: !!(state.natalView && !state.transits && !state.pair),   // a birth chart: a copy icon after the city
       l1: c1(`${state.natalView ? i.t('cap.nativity') + (state.chartName ? ' · ' + state.chartName : '') + (state.relocated ? ' · ' + i.t('cap.relocated') + ' ' + i.placeName(state.relocated) : '') + ' · ' : ''}${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`),
@@ -2061,5 +2061,7 @@
     return render(ctx, state, S, t, { ...opts, mode: 'clock', bare: { W, H }, caption: false });
   }
 
-  SD.render = { render, renderWallpaper, overlay, ground, captionLines, tieScale, catName, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
+  /* when the browser drops a canvas (memory pressure on phones), the cached plates are dropped too and drawn again */
+  function resetCaches() { fieldCache.key = null; engraveCache.key = null; }
+  SD.render = { resetCaches, render, renderWallpaper, overlay, ground, captionLines, tieScale, catName, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
 })(window.SD = window.SD || {});

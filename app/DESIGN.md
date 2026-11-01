@@ -378,3 +378,12 @@ Top left: update. Bottom left: sigil. Bottom right: sound. The sigil and sound b
 ## Birth time: 24-hour or am / pm
 The birth time accepts both notations. A chooser beside the field reads 24 h, am or pm (a. m., p. m. in Spanish); "am", "pm", "a.m.", "p" typed into the field move into the chooser, so it works on numeric phone keyboards and full ones alike. Switching the chooser converts the time already typed (16:30 ⇄ 4:30 pm). 12 am is midnight, 12 pm noon. Three digits read h:mm (905 → 9:05; in 12-hour, 130 → 1:30); four are always hh:mm, so an impossible time (25:10, 13:00 pm) is refused with a message instead of being reshaped into another time, as the old formatter did (2510 had become 2:51). The chart is always stored in 24-hour time.
 - **The third category is attraction, never 'pleasure'**: adults read "attraction", family readings and the age rule "affection". Its scale words are chemistry (química) and warmth (calidez), with "strong" forms, so the label and the word differ. The Golden Dawn titles (Lord of Pleasure) and the traditional meanings of Venus and the fifth house keep their word.
+
+## Responsiveness (measured with the CPU slowed four times, a mid-range phone)
+- **The week's scan** behind the 72-hour strip (505 skies at 20-minute steps) ran in blocking batches of 24; a tap landing mid-batch waited for it. It now runs in slices of at most 6 ms in idle time (requestIdleCallback where present).
+- **Tabs** light at once (0–4 ms, was 360–1,700 ms in the handler); the computation follows on the next frame, and the first frame is a quick one over the last plates, the full one right after. Time to the new picture: Clock 0.75 s (was 3.8 s), Transits 2.0 s (4.7 s), Synastry 1.3 s (2.0 s), Chart and Natal 0.4–0.6 s.
+- **A long press** on Natal or Synastry swallows only the click that ends it (within 0.9 s); a stale flag used to eat the next real tap.
+- **Dragging** reuses the last field and engraving instead of allocating new plates each frame (median frame 191 ms, was 510 ms); the full plate is drawn at release. Allocating and clearing large off-screen canvases every frame can make a phone drop a canvas, which draws black: the likely cause of the black background after turning the dial. A dropped canvas, or a return from the background, now resets the cached plates and redraws.
+- **Sound**: stopping fades in 0.25 s (was 3 s); a new chord still glides over 3 s.
+- **Caption**: "under" and the angel are joined by a non-breaking space, and a " · " separator never starts a line on the phone.
+

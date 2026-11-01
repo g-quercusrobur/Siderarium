@@ -161,6 +161,7 @@
     const c = SD.render.captionLines(viewState());
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
+    for (const k of ['label', 'state', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
     $('caption').innerHTML = `<button class="share-btn" aria-label="${esc(SD.i18n.t('ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
@@ -209,13 +210,15 @@
     scan.key = key; scan.t0 = b; scan.vals = null; scan.nexts = null;
     const token = ++scan.token, N = 7 * 72, out = [];
     let i = 0;
+    const later = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 400 }) : setTimeout(f, 16));   // in the page's idle time, never in the way of a tap
     (function chunk() {
       if (token !== scan.token) return;
-      for (let k = 0; k < 24 && i <= N; k++, i++) {
+      const until = performance.now() + 6;                          // at most 6 ms at a time
+      for (; i <= N && performance.now() < until; i++) {
         const st = SD.engine.compute(new Date(b + i * scan.step * 60000), S.place, { light: true, houses: S.houses });
         out.push({ ...st.windows, house: st.bodies.moon.house, veil: st.veil.v, share: st.mode.share });   // the Moon's house names the window's stage; the veil and the mode's shares ride along
       }
-      if (i <= N) return setTimeout(chunk, 0);
+      if (i <= N) return later(chunk);
       scan.vals = out;
       scan.nexts = {};
       for (const m of Object.keys(MOTHER_INK)) {
@@ -300,10 +303,11 @@
     if (S.dirty) {
       pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, plate.width, plate.height);
       pctx.setTransform(S.dpr * view.z, 0, 0, S.dpr * view.z, S.dpr * (view.x + S.ox), S.dpr * view.y);   // the view: zoom and pan, the square centred in the canvas
-      const busy = S.playing || S.dragging || view.pinching;
+      const busy = S.playing || S.dragging || view.pinching || S.quick;
       const bounds = { x: -(view.x + S.ox) / view.z, y: -view.y / view.z, w: (S.side + 2 * S.ox) / view.z, h: S.side / view.z };   // the canvas, in dial coordinates
       info = SD.render.render(pctx, viewState(), S.side, t, { mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: busy ? 110 : 200, caption: S.side >= 560, plate: true, fast: busy, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous, tight: S.side < 560, groundEl: S.groundEl, bounds });
       S.dirty = false; lastPlate = ts;
+      if (S.quick) { S.quick = false; S.dirty = true; }               // a quick frame is followed by the full one
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(plate, 0, 0);
@@ -357,8 +361,8 @@
   }
   const voiceKey = ch => voicing(ch).map(v => v.f.toFixed(1)).join(',');
   function soundChord(ch, fadeIn = 3) {
-    const ac = audio.ctx, now = ac.currentTime;
-    for (const v of audio.voices) { v.gain.gain.cancelScheduledValues(now); v.gain.gain.setValueAtTime(v.gain.gain.value, now); v.gain.gain.linearRampToValueAtTime(0, now + 3); v.oscs.forEach(o => o.stop(now + 3.1)); }
+    const ac = audio.ctx, now = ac.currentTime, out = ch ? 3 : 0.25;   // a new chord glides over 3 s; silence comes at once, a quick fade with no click
+    for (const v of audio.voices) { v.gain.gain.cancelScheduledValues(now); v.gain.gain.setValueAtTime(v.gain.gain.value, now); v.gain.gain.linearRampToValueAtTime(0, now + out); v.oscs.forEach(o => o.stop(now + out + 0.05)); }
     audio.voices = [];
     for (const { f, g } of voicing(ch)) {
       const gain = ac.createGain(); gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.11 * g, now + fadeIn);
@@ -943,13 +947,13 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* the card entries must exist before the first readout is linked, and again when the language changes */
   function glossaryTerms() { try { const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en'; if (!SD.glossary.dynamic(lang).length) SD.glossary.setDynamic(lang, tarotEntries(lang)); } catch (e) { /* the glossary is a nicety */ } }
   /* hold the Natal tab (or right-click it): a menu of the saved charts; choosing one loads it on the clock */
-  let pickHeld = false;
+  let pickHeld = 0;                                          // when the chart menu was last shown by a long press
   function bindChartPick() {
     const menu = $('chart-pick'); if (!menu) return;
     const btnA = document.querySelector('[data-mode="natal"]'), btnB = document.querySelector('[data-mode="pair"]');
     let timer = null, which = 'first', btn = btnA;
     const show = () => {
-      pickHeld = true;
+      pickHeld = performance.now();
       const i = SD.i18n, onId = which === 'first' ? (S.natal && S.natal.id) : S.pair;
       menu.innerHTML = (S.charts.length ? S.charts.map(c => `<button type="button" data-id="${c.id}"${onId === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`)
         + (which === 'first' ? `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>` : '');   // and a way to add one
@@ -1086,12 +1090,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('here').addEventListener('click', () => locate(true));
     bindChartPick();
     document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
-      if (pickHeld) { pickHeld = false; return; }                     // the click that follows a hold is not a tab change
+      if (pickHeld && performance.now() - pickHeld < 900) { pickHeld = 0; return; }   // only the click that ends a hold is swallowed; a later tap always goes through
       let m = b.dataset.mode;
       if ((m === 'natal' || m === 'synastry' || m === 'pair') && !S.natal) { openBirth(); return; }
       if (m === 'chart' && S.mode === 'natal') m = 'natalchart';          // the nativity as a chart: chart + natal lit together
       else if (m === 'natal' && S.mode === 'chart') m = 'natalchart';
-      S.mode = m; store.set('mode', S.mode); recompute();
+      S.mode = m; store.set('mode', S.mode);
+      document.querySelectorAll('[data-mode]').forEach(x => x.classList.toggle('on', x.dataset.mode === m || (m === 'natalchart' && (x.dataset.mode === 'chart' || x.dataset.mode === 'natal'))));   // the tab answers at once
+      requestAnimationFrame(() => setTimeout(() => { S.quick = true; recompute(); }, 0));   // the work after the paint; the first frame quick, the full plate on the next
     }));
     $('birth-open').addEventListener('click', openBirth);
     $('birth-close').addEventListener('click', () => { $('birth').hidden = true; });
@@ -1100,6 +1106,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) S.mode = 'clock'; $('birth').hidden = true; recompute(); });
     $('wallpaper').addEventListener('click', exportWallpaper);
     $('update').addEventListener('click', updateApp);
+    for (const cv of [canvas, plate]) if (cv && cv.addEventListener) cv.addEventListener('contextrestored', () => { SD.render.resetCaches(); S.dirty = true; });   // a canvas the browser dropped is drawn again
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { SD.render.resetCaches(); S.dirty = true; } });   // back from the background: fresh plates
     $('share').addEventListener('click', shareArt);
     $('caption').addEventListener('click', e => { if (e.target.closest('.share-btn')) shareArt(); const cb = e.target.closest('.copy-btn'); if (cb) copyWithTick(cb); });
     $('copy-link').addEventListener('click', e => copyWithTick(e.currentTarget));
