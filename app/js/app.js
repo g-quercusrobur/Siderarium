@@ -87,7 +87,10 @@
   function now() { return base(); }
 
   /* the nativity, computed once per birth data */
-  const natalCache = { key: null, state: null }, pairCache = { key: null, state: null };
+  const natalCache = { key: null, state: null }, pairCache = { key: null, state: null }, activeCache = { key: null, v: [] };
+  /* the relationship type of a pair (rule A3), kept per pair whichever chart is first; "other" by default */
+  const pairKey = (a, b) => 'pairType:' + [a, b].sort().join('|');
+  const pairTypeOf = (a, b) => store.get(pairKey(a, b), 'other');
   function natalState() {
     if (!S.natal) return null;
     const place = S.relocate ? S.place : S.natal.place;     // relocated: the same instant, the houses of another horizon
@@ -125,14 +128,20 @@
         const key = JSON.stringify([Bc.date, Bc.place, S.houses]);
         if (pairCache.key !== key) { pairCache.key = key; pairCache.state = SD.engine.compute(new Date(Bc.date), Bc.place, { houses: S.houses }); }
         // the first chart is the dial, the second is the ring laid over it; the contacts run from the first's planets to the second's points
-        const Bs = pairCache.state, tr = SD.engine.computeTransits(A, Bs).filter(x => x.power > 0.04);
-        S.state = { ...A, natalView: true, natal: Bs, transits: tr, pair: { a: S.natal.name || '', b: Bc.name || '' } };
+        const Bs = pairCache.state, type = pairTypeOf(S.natal.id, Bc.id), noA = !!S.natal.unknownTime, noB = !!Bc.unknownTime;
+        // synastry rules v2.1: one source of truth for every word of the pair (js/synastry.js)
+        const syn = SD.synastry.of(A, Bs, { at: new Date(), type, noTimeA: noA, noTimeB: noB });
+        const ASP = Object.fromEntries(SD.corr.ASPECTS.map(x => [x.key, x]));
+        const tr = syn.contacts.filter(c => SD.corr.PLANETS[c.a] && (SD.corr.PLANETS[c.b] || c.b === 'ascendant' || c.b === 'midheaven'))   // the drawable contacts, heaviest first
+          .map(c => ({ a: c.a, b: c.b, natal: true, nlon: c.b === 'ascendant' ? Bs.asc : c.b === 'midheaven' ? Bs.mc : Bs.bodies[c.b].lon, aspect: c.aspect, n: (ASP[c.aspect] || {}).n, k: (ASP[c.aspect] || {}).k, nature: (ASP[c.aspect] || {}).nature, angle: c.angle, orb: c.orb, power: c.w / 10, exact: 1 - c.orb / c.max, applying: false }));
+        const dayKey = JSON.stringify([S.natal.id, Bc.id, new Date().toISOString().slice(0, 10)]);
+        if (activeCache.key !== dayKey) { activeCache.key = dayKey; activeCache.v = SD.synastry.activeNow(A, Bs, syn, new Date(), noA, noB); }
+        S.state = { ...A, natalView: true, natal: Bs, transits: tr, syn, synActive: activeCache.v, pair: { a: S.natal.name || '', b: Bc.name || '', ids: [S.natal.id, Bc.id] } };
         S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
-        S.state.attraction = SD.engine.desireOf(tr, A, Bs);        // the pull between two bodies: Venus and Mars across the charts, and their kin
+        S.state.attraction = syn.age.sexual ? SD.engine.desireOf(tr, A, Bs) : null;   // the pull between two bodies: adults only (rule 0)
         S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
         S.state.configs = { ...A.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
         S.state.ownFigures = { a: A.configs.primary, b: Bs.configs.primary };   // each chart's own ruling figure, faint behind the pair's
-        S.state.ties = SD.engine.tiesOf(A, Bs, tr);          // Ptolemy's three: by choice, by need, by pleasure
         S.state.composite = SD.engine.compositeOf(A, Bs);    // the pair's own chart: its figure is the mandala
       } else { S.state = { ...A, natalView: true, pairMissing: true }; }
     }
@@ -151,7 +160,7 @@
     const c = SD.render.captionLines(viewState());
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
-    $('caption').innerHTML = `<p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && S.state.ties ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
+    $('caption').innerHTML = `<button class="share-btn" aria-label="${esc(SD.i18n.t('ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M6 11v8h12v-8"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -571,6 +580,22 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     note.textContent = i.cap1(i.t(ok ? 'ui.copied' : 'ui.copyFailed'));
   }
   const stampOf = st => st.date.toISOString().slice(0, 16).replace(/[:T]/g, '');
+  /* share: the art of the moment as an image, with its headline and the address; where the device cannot share files,
+     the text and address; where it cannot share at all, the image is saved and the text copied */
+  async function shareArt() {
+    const st = viewState(), cv = document.createElement('canvas'); cv.width = cv.height = 1080;
+    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, { mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
+    const c = SD.render.captionLines(st), plain = t => String(t || '').replace(/<[^>]+>/g, '');
+    const text = [plain(c.state), plain(c.label)].filter(Boolean).join(' · '), url = 'https://siderarium.com/app/';
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    try {
+      const file = new File([blob], 'siderarium.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Siderarium', text: `${text} · ${url}` }); return; }
+      if (navigator.share) { await navigator.share({ title: 'Siderarium', text, url }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    downloadBlob(blob, `siderarium_${stampOf(st)}.png`);
+    try { await navigator.clipboard.writeText(`${text} · ${url}`); } catch (e) { /* the image is saved all the same */ }
+  }
   function exportPNG(px) {
     const st = viewState(), cv = document.createElement('canvas');
     cv.width = cv.height = px;
@@ -665,11 +690,15 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} · {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
     const of = st.ownFigures || {};
     const inter = st.interaction;
+    const Y = st.syn, cap = SD.render.captionLines(st), lab = Y ? i.t('cap.syn.label.' + Y.label) : '';
     const des = st.attraction, desTxt = des && des.grade ? ` · ${i.t('ui.desire.' + des.grade)} ${des.value.toFixed(2)}` : '';
-    const cap = SD.render.captionLines(st);
-    const verdict = inter ? `<p class="verdict state-${inter.grade}">${st.ties ? cap.state + ' · ' : ''}${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}${desTxt}</p>` : '';
-    const contact = x => `${own(pr.a, P(x.a))} ${A(x.aspect)} ${own(pr.b, C.PLANETS[x.b] ? P(x.b) : x.b === 'ascendant' ? 'ASC' : 'MC')}`;
-    const contacts = st.transits.slice(0, 12).map(x => `<tr><td>${contact(x)}</td><td class="nw">${x.orb.toFixed(2)}°</td><td class="nw">${x.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`;
+    const verdict = Y ? `<p class="verdict state-${cap.stateKey}">${lab} · ${R('harmony')} ${Y.harmony.toFixed(2)} · ${R('strife')} ${Y.strife.toFixed(2)} · ${R('adjustment')} ${Y.adjustment.toFixed(2)}${desTxt}</p>` : '';
+    const types = ['partner', 'friend', 'colleague', 'parent', 'sibling', 'other'], cur = pairTypeOf(pr.ids[0], pr.ids[1]);
+    const relSel = Y ? `<p class="rel nolink"><label>${i.cap1(i.t('ui.rel.label'))} <select id="pair-type">${types.map(t => `<option value="${t}"${t === cur ? ' selected' : ''}>${i.t('ui.rel.' + t)}</option>`).join('')}</select></label>${Y.age.forced ? ` <span class="dim">${i.t('ui.rel.forced')}</span>` : ''}</p>` : '';
+    const flags = c => `${c.discounted ? ' · ' + R('discounted') : ''}${c.uncertain ? ' · ' + i.t('cap.syn.uncertain') : ''}`;
+    const contacts = Y ? Y.contacts.slice(0, 15).map(c => `<tr><td>${contactWords(c, pr)}${flags(c)}</td><td class="nw">${c.orb.toFixed(2)}°</td><td class="nw">${c.w.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>` : '';
+    const ovl = Y && Y.overlays ? Y.overlays.map(o => `<tr><td>${i.t('cap.own')(o.who === 'a' ? pr.a : pr.b, P(o.planet))}</td><td colspan="2">${i.t('cap.inHouseOf')(o.who === 'a' ? pr.b : pr.a, i.roman(o.house))}${o.unseen ? ` · <span class="dim">${R('unseen')}</span>` : ''}</td></tr>`).join('') : '';
+    const act = (st.synActive || []).map(x => activeLine(x, st)).join('');
     const sentence = f => f.name === 'setOff' ? `${own(pr.a, P(f.t))} ${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${own(pr.a, P(f.t))} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`;
     const figures = inter && inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${i.cap1(R(f.tone))}</td><td colspan="2">${sentence(f)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`;
     return `
@@ -681,8 +710,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <tr><td>${i.cap1(R('element'))}</td><td>${elem(a)}</td><td>${elem(b)}</td></tr>
       <tr><td>${i.cap1(R('figure'))}</td><td>${figOf(of.a)}</td><td>${figOf(of.b)}</td></tr>
       <tr><td>${i.cap1(R('sect'))}</td><td>${a.sect === 'day' ? R('day') : R('night')}</td><td>${b.sect === 'day' ? R('day') : R('night')}</td></tr></table>
+      ${relSel}
       <h3>${H('ties')}</h3>${tiesHtml(st)}
-      <p class="dim">${i.cap1(R('tiesNote'))}</p>
+      <p class="dim">${i.cap1(R(Y && !Y.age.sexual ? 'tiesNoteFamily' : 'tiesNote'))}</p>
+      ${act ? `<h3>${H('active')}</h3>${act}` : ''}
+      ${ovl ? `<h3>${H('overlays')}</h3><table class="nolink">${ovl}</table>` : ''}
       <h3>${H('composite')}</h3>${compositeHtml(st)}
       <p class="dim">${i.cap1(R('compositeNote'))}</p>
       <h3>${H('contacts')}</h3><table>${contacts}</table>
@@ -692,7 +724,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* a contact between the two charts in words, whichever way it runs */
   function contactWords(x, pr) {
     const i = SD.i18n, C = SD.corr, P = k => i.planet(k), own = (who, what) => i.t('cap.own')(who, what);
-    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : 'MC';
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : k === 'node' ? SD.tikkun.text().north : k;
     if (x.place) return `${i.t('ui.r.byPlace')}: ${i.t('ui.r.place.' + x.place)}`;
     if (x.b === 'house') { const [who, whose] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b]; return `${own(who, P('mars'))} ${i.t('ui.r.inThe')} ${own(whose, i.t('ui.r.house58'))}`; }
     const [first, second] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b];
@@ -701,14 +733,21 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* the three ties as scales: a hairline with a tick wherever the word changes, a dot at the score, the word under the
      dot in its colour; warm for antipathy, neutral for none, cool for sympathy. the same scale on the dial and the phone */
   function tieScales(st) {
-    const i = SD.i18n, T = st.ties; if (!T) return '';
+    const i = SD.i18n; if (!st.syn && !st.ties) return '';
     return `<div class="scales">${SD.render.tieScale(st).map(g => `<div class="scale"><span class="sl">${i.cap1(g.label)}</span><div class="sline">${g.ticks.map(x => `<i style="left:${(x * 100).toFixed(1)}%"${x === 0.5 ? ' class="mid"' : ''}></i>`).join('')}<b style="left:${(g.pos * 100).toFixed(1)}%;background:${g.color}"></b></div><span class="sw" style="color:${g.color}">${g.word}</span></div>`).join('')}</div>`;
   }
   function tiesHtml(st) {
-    const T = st.ties, pr = st.pair; if (!T) return '';
-    const i = SD.i18n;
-    const parts = ['choice', 'need', 'pleasure'].map(k => { const p = (T[k].parts || []).map(x => `${contactWords(x, pr)} ${x.w >= 0 ? '+' : '−'}${Math.abs(x.w).toFixed(2)}`).join(' · '); return p ? `<p><b>${i.cap1(i.t('ui.tie.' + k))}</b> ${p}</p>` : ''; }).join('');
+    const Y = st.syn, pr = st.pair, i = SD.i18n; if (!Y) return '';
+    const parts = ['friendship', 'business', 'pleasure'].map(k => { const p = Y.cats[k].contacts.map(c => `${contactWords(c, pr)} ${c.h >= c.s ? '+' : '−'}${Math.abs(c.h - c.s).toFixed(2)}`).join(' · '); return `<p><b>${i.cap1(SD.render.catName(Y, k))}</b> ${p || i.t('ui.catWord.neutral')}</p>`; }).join('');
     return `${tieScales(st)}<div class="makers nolink">${parts}</div>`;
+  }
+  /* a transiting outer planet on a synastry point: the hit, the axis it belongs to, the exact passes and the stations */
+  function activeLine(x, st) {
+    const i = SD.i18n, pr = st.pair, P = k => i.cap1(i.planet(k)), A = a => i.aspect(a), d = dt => new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: st.loc.tz || 'UTC' }).format(dt);
+    const who = h => h.who === 'a' ? pr.a : pr.b, pt = k => SD.corr.PLANETS[k] ? i.planet(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : SD.tikkun.text().north;
+    const hits = x.hits.map(h => `${A(h.aspect)} ${i.t('cap.own')(who(h), pt(h.key))} ${h.orb.toFixed(1)}°`).join(' · ');
+    const axes = [...new Set(x.hits.flatMap(h => h.axes.filter(c => c.aspect === 'opposition' || c.aspect === 'conjunction' || c.aspect === 'square').slice(0, 1).map(c => contactWords(c, pr))))].join(' · ');
+    return `<p class="nolink">${P(x.planet)} ${hits}${axes ? ` <span class="dim">(${i.t('ui.r.onAxis')} ${axes})</span>` : ''}<br><span class="dim">${i.cap1(i.t('ui.r.exactOn'))} ${x.exact.map(d).join(', ') || '—'} · ${i.t('ui.r.stations')} ${x.stations.map(d).join(', ')}</span></p>`;
   }
   function compositeHtml(st) {
     const i = SD.i18n, C = SD.corr, c = st.composite, P = k => i.planet(k), A = k => i.aspect(k), R = k => i.t('ui.r.' + k); if (!c) return '';
@@ -739,13 +778,19 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       for (const k of C.ORDER) { const b = x.bodies[k]; L.push(`| ${P(k)} | ${lonTxt(b.lon)} | ${i.roman(b.house)} | ${b.dignity.score >= 0 ? '+' : ''}${b.dignity.score} ${b.dignity.labels.join(', ')}${b.retro ? ' · ' + R('retrograde') : ''} |`); }
       L.push('');
     }
-    const inter = st.interaction, T = st.ties, D = st.attraction;
-    L.push(`## ${i.cap1(i.t('ui.h.ties'))}`);
-    L.push(`${i.t('ui.r.tiesNote')}`, '');
-    for (const k of ['choice', 'need', 'pleasure']) { const t = T[k]; L.push(`- ${i.cap1(i.t('ui.tie.' + k))}: ${i.t('ui.tieGrade.' + t.grade)} (${t.value.toFixed(2)})${t.parts.length ? ' · ' + t.parts.map(x => `${contactWords(x, pr)} ${x.w >= 0 ? '+' : '−'}${Math.abs(x.w).toFixed(2)}`).join('; ') : ''}`); }
-    if (D) L.push(`- ${i.cap1(i.t('ui.desire.some'))}: ${D.value.toFixed(2)}${D.grade ? ' · ' + i.t('ui.desire.' + D.grade) : ''}`);
-    if (inter) L.push(`- ${i.cap1(i.t('ui.r.harmony'))} ${inter.harmony.toFixed(2)} · ${i.t('ui.r.strife')} ${inter.strife.toFixed(2)} · ${i.t('ui.grade.' + inter.grade)}`);
-    L.push('');
+    const Y = st.syn, D = st.attraction, cap = SD.render.captionLines(st), plain = t => String(t || '').replace(/<[^>]+>/g, '');
+    if (Y) {
+      const ageTxt = Y.age.known ? Y.age.ages.map(a => Math.floor(a)).join(' / ') : '—';
+      L.push(`## ${i.cap1(i.t('cap.synastryLabel'))}: ${plain(cap.state)}`);
+      L.push(`- ${i.cap1(i.t('ui.rel.label'))}: ${i.t('ui.rel.' + (Y.type === 'family' ? 'parent' : Y.type))}${Y.age.forced ? ' · ' + i.t('ui.rel.forced') : ''} · ${i.t('ui.rel.ages')} ${ageTxt}`);
+      L.push(`- ${i.cap1(i.t('ui.r.harmony'))} ${Y.harmony.toFixed(2)} · ${i.t('ui.r.strife')} ${Y.strife.toFixed(2)} · ${i.t('ui.r.adjustment')} ${Y.adjustment.toFixed(2)} · balance ${Y.balance.toFixed(2)} · intensity ${Y.intensity.toFixed(2)}`);
+      L.push(`- ${plain(cap.detail4)}`, `- ${plain(cap.pairLine)}`, `- ${i.t('cap.syn.temper.' + Y.temperWord)} (${Y.temper.toFixed(2)})`);
+      for (const k of ['friendship', 'business', 'pleasure']) { const t = Y.cats[k]; L.push(`- ${i.cap1(SD.render.catName(Y, k))}: ${SD.render.tieScale(st).find(g => g.key === k).word}${t.contacts.length ? ' · ' + t.contacts.map(x => `${contactWords(x, pr)} ${x.h >= x.s ? '+' : '−'}${Math.abs(x.h - x.s).toFixed(2)}`).join('; ') : ''}`); }
+      if (D && Y.age.sexual) L.push(`- ${i.cap1(i.t('ui.desire.some'))}: ${D.value.toFixed(2)}${D.grade ? ' · ' + i.t('ui.desire.' + D.grade) : ''}`);
+      L.push('');
+      if (Y.overlays) { L.push(`## ${i.cap1(i.t('ui.h.overlays'))}`); for (const o of Y.overlays) L.push(`- ${i.t('cap.own')(o.who === 'a' ? pr.a : pr.b, P(o.planet))} ${i.t('cap.inHouseOf')(o.who === 'a' ? pr.b : pr.a, i.roman(o.house))}${o.unseen ? ' · ' + i.t('ui.r.unseen') : ''}`); L.push(''); }
+      if ((st.synActive || []).length) { L.push(`## ${i.cap1(i.t('ui.h.active'))}`); for (const x of st.synActive) L.push('- ' + plain(activeLine(x, st)).replace(/\s+/g, ' ')); L.push(''); }
+    }
     const c = st.composite;
     if (c) {
       L.push(`## ${i.cap1(i.t('ui.h.composite'))}`);
@@ -758,7 +803,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     }
     L.push(`## ${i.cap1(i.t('ui.h.contacts'))}`);
     L.push(`| ${R('pair')} | ${R('aspect')} | ${R('orb')} | ${R('power')} |`, '|---|---|---|---|');
-    for (const x of st.transits) L.push(`| ${contactWords(x, pr)} | ${A(x.aspect)} | ${x.orb.toFixed(2)}° | ${x.power.toFixed(2)} |`);
+    for (const x of (st.syn ? st.syn.contacts : st.transits)) L.push(`| ${contactWords(x, pr)}${x.discounted ? ' (' + i.t('ui.r.discounted') + ')' : ''}${x.uncertain ? ' (' + i.t('cap.syn.uncertain') + ')' : ''} | ${A(x.aspect)} | ${x.orb.toFixed(2)}° | ${(x.w !== undefined ? x.w : x.power).toFixed(2)} |`);
     L.push('');
     L.push(`— ${R('footer')} · siderarium.com · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
     return { text: L.join('\n'), name: `${pr.a}-${pr.b}` };
@@ -1037,6 +1082,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) S.mode = 'clock'; $('birth').hidden = true; recompute(); });
     $('wallpaper').addEventListener('click', exportWallpaper);
     $('update').addEventListener('click', updateApp);
+    $('share').addEventListener('click', shareArt);
+    $('caption').addEventListener('click', e => { if (e.target.closest('.share-btn')) shareArt(); });
+    $('readout').addEventListener('change', e => {           // the relationship type of the pair on show
+      if (e.target.id !== 'pair-type' || !S.state.pair) return;
+      const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });
     $('save').addEventListener('click', () => exportPNG(2048));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });

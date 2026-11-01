@@ -285,6 +285,9 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 /* the sigil toggle at the top right of the art, a twin of the speaker */
 .corner-sigil { position: absolute; right: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .corner-update { position: absolute; left: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; -webkit-user-select: none; user-select: none; touch-action: manipulation; }   /* the top-left corner: fetch the newest version and reload */
+body.small #caption { position: relative; }
+.share-btn { display: none; } body.small #caption .share-btn { display: inline-flex; position: absolute; right: 8px; top: 46px; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: transparent; color: var(--ink-2); align-items: center; justify-content: center; }   /* beside the headline */
+#readout p.rel { margin: 4px 0 12px; } #readout p.rel select { margin-left: 6px; }
 .corner-update:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
 .corner-update.busy { color: var(--ink); border-color: var(--ink-2); } .corner-update.busy svg { animation: sd-spin 0.9s linear infinite; }
 @keyframes sd-spin { to { transform: rotate(360deg); } }
