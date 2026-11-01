@@ -1124,7 +1124,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       document.querySelectorAll('[data-mode]').forEach(x => x.classList.toggle('on', x.dataset.mode === m || (m === 'natalchart' && (x.dataset.mode === 'chart' || x.dataset.mode === 'natal'))));   // the tab answers at once
       requestAnimationFrame(() => setTimeout(() => { S.quick = true; recompute(); }, 0));   // the work after the paint; the first frame quick, the full plate on the next
     }));
-    $('birth-open').addEventListener('click', openBirth);
+    if ($('birth-open')) $('birth-open').addEventListener('click', openBirth);   // the button is gone from the place row; the form opens from the Natal tab and the menu
     $('birth-close').addEventListener('click', () => { $('birth').hidden = true; });
     $('birth-save').addEventListener('click', saveBirth);
     bindPlaceSearch();
