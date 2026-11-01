@@ -262,3 +262,6 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 .corner-sigil.on { color: var(--ink); border-color: var(--ink-2); background: rgba(235, 231, 220, 0.08); }
 .corner-sigil:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
 body.pair #ahead { display: none; }   /* two fixed charts: no day to scan */
+
+/* a held tab must not select its text or call up the system menu on a phone */
+.seg button, .chart-pick, .corner-sigil, .corner-speaker { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
