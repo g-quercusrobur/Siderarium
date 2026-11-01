@@ -579,13 +579,35 @@
   function buildGlossary() {
     const i = SD.i18n, lang = i.locale().startsWith('es') ? 'es' : 'en', GL = SD.glossary;
     if (glossaryLang === lang) return; glossaryLang = lang;
-    const groups = GL.groups[lang];
-    $('glossary-index').innerHTML = GL.order.map(g => `<a href="#gg-${g}">${groups[g]}</a>`).join('');
-    $('glossary-body').innerHTML = GL.order.map(g => {
-      const items = GL.entries.filter(x => x.group === g);
-      return `<h2 id="gg-${g}">${groups[g]}</h2><dl>${items.map(x => `<dt id="g-${x.key}">${esc(x[lang][0])}</dt><dd>${esc(x[lang][1])}</dd>`).join('')}</dl>`;
+    const groups = { ...GL.groups[lang], tarot: i.t('ui.tarot.group') };
+    const tarot = tarotEntries(lang); GL.setDynamic(lang, tarot);
+    const order = [...GL.order.slice(0, GL.order.indexOf('time') + 1), 'tarot', ...GL.order.slice(GL.order.indexOf('time') + 1)];
+    $('glossary-index').innerHTML = order.map(g => `<a href="#gg-${g}">${groups[g]}</a>`).join('');
+    $('glossary-body').innerHTML = order.map(g => {
+      const items = (g === 'tarot' ? tarot : GL.entries.filter(x => x.group === g));
+      const plate = x => x.img ? `<dd class="plate"><img loading="lazy" src="${x.img}" alt="${esc(x[lang][0])}" width="110"><p>${esc(x[lang][1])}</p></dd>` : `<dd>${esc(x[lang][1])}</dd>`;
+      return `<h2 id="gg-${g}">${groups[g]}</h2>${g === 'tarot' ? `<p class="meta nolink">${esc(i.t('ui.tarot.note'))}</p>` : ''}<dl>${items.map(x => `<dt id="g-${x.key}">${esc(x[lang][0])}</dt>${plate(x)}`).join('')}</dl>`;
     }).join('');
     SD.glossary.link($('glossary-body'), lang);                 // the entries link to one another
+  }
+  /* the tarot plates: one entry per decan card (36) and per trump (22), named in the reader's language, each with its
+     Rider plate. built per language from the correspondences and the strings; the files are the Commons scans. */
+  function tarotEntries(lang) {
+    const i = SD.i18n, C = SD.corr, T = k => i.t('ui.tarot.' + k), out = [];
+    const FILE = { wands: 'Wands', cups: 'Cups', swords: 'Swords', pentacles: 'Pents' };
+    for (const d of C.DECANS) {
+      const name = i.card(d), title = i.title(d);
+      out.push({ key: `card_${d.suit}${d.num}`, group: 'tarot', img: `img/tarot/${FILE[d.suit]}${String(d.num).padStart(2, '0')}.jpg`, [lang]: [name, T('minor')(title, i.cap1(i.decanOrd(d.decan)), i.sign(d.sign), i.cap1(i.planet(d.ruler)))], aliases: {} });
+    }
+    const trumpFile = ['00_Fool', '01_Magician', '02_High_Priestess', '03_Empress', '04_Emperor', '05_Hierophant', '06_Lovers', '07_Chariot', '08_Strength', '09_Hermit', '10_Wheel_of_Fortune', '11_Justice', '12_Hanged_Man', '13_Death', '14_Temperance', '15_Devil', '16_Tower', '17_Star', '18_Moon', '19_Sun', '20_Judgement', '21_World'];
+    const signTrump = [4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 17, 18];       // Aries the Emperor … Pisces the Moon
+    const planetTrump = { saturn: 21, jupiter: 10, mars: 16, sun: 19, venus: 3, mercury: 1, moon: 2 };
+    const elemTrump = { air: [0, 'fool'], water: [12, 'hanged'], fire: [20, 'judgement'] };
+    const push = (n, name, of) => out.push({ key: `trump_${n}`, group: 'tarot', img: `img/tarot/RWS_Tarot_${trumpFile[n]}.jpg`, [lang]: [name, `${T('trumpOf')} ${of}, ${T('inGD')}.`], aliases: {} });
+    for (let s = 0; s < 12; s++) push(signTrump[s], i.trumpSign(s), i.sign(s));
+    for (const [p, n] of Object.entries(planetTrump)) push(n, p === 'saturn' ? T('universe') : i.trumpPlanet(p), i.cap1(i.planet(p)));
+    for (const [el, [n, k]] of Object.entries(elemTrump)) push(n, T(k), T('elem.' + el));
+    return out.sort((a, b) => (a.key < b.key ? -1 : 1));
   }
   function openGlossary(key) {
     buildGlossary();

@@ -242,3 +242,8 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 .gbody dt.lit, .gbody dt.lit + dd { background: rgba(111, 207, 142, 0.12); box-shadow: 0 0 0 6px rgba(111, 207, 142, 0.12); border-radius: 2px; }   /* the entry one arrived at, in faint siderarium green */
 .gbody dt.lit { color: #6fcf8e; }
 .gbody dd { margin: 0 0 6px; font: 400 15px/1.55 var(--sans); color: var(--ink-2); max-width: 68ch; }
+
+/* the tarot plates in the glossary: the card beside its words, unaltered */
+.gbody dd.plate { display: grid; grid-template-columns: 110px 1fr; gap: 14px; align-items: start; }
+.gbody dd.plate img { width: 110px; height: auto; border: 1px solid rgba(235, 231, 220, 0.18); border-radius: 3px; background: #111; }
+.gbody dd.plate p { margin: 0; }

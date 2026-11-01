@@ -280,11 +280,12 @@
   const ORDER = ['title', 'moon', 'figure', 'planet', 'angel', 'sign', 'element', 'house', 'dignity', 'time', 'wheel', 'sound', 'sd', 'mansion'];   // the stones group is kept in the data but not shown for now
 
   /* the linker: every term and alias, longest first, matched on word boundaries, case-insensitive */
-  let cache = {};
+  let cache = {}, dynamic = { en: [], es: [] };
+  function setDynamic(lang, entries) { dynamic[lang] = entries; cache[lang] = null; }
   function matcher(lang) {
     if (cache[lang]) return cache[lang];
     const words = [];
-    for (const g of G) {
+    for (const g of [...G, ...(dynamic[lang] || [])]) {
       if (!ORDER.includes(g.group)) continue;                     // only the groups on show link
       const t = g[lang][0].replace(/\s*\(.*\)$/, '');            // the term without its bracket
       const list = [t, ...(g.aliases[lang] || [])];
@@ -314,5 +315,5 @@
       node.parentNode.replaceChild(frag, node);
     }
   }
-  SD.glossary = { entries: G, groups: GROUPS, order: ORDER, link, byKey: k => G.find(g => g.key === k) };
+  SD.glossary = { entries: G, groups: GROUPS, order: ORDER, link, setDynamic, dynamic: lang => dynamic[lang] || [], byKey: k => G.find(g => g.key === k) };
 })(window.SD = window.SD || {});
