@@ -661,7 +661,7 @@
     const disarm = () => { clearTimeout(timer); timer = null; };
     for (const [b, w] of [[btnA, 'first'], [btnB, 'second']]) {
       if (!b) continue;
-      const arm = e => { if (e.button && e.button !== 0) return; which = w; btn = b; clearTimeout(timer); timer = setTimeout(show, 480); };
+      const arm = e => { if (e.button && e.button !== 0) return; which = w; btn = b; clearTimeout(timer); timer = setTimeout(() => { show(); try { window.getSelection && window.getSelection().removeAllRanges(); } catch (x) { /* none */ } }, 480); };
       b.addEventListener('pointerdown', arm); b.addEventListener('pointerup', disarm); b.addEventListener('pointerleave', disarm); b.addEventListener('pointercancel', disarm);
       b.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); which = w; btn = b; show(); });
     }
