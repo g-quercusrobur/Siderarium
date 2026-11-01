@@ -1468,14 +1468,14 @@
     /* the pointer: the kind of tie that leads, in Ptolemy's words; a second kind when it also reaches sympathy;
        enmity named when a kind reaches strong antipathy */
     const ties = state.ties, TK = ['choice', 'need', 'pleasure'], rank = g => ({ strongSympathy: 2, sympathy: 1, none: 0, antipathy: -1, strongAntipathy: -2 })[g] || 0;
-    const tieName = k => i.t('ui.tie.' + k), TT = i.t('cap.tie');
+    const tieName = k => i.t('ui.tie.' + k), tieIn = k => i.t('ui.tieIn.' + k), TT = i.t('cap.tie');   // the second form after "in": Spanish takes the article
     let tiePhrase = '', tieRow = '';
     if (pr && ties) {
       const sym = TK.filter(k => rank(ties[k].grade) > 0).sort((a, b) => ties[b].value - ties[a].value), ant = TK.filter(k => rank(ties[k].grade) < 0).sort((a, b) => ties[a].value - ties[b].value);
       if (sym.length === 3) tiePhrase = TT.all; else if (sym.length === 2) tiePhrase = TT.two(tieName(sym[0]), tieName(sym[1])); else if (sym.length === 1) tiePhrase = TT.one(tieName(sym[0]));
-      else tiePhrase = ant.length >= 2 ? TT.enmityTwo(tieName(ant[0]), tieName(ant[1])) : ant.length ? TT.enmity(tieName(ant[0])) : TT.none;
+      else tiePhrase = ant.length >= 2 ? TT.enmityTwo(tieIn(ant[0]), tieIn(ant[1])) : ant.length ? TT.enmity(tieIn(ant[0])) : TT.none;
       const hard = ant.filter(k => ties[k].grade === 'strongAntipathy');
-      if (sym.length && hard.length) tiePhrase += ' · ' + TT.enmity(tieName(hard[0]));
+      if (sym.length && hard.length) tiePhrase += ' · ' + TT.enmity(tieIn(hard[0]));
       tieRow = TK.map(k => `${i.cap1(tieName(k))}: ${i.t('ui.tieGrade.' + ties[k].grade)}`).join(' · ');
     }
     return {
