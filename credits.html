@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Siderarium · credits</title>
+
+<link rel="icon" type="image/png" sizes="32x32" href="img/siderarium-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="img/siderarium-192.png">
+<style>
+@font-face { font-family: Geist; font-weight: 400; font-display: swap; src: url("fonts/Geist-Regular.woff2") format("woff2"); }
+@font-face { font-family: Geist; font-weight: 500; font-display: swap; src: url("fonts/Geist-Medium.woff2") format("woff2"); }
+</style>
+<link rel="stylesheet" href="style.css">
+<style>
+  .doc { max-width: 720px; padding-top: 48px; padding-bottom: 80px; display: grid; gap: 22px; }
+  .doc h1 { font-size: clamp(30px, 4vw, 44px); line-height: 1.1; }
+  .doc h2 { font-size: 20px; margin-top: 18px; }
+  .doc p, .doc li { color: var(--ink-2); font-size: 16px; }
+  .doc ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+  .doc .meta { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html" aria-label="Siderarium"><img src="img/siderarium-192.png" alt=""><span class="mark">SIDERARIUM</span></a>
+  <nav><a class="btn small" href="index.html">Back</a></nav>
+</header>
+<main class="wrap doc">
+  <h1>Credits</h1>
+  <p class="meta">Third-party components used by Siderarium, with their notices</p>
+
+  <h2>Astronomy Engine</h2>
+  <p>Every planetary position, rising, setting and lunar phase is computed with Astronomy Engine by Don Cross, <a href="https://github.com/cosinekitty/astronomy">github.com/cosinekitty/astronomy</a>, used under the MIT licence:</p>
+  <pre class="lic">MIT License
+
+Copyright (c) 2019-2023 Don Cross &lt;cosinekitty@gmail.com&gt;
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the &quot;Software&quot;), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</pre>
+
+  <h2>GeoNames</h2>
+  <p>Place names, coordinates and time zones offered by the birthplace search come from <a href="https://www.geonames.org/">GeoNames</a>, used under the <a href="https://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0</a> licence. The data was filtered and bundled with the app, so no search leaves your device.</p>
+
+  <h2>Geist and Geist Mono</h2>
+  <p>The typefaces Geist and Geist Mono are by Vercel, used under the <a href="https://openfontlicense.org">SIL Open Font License 1.1</a> and self-hosted, so the site makes no request to a font service.</p>
+
+  <h2>Sources of the tradition</h2>
+  <p>The planetary hours follow the Chaldean order; the angels follow the Shem HaMephorash as given by the Golden Dawn tradition; the tarot attributions follow the Golden Dawn paths of the Tree of Life. These are public tradition; their arrangement and weighting in Siderarium are proprietary.</p>
+  <p class="meta"><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="credits.html">Credits</a></p>
+</main>
+</body>
+</html>

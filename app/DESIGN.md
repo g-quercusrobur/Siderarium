@@ -387,3 +387,12 @@ The birth time accepts both notations. A chooser beside the field reads 24 h, am
 - **Sound**: stopping fades in 0.25 s (was 3 s); a new chord still glides over 3 s.
 - **Caption**: "under" and the angel are joined by a non-breaking space, and a " · " separator never starts a line on the phone.
 
+
+## Hygiene pass (phase 1 of the outside brief)
+
+- Pinch zoom restored (`maximum-scale`/`user-scalable` removed); every icon button carries an `aria-label`; links show a focus ring.
+- Reduced motion: when the system asks for it, the animation clock stops, so the stars do not twinkle and the glow does not pulse. The sky still moves with time.
+- Saved charts can be duplicated, and the copy is placed under the original. Delete stays a two-tap confirm with a 3-second window.
+- Files are named `siderarium-<view>-<who or where>-<yyyymmdd>[-extra].png`.
+- Every exported image says "for entertainment" in its notice line, and the About sheet carries the entertainment statement plus links to the terms, privacy and credits pages.
+- Site changes: the FAQ was rewritten as 14 questions (the FAQPage schema is generated from the same list), and terms.html and credits.html were added (credits holds the full MIT notice for Astronomy Engine, plus GeoNames CC BY 4.0 and Geist OFL). The privacy page now covers sharing, backups and third-party birth data.

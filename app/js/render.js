@@ -1665,7 +1665,8 @@
     ctx.fillText(NOTICE(), m, Math.min(row(5) + 2 * k, Lt.S - 6 * u));
     ctx.restore();
   }
-  const NOTICE = () => `© ${new Date().getFullYear()} Siderarium · proprietary design and method · all rights reserved`;
+  let EXPORTING = false;                                   // an image leaving the app: its small print says what it is
+  const NOTICE = () => `© ${new Date().getFullYear()} Siderarium · proprietary design and method · all rights reserved${EXPORTING ? ' · ' + I().t('cap.forEntertainment') : ''}`;
   /* the bare wallpaper carries the notice in its lower right corner, small */
   /* the wallpaper's four corners glow in the colour of the element that rules the sky now, stronger as its share grows.
      earth's own tincture is sable, invisible as a light, so its glow is an umber. */
@@ -2050,10 +2051,10 @@
   }
 
   function render(ctx, state, S, t, opts = {}) {
-    FAST = !!opts.fast; ENGRAVE = !!opts.engrave || opts.field === 'guilloche'; LUMINOUS = !!opts.luminous; TIGHT = !!opts.tight; GROUND_EL = !!opts.groundEl;
+    FAST = !!opts.fast; EXPORTING = !!opts.exported; ENGRAVE = !!opts.engrave || opts.field === 'guilloche'; LUMINOUS = !!opts.luminous; TIGHT = !!opts.tight; GROUND_EL = !!opts.groundEl;
     GUILLOCHE = ENGRAVE && opts.field !== 'waves';          // the engraving is grain d'orge; ?field=waves keeps the older wobble
     try { return (opts.mode === 'chart' ? renderChart : renderClock)(ctx, state, S, t, opts); }
-    finally { FAST = false; ENGRAVE = false; LUMINOUS = false; TIGHT = false; GROUND_EL = false; GUILLOCHE = false; }
+    finally { FAST = false; EXPORTING = false; ENGRAVE = false; LUMINOUS = false; TIGHT = false; GROUND_EL = false; GUILLOCHE = false; }
   }
   /* a wallpaper: the sky without its wheel, the field running to the edges of a W × H canvas. the dial is sized to the width. */
   function renderWallpaper(ctx, state, W, H, t, opts = {}) {
