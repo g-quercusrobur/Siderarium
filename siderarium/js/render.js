@@ -1486,7 +1486,7 @@
       if (sym.length && hard.length) tiePhrase += ' · ' + TT.enmity(tieIn(hard[0]));
       tieRow = TK.map(k => `${i.cap1(tieName(k))}: ${i.t('ui.tieGrade.' + ties[k].grade)}`).join(' · ');
     }
-    return {
+    const base = {
       cols,
       label: x.c1(pr ? `${i.t('cap.synastryLabel')} · ${info.name}` : `${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
       stateKey: pr && combo ? combo.tone : stateKey,
@@ -1503,12 +1503,50 @@
       note: '',
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
+    return pr && state.syn ? { ...base, ...synCaption(state, x, pr) } : base;
+  }
+  /* the pair after the rules v2.1: the headline from the grid alone (D2, D3); below it the combination of the three
+     categories where the vocabulary allows, else the temperament; the featured contact (D4); the strongest harmony and
+     strife (D5); the temperament (F3); each chart's basics with its dominant element on its own line (F4) */
+  const LABEL_TONE = { deepBond: 'deepHarmony', ease: 'harmony', light: 'ease', charged: 'polar', mixed: 'balanced', neutral: 'quiet', volatile: 'strife', friction: 'tension', distance: 'quiet', aversion: 'deepStrife' };
+  function catName(Y, k) { const i = I(); return k === 'pleasure' ? i.t('ui.cat.' + (Y.age.third || 'pleasure')) : i.t('ui.cat.' + k); }
+  function catWord(Y, k) {
+    const i = I(), g = Y.cats[k].grade, pos = i.t('ui.catWord.' + (k === 'pleasure' ? (Y.age.third || 'pleasure') : k));
+    return g === 'strongPositive' ? i.t('ui.catWord.strong')(pos) : g === 'positive' ? pos : i.t('ui.catWord.' + g);
+  }
+  function synCaption(state, x, pr) {
+    const i = I(), Y = state.syn, P = k => i.planet(k), A = k => i.aspect(k);
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : SD.tikkun.text().north;
+    const words = c => `${i.t('cap.own')(pr.a, pt(c.a))} ${A(c.aspect)} ${i.t('cap.own')(pr.b, pt(c.b))}${c.uncertain ? ` (${i.t('cap.syn.uncertain')})` : ''}`;
+    const sign = g => g === 'positive' || g === 'strongPositive' ? 'p' : g === 'friction' || g === 'strongFriction' ? 'm' : 'z';
+    const key = ['friendship', 'business', 'pleasure'].map(k => sign(Y.cats[k].grade)).join('');
+    const romance = Y.age.sexual && !Y.age.family && (Y.type === 'partner' || Y.type === 'other');   // the 27 names speak of lovers: adults, partners or unspecified
+    const temper = `${i.t('cap.syn.temper.' + Y.temperWord)}`;
+    const el = st => st.elements ? i.t('ui.el.' + st.elements.dominant) : '';
+    const col = (name, st, noTime) => { const T = fmtShortDate(st.date, st.loc), s3 = n => i.sign(n).slice(0, 3), B = st.bodies;
+      return { head: name, lines: [`${T.date} · ${T.time}`, i.placeName(st.loc.name), `${P('sun')} ${s3(B.sun.sign)} · ${P('moon')} ${s3(B.moon.sign)}`, ...(noTime ? [] : [`ASC ${i.sign(Math.floor(st.asc / 30))}`]), `${i.t('cap.syn.dominant')} ${el(st)}`] }; };
+    return {
+      cols: [col(pr.a, state, Y.noA), col(pr.b, state.natal, Y.noB)],
+      stateKey: LABEL_TONE[Y.label] || 'quiet',
+      state: i.t('cap.syn.label.' + Y.label),
+      title: romance ? i.t('cap.combo')[key] : x.c1(temper),
+      detail4: Y.featured ? x.c1(words(Y.featured)) : x.c1(i.t('cap.noTransit')),
+      pairLine: x.cs(`${i.t('cap.harmonyIs')} ${Y.topH ? words(Y.topH) : i.t('cap.noHarmony')} · ${i.t('cap.strifeIs')} ${Y.topS ? words(Y.topS) : i.t('cap.noStrife')}`),
+      pairLine2: x.cs(`${romance ? temper + ' · ' : ''}${i.t('cap.contactsN')(Y.contacts.length)}`),
+      note: ''
+    };
   }
   /* the three ties as scales: position of the score between strong antipathy and strong sympathy, the ticks where the
      word changes, the word and its colour. read by the dial and by the page */
   const TIE_INK = { strongSympathy: '#7fa4e0', sympathy: '#6fcf8e', none: '#b8b2a4', antipathy: '#e8894a', strongAntipathy: '#ff5a2a' };
+  const CAT_INK = { strongPositive: '#7fa4e0', positive: '#6fcf8e', neutral: '#b8b2a4', mixed: '#e3b341', friction: '#e8894a', strongFriction: '#ff5a2a' };
   function tieScale(state) {
-    const i = I(), T = state.ties, steps = E_.tieSteps; if (!T) return [];
+    const i = I(), Y = state.syn;
+    if (Y) {                                              // v2.1: the category's balance between −0.6 and +0.6, ticks where the word changes
+      const at = v => 0.5 + 0.5 * Math.max(-1, Math.min(1, v / 0.6));
+      return ['friendship', 'business', 'pleasure'].map(k => ({ key: k, label: catName(Y, k), word: catWord(Y, k), color: CAT_INK[Y.cats[k].grade], pos: Y.cats[k].n ? at(Y.cats[k].balance) : 0.5, ticks: [at(-0.3), at(-0.1), 0.5, at(0.1), at(0.3)] }));
+    }
+    const T = state.ties, steps = E_.tieSteps; if (!T) return [];
     return ['choice', 'need', 'pleasure'].map(k => {
       const t = T[k], S_ = steps[k], span = 1.6 * S_.s2, at = v => 0.5 + 0.5 * Math.max(-1, Math.min(1, v / span));
       return { key: k, label: i.t('ui.tie.' + k), word: i.t('ui.tieGrade.' + t.grade), color: TIE_INK[t.grade], pos: at(t.value - S_.c),
@@ -1560,7 +1598,7 @@
     // 3 · the title of the moment: the stage of life, the mother letter, the angel of the hour
     ctx.fillStyle = K.rgba(INK, 0.95); ctx.font = `500 ${Math.round(23 * k)}px ${SANS}`;
     f = fit(c.title, left); put(c.title, m, row(2)); ctx.font = f;
-    if (c.cols && state.ties) {                         // a pair: the three ties as scales, in the rows of the reason and the sound
+    if (c.cols && (state.syn || state.ties)) {           // a pair: the three ties as scales, in the rows of the reason and the sound
       const gs = tieScale(state), gap = 22 * k, gw = (left - 2 * gap) / 3, yl = row(3) + 4 * k, yline = row(3) + 0.66 * pitch, yw = row(4) + 0.6 * pitch;   // air under the title
       gs.forEach((g, n) => {
         const x0 = m + n * (gw + gap), X = p => x0 + p * gw;
@@ -1592,7 +1630,8 @@
         ctx.fillStyle = K.rgba(INK, 0.9); ctx.font = `500 ${Math.round(17 * k)}px ${SANS}`;
         f = fit(col.head, cw); put(col.head, x, row(0)); ctx.font = f;
         ctx.fillStyle = K.rgba(INK, 0.72); ctx.font = `400 ${Math.round(16 * k)}px ${SANS}`;
-        col.lines.forEach((txt, r) => { f = fit(txt, cw, 0.66); put(txt, x, row(r + 1)); ctx.font = f; });
+        const lp = (row(4) - row(0)) / Math.max(4, col.lines.length);   // five lines where the dominant element has its own
+        col.lines.forEach((txt, r) => { f = fit(txt, cw, 0.66); put(txt, x, row(0) + (r + 1) * lp); ctx.font = f; });
       });
     } else {
     // 5 · the moment, and 6 · the day's colour, on the right
@@ -2002,5 +2041,5 @@
     return render(ctx, state, S, t, { ...opts, mode: 'clock', bare: { W, H }, caption: false });
   }
 
-  SD.render = { render, renderWallpaper, overlay, ground, captionLines, tieScale, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
+  SD.render = { render, renderWallpaper, overlay, ground, captionLines, tieScale, catName, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
 })(window.SD = window.SD || {});

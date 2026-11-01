@@ -603,6 +603,8 @@
   /* ---------- the Lot of Fortune ----------
      Ptolemy's lot: by day the Ascendant plus the Moon less the Sun, by night the reverse. Of the ties between two
      charts it governs the one "by need" (Tetrabiblos IV.7). */
+  /* a planet's ecliptic longitude of date at any instant */
+  function lonOf(key, date) { return eclipticOfDate(A.Body[C.PLANETS[key].body], A.MakeTime(date)); }
   /* the mean lunar node (Meeus 47.7) */
   function meanNode(date) { const T = (date.getTime() / 864e5 + 2440587.5 - 2451545) / 36525; return norm360(125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000); }
   /* the true (osculating) lunar node: the ascending node of the Moon's instantaneous geocentric orbit, from its position
@@ -965,5 +967,5 @@
     if (orbAt(tm) < Math.min(0.5, orbMax * 0.35)) exact = new Date(tm);
     return { exact, enter: enter ? new Date(enter) : null, leave: leave ? new Date(leave) : null, orbNow: o0 };
   }
-  SD.engine = { compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  SD.engine = { compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, lonOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});
