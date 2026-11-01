@@ -255,3 +255,4 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 .chart-pick button.on::before { content: "● "; font-size: 9px; vertical-align: middle; }
 .chart-pick button:hover, .chart-pick button:focus-visible { color: var(--ink); background: rgba(235, 231, 220, 0.06); outline: none; }
 .chart-pick .empty { padding: 9px 14px; color: var(--ink-3); font: 400 13px/1.4 var(--sans); }
+.chart-pick button.new { border-top: 1px solid rgba(235, 231, 220, 0.14); margin-top: 4px; padding-top: 11px; color: var(--ink); }

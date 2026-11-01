@@ -634,7 +634,8 @@
     const show = () => {
       pickHeld = true;
       const i = SD.i18n;
-      menu.innerHTML = S.charts.length ? S.charts.map(c => `<button type="button" data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`;
+      menu.innerHTML = (S.charts.length ? S.charts.map(c => `<button type="button" data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`)
+        + `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>`;   // and a way to add one
       const r = btn.getBoundingClientRect();
       menu.hidden = false;
       const w = menu.offsetWidth, left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left));
@@ -646,6 +647,7 @@
     btn.addEventListener('pointerdown', arm); btn.addEventListener('pointerup', disarm); btn.addEventListener('pointerleave', disarm); btn.addEventListener('pointercancel', disarm);
     btn.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); show(); });
     menu.addEventListener('click', e => {
+      if (e.target.closest('button[data-new]')) { menu.hidden = true; openBirth(true); return; }   // a blank form; the loaded chart stays until the new one is saved
       const b = e.target.closest('button[data-id]'); if (!b) return;
       const chart = S.charts.find(c => c.id === b.dataset.id); menu.hidden = true; if (!chart) return;
       S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null;
