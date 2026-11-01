@@ -1075,6 +1075,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       else e.target.classList.add('bad');
     };
     liveFormat($('when'), 'stamp'); liveFormat($('birth-date'), 'date'); liveFormat($('birth-time'), 'time');
+    { let prev = '24';                                      // switching 24 h / am / pm converts the time already typed: 16:30 ⇄ 4:30 pm
+      $('birth-ampm').addEventListener('focus', () => { prev = $('birth-ampm').value; });
+      $('birth-ampm').addEventListener('change', () => {
+        const el = $('birth-time'), mode = $('birth-ampm').value, t24 = normTime(el.value.replace(/[ap]\.?\s*m?\.?\s*$/i, ''), prev);
+        if (t24) { const [h, m] = t24.split(':').map(Number); if (mode === '24') el.value = t24; else if ((mode === 'pm') === (h >= 12)) el.value = `${h % 12 || 12}:${String(m).padStart(2, '0')}`; else if (prev === '24') { el.value = `${h % 12 || 12}:${String(m).padStart(2, '0')}`; $('birth-ampm').value = h >= 12 ? 'pm' : 'am'; } }
+        prev = $('birth-ampm').value; }); }
     $('when').addEventListener('change', commit);
     $('when').addEventListener('keydown', e => { if (e.key === 'Enter') { commit(e); e.target.blur(); } });
     $('here').addEventListener('click', () => locate(true));
@@ -1138,10 +1144,10 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (n) {
       const p = placeParts(new Date(n.date), n.place.tz);
       $('birth-name').value = n.name || '';
-      $('birth-date').value = `${p.year}-${p.month}-${p.day}`; $('birth-time').value = n.unknownTime ? '' : `${p.hour}:${p.minute}`;
+      $('birth-date').value = `${p.year}-${p.month}-${p.day}`; $('birth-time').value = n.unknownTime ? '' : `${p.hour}:${p.minute}`; $('birth-ampm').value = '24';
       $('birth-unknown').checked = !!n.unknownTime;
       choosePlace(n.place);
-    } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-unknown').checked = false; choosePlace(null); }
+    } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-ampm').value = '24'; $('birth-unknown').checked = false; choosePlace(null); }
     $('birth-note').textContent = '';
     $('birth').hidden = false;
     loadPlaces().catch(() => {});                           // the list, fetched once, cached with the app
@@ -1206,8 +1212,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     box.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 150));
   }
   function saveBirth() {
-    const dateTxt = normDate($('birth-date').value), unknown = $('birth-unknown').checked, timeTxt = unknown ? '12:00' : normTime($('birth-time').value);
-    $('birth-date').value = dateTxt; if (!unknown) $('birth-time').value = timeTxt;
+    const dateTxt = normDate($('birth-date').value), unknown = $('birth-unknown').checked, timeTxt = unknown ? '12:00' : normTime($('birth-time').value, $('birth-ampm').value);
+    if (!unknown && !/^\d{2}:\d{2}$/.test(timeTxt)) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.badTime')); return; }
+    $('birth-date').value = dateTxt; if (!unknown) { $('birth-time').value = timeTxt; $('birth-ampm').value = '24'; }
     const lat = parseFloat($('birth-lat').value), lon = parseFloat($('birth-lon').value), hand = Number.isFinite(lat) && Number.isFinite(lon);
     let place = null;
     if (S.birthPlace) place = { ...S.birthPlace, lat: hand ? lat : S.birthPlace.lat, lon: hand ? lon : S.birthPlace.lon };   // the coordinates may be corrected by hand
@@ -1242,12 +1249,19 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (+y < 1800 || +m > 12) { y = d.slice(4, 8); dd = d.slice(0, 2); m = d.slice(2, 4); }   // ddmmyyyy, as Europe writes it
     return `${y}-${m}-${dd}`;
   }
-  function normTime(txt) {
+  /* a time typed as 24-hour (16:30, 1630, 9:05) or as 12-hour with am or pm, typed (4:30 pm, 4.30p.m., 4pm) or chosen
+     beside the field; always returned as 24-hour hh:mm, or '' when it cannot be a time */
+  const ampmOf = txt => { const m = String(txt).match(/([ap])\.?\s*(m\.?)?\s*$/i); return m ? (m[1].toLowerCase() === 'a' ? 'am' : 'pm') : null; };
+  /* the chooser's labels as the language writes them, lower case: am / pm, a. m. / p. m. */
+  function ampmLabels() { const sel = $('birth-ampm'); if (!sel) return; for (const o of sel.options) o.textContent = SD.i18n.t('ui.' + (o.value === '24' ? 'h24' : o.value)); }
+  function normTime(txt, mode = '24') {
+    mode = ampmOf(txt) || mode;
     const d = digitsOf(txt);
     if (!d.length) return txt.trim();
-    if (d.length <= 2) return `${d.padStart(2, '0')}:00`;
-    const hh = d.slice(0, d.length - 2), mm = d.slice(-2);
-    return `${hh.padStart(2, '0')}:${mm}`;
+    let h = d.length <= 2 ? +d : +d.slice(0, d.length - 2), m = d.length <= 2 ? 0 : +d.slice(-2);
+    if (mode !== '24') { if (h < 1 || h > 12) return ''; h = h % 12 + (mode === 'pm' ? 12 : 0); }
+    if (h > 23 || m > 59) return '';
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
   const normStamp = txt => { const d = digitsOf(txt); return d.length >= 9 ? `${normDate(d.slice(0, 8))} ${normTime(d.slice(8, 12))}` : txt.trim(); };
   /* while typing, the separators appear on their own: 1990-11-27, 27-11-1990, 11:05, 9:05. the date is read as
@@ -1257,11 +1271,13 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (d.length >= 6) return (+d.slice(0, 4) < 1800 || +d.slice(4, 6) > 12) ? 'dd-dd-dddd' : 'dddd-dd-dd';   // the same test as normDate
     return (/^(19|20)/.test(d) || d.length < 2) ? 'dddd-dd-dd' : 'dd-dd-dddd';
   };
-  const timePat = d => (d.length >= 2 && +d.slice(0, 2) > 23) ? 'd:dd' : 'dd:dd';
+  const timePat = (d, top = 23) => (d.length >= 2 && d.length < 4 && +d.slice(0, 2) > top) ? 'd:dd' : 'dd:dd';   // three digits: 905 reads 9:05 (130 reads 1:30 in 12-hour); four are always hh:mm, so 2510 stays 25:10 and is refused
   const PATTERNS = { date: datePat, time: timePat, stamp: d => datePat(d.slice(0, 8)) + ' ' + timePat(d.slice(8)) };
   function liveFormat(el, kind) {
     el.addEventListener('input', () => {
-      const digits = digitsOf(el.value), pattern = PATTERNS[kind](digits); let out = '', k = 0;
+      if (kind === 'time' && $('birth-ampm') && el.id === 'birth-time') { const ap = ampmOf(el.value); if (ap) $('birth-ampm').value = ap; }   // "pm" typed moves into the chooser
+      const twelve = kind === 'time' && el.id === 'birth-time' && $('birth-ampm') && $('birth-ampm').value !== '24';
+      const digits = digitsOf(el.value), pattern = twelve ? timePat(digits, 12) : PATTERNS[kind](digits); let out = '', k = 0;
       for (const ch of pattern) { if (k >= digits.length) break; if (ch === 'd') out += digits[k++]; else out += ch; }
       if (out !== el.value) { el.value = out; try { el.setSelectionRange(out.length, out.length); } catch (e) { /* number keyboards */ } }
     });
@@ -1367,7 +1383,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
 
   function setLang(l) {
-    S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply(); glossaryTerms(); glossaryLang = null;
+    S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply(); ampmLabels(); glossaryTerms(); glossaryLang = null;
     if ($('set-lang').value !== l) $('set-lang').value = l;
     requestAnimationFrame(slideSeg);
     if (!$('menu').hidden) refreshMenu();
@@ -1377,7 +1393,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
 
   async function start() {
-    SD.i18n.set(S.lang); SD.i18n.apply();
+    SD.i18n.set(S.lang); SD.i18n.apply(); ampmLabels();
     document.querySelectorAll('[data-about]').forEach(el => { el.hidden = el.dataset.about !== S.lang; });
     try {
       await Promise.all(['400 20px Geist', '500 20px Geist', '400 20px "Geist Mono"'].map(f => document.fonts.load(f)));
