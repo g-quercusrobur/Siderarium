@@ -53,12 +53,12 @@
   /* the age rule (0): who is a minor, and what that forces */
   function ageRule(A, B, at, type) {
     const da = A.date, db = B.date;
-    if (!da || !db) return { known: false, anyMinor: true, bothMinor: false, gap: null, family: type === 'parent' || type === 'sibling', vocab: 'safe' };
+    if (!da || !db) return { known: false, anyMinor: true, bothMinor: false, gap: null, family: type === 'parent' || type === 'sibling', third: 'affection', vocab: 'safe' };
     const aa = ageAt(da, at), ab = ageAt(db, at), gap = years(da, db), anyMinor = aa < 18 || ab < 18, bothMinor = aa < 18 && ab < 18;
     const forced = anyMinor && gap > 3;                        // 0.2
     const family = forced || type === 'parent' || type === 'sibling';
     // the word for the third category, and whether sexual vocabulary is allowed anywhere
-    const third = forced || family ? 'affection' : anyMinor ? (bothMinor && gap <= 3 ? 'attraction' : 'affection') : 'pleasure';
+    const third = forced || family ? 'affection' : anyMinor ? (bothMinor && gap <= 3 ? 'attraction' : 'affection') : 'attraction';   // never 'pleasure': attraction, or affection
     return { known: true, ages: [aa, ab], gap, anyMinor, bothMinor, forced, family, third, sexual: !anyMinor };
   }
 
