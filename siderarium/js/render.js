@@ -835,6 +835,66 @@
     const cs = { ...state, bodies: comp.bodies };              // the composite's bodies, placed on the first chart's wheel
     return drawFigure(ctx, cs, Lt, comp.configs.primary, Rp, 'primary', lw, E, t);
   }
+  /* the harmonic rose of a pair, in place of planets. every contact between the two charts is a petal curve of its
+     aspect's harmonic (after John Addey: conjunction 1, opposition 2, trine 3, square 4, sextile 6, quincunx 12),
+     turned to the first chart's point on the zodiac and sized by its weight, so its petals also reach the second
+     chart's point. summed, harmony is one cool layer and strife one warm layer: the symmetry of the flower is the
+     structure of the pair. the single contacts run beneath, faint, in the blend of their two signs' colours. [SD] */
+  const ROSE_N = { conjunction: 1, opposition: 2, trine: 3, square: 4, sextile: 6, quincunx: 12 };
+  const ROSE_H = '#7fa4e0', ROSE_S = '#ff5a2a';
+  const rosePetal = (n, th, a) => Math.pow((1 + Math.cos(n * (a - th))) / 2, 1.5 + n * 0.75);   // a raised cosine, sharper as the harmonic rises
+  const roseCache = new WeakMap();
+  function roseOf(state) {
+    const syn = state.syn; if (!syn) return null;
+    if (roseCache.has(syn)) return roseCache.get(syn);
+    const B = state.natal, node = k => k === 'node' ? E_.trueNode : null;
+    const lonOf = (st, k) => k === 'ascendant' ? st.asc : k === 'midheaven' ? st.mc : node(k) ? node(k)(st.date) : st.bodies[k] && st.bodies[k].lon;
+    const sCol = lon => Number.isFinite(lon) ? C.SIGNS[Math.floor(E_.norm360(lon) / 30)].color : INK;
+    const cs = syn.contacts.filter(c => ROSE_N[c.aspect] && Number.isFinite(lonOf(state, c.a))).map(c => {
+      const la = lonOf(state, c.a), lb = B ? lonOf(B, c.b) : la;
+      return { n: ROSE_N[c.aspect], th: la * Math.PI / 180, w: c.w, h: c.h, s: c.s, col: K.mixLight(sCol(la), sCol(lb), 0.5, 0) };
+    });
+    const sum = (key, lr) => cs.reduce((t, c) => t + c[key] * rosePetal(c.n, c.th, lr), 0);
+    let mx = 0; for (let i = 0; i < 360; i += 2) { const lr = i * Math.PI / 180; mx = Math.max(mx, sum('h', lr) + sum('s', lr)); }
+    const r = { cs, sum, mx: mx || 1, w0: cs.length ? Math.max(...cs.map(c => c.w)) : 1 };
+    roseCache.set(syn, r); return r;
+  }
+  /* the rose in numbers: the share of weight by harmonic, largest first */
+  function roseSummary(state) {
+    const ro = roseOf(state); if (!ro || !ro.cs.length) return null;
+    const by = {}, tot = ro.cs.reduce((t, c) => t + c.w, 0) || 1;
+    for (const c of ro.cs) by[c.n] = (by[c.n] || 0) + c.w;
+    return { folds: Object.entries(by).map(([n, w]) => ({ n: +n, share: w / tot })).sort((x, y) => y.share - x.share), n: ro.cs.length };
+  }
+  function drawRose(ctx, state, Lt, R0, R1, lw, E) {
+    const ro = roseOf(state); if (!ro || !ro.cs.length) return;
+    const STEPS = FAST ? 180 : 540;
+    const path = f => { const p = new Path2D(); for (let i = 0; i <= STEPS; i++) { const lon = i * 360 / STEPS, v = f(lon * Math.PI / 180), q = polar(Lt, eclAngle(state, lon), R0 + (R1 - R0) * Math.sqrt(Math.max(0, v))); i ? p.lineTo(q.x, q.y) : p.moveTo(q.x, q.y); } p.closePath(); return p; };
+    const layers = [['h', ROSE_H], ['s', ROSE_S]].map(([key, col]) => ({ col, p: path(lr => ro.sum(key, lr) / ro.mx), key }));
+    ctx.save(); ctx.lineJoin = 'round';
+    if (PURE) {                                               // the sigil: the two outlines in ink, strife the lighter line
+      ctx.strokeStyle = '#fbf8f0';
+      for (const L of layers) { ctx.lineWidth = L.key === 'h' ? PURE_LW : PURE_LW * 0.55; ctx.stroke(L.p); }
+      ctx.restore(); return;
+    }
+    // a veil under the flower, so the field does not fight it
+    const v = ctx.createRadialGradient(Lt.cx, Lt.cy, 0, Lt.cx, Lt.cy, R1 * 1.05);
+    v.addColorStop(0, 'rgba(0,0,0,0.55)'); v.addColorStop(0.75, 'rgba(0,0,0,0.35)'); v.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = v; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, R1 * 1.05, 0, TAU); ctx.fill();
+    if (!FAST) {                                              // each contact alone, the heaviest first, in the blend of its two signs
+      ctx.lineWidth = lw * 0.55;
+      for (const c of ro.cs.slice(0, 18)) { ctx.strokeStyle = K.rgba(c.col, (0.2 + 0.45 * c.w / ro.w0) * E); ctx.stroke(path(lr => 0.85 * (c.w / ro.w0) * rosePetal(c.n, c.th, lr))); }
+    }
+    ctx.globalCompositeOperation = 'screen';
+    for (const L of layers) {
+      const g = ctx.createRadialGradient(Lt.cx, Lt.cy, R0 * 0.6, Lt.cx, Lt.cy, R1);
+      g.addColorStop(0, K.rgba(L.col, 0.05 * E)); g.addColorStop(1, K.rgba(L.col, 0.4 * E));
+      ctx.fillStyle = g; ctx.fill(L.p);
+      ctx.strokeStyle = K.rgba(L.col, 0.95); ctx.lineWidth = lw * 1.1; ctx.stroke(L.p);
+    }
+    ctx.restore();
+  }
+
   function drawPairFigure(ctx, state, Lt, Rp, lw, E) {
     const own = state.ownFigures; if (!own || !own.a || !own.b || !state.natal) return;
     const stB = { ...state, bodies: state.natal.bodies };
@@ -1355,8 +1415,8 @@
       const p = polar(Lt, eclAngle(state, i * 30 + 15), rm + 2 * u);
       G.sign(ctx, i, p.x, p.y, (Lt.Rz - Lt.Rzi) * 0.58 * Math.min(1.45, Math.max(1, Lt.ts * 0.7)), K.rgba(INK, 0.9), 0.12);
     }
-    // planet notches on the inner edge: true ecliptic longitude, in each planet's tincture
-    for (const key of C.ORDER) {
+    // planet notches on the inner edge: true ecliptic longitude, in each planet's tincture (a pair has no planets)
+    for (const key of (state.pair && state.syn ? [] : C.ORDER)) {
       const a = eclAngle(state, state.bodies[key].lon);
       const p0 = polar(Lt, a, Lt.Rzi), p1 = polar(Lt, a, Lt.Rzi - 14 * u);
       ctx.strokeStyle = key === 'saturn' ? C.PLANETS.saturn.rim : C.PLANETS[key].kind === 'optic' ? K.rgba(INK, 0.7) : K.rgba(coreColor(state, key), 0.95);
@@ -1755,8 +1815,9 @@
     const clusters = conjunctionClusters(state);
     const pos = placeBodies(state, Lt, clusters);
     // spokes from the planets feeding the primary figure to the pole — mercury owns rays
-    const npos = drawNatal(ctx, state, Lt, lw);
-    if (cf.primary) {
+    const ROSE = !!(state.pair && state.syn);            // a pair: the harmonic rose, and no planets
+    const npos = ROSE ? {} : drawNatal(ctx, state, Lt, lw);
+    if (cf.primary && !ROSE) {
       withBlur(ctx, 5 * Lt.u * B.mercury.slow, () => {
         const ends = cf.primary.natal
           ? [[pos[cf.primary.a], presence(state, cf.primary.a)], [npos[cf.primary.b], NATAL_INK]]
@@ -1769,10 +1830,11 @@
       });
     }
     // secondary first, primary on top; a pair of charts draws its own figure instead
-    if (state.pair && state.composite) { const g = drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t); if (g) geos.push(g); }
+    if (ROSE) drawRose(ctx, state, Lt, Lt.R * 0.07, Lt.R * 0.88, lw, E);
+    else if (state.pair && state.composite) { const g = drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t); if (g) geos.push(g); }
     else if (state.pair && state.ownFigures) drawPairFigure(ctx, state, Lt, Rp, lw, E);
     else cf.secondary.slice().reverse().forEach(c => geos.push(drawFigure(ctx, state, Lt, c, Rp, 'secondary', lw * 0.7, E, t)));
-    if (cf.primary && !(state.pair && (state.composite || state.ownFigures))) {
+    if (cf.primary && !(state.pair && (ROSE || state.composite || state.ownFigures))) {
       // the cut: a wedge removed toward the planet that afflicts the figure
       let wedge = null;
       if (cf.cut) {
@@ -1795,18 +1857,19 @@
       }
       geos.push(g);
     }
-    cf.stations.forEach(st => drawStation(ctx, state, Lt, st, Rp, lw, E));
+    if (!ROSE) cf.stations.forEach(st => drawStation(ctx, state, Lt, st, Rp, lw, E));
     const rippleCol = cf.ripple ? K.mixLight(C.PLANETS.moon.tincture, presence(state, cf.ripple.a === 'moon' ? cf.ripple.b : cf.ripple.a), 0.4, 0) : null;
     // the Moon's ripple, a ring opening from the centre, is retired: the field breathes enough
     const stars = constellation(geos, Rp);
     drawStars(ctx, stars, Lt, E, t);
 
-    drawBodies(ctx, state, Lt, pos, E, lw, t, involved, clusters);
-    if (state.interaction && state.interaction.figures[0]) drawInteraction(ctx, state, Lt, state.interaction.figures[0], pos, npos, lw, E);
+    if (!ROSE) drawBodies(ctx, state, Lt, pos, E, lw, t, involved, clusters);
+    if (!ROSE && state.interaction && state.interaction.figures[0]) drawInteraction(ctx, state, Lt, state.interaction.figures[0], pos, npos, lw, E);
 
     drawGuardians(ctx, state, Lt, E);
 
     // optics after everything inside the sky: pluto occults, neptune diffuses
+    if (!ROSE) {
     const pl = pos.pluto;
     const plPower = planetPower(state, 'pluto', involved.pluto);
     const plStrength = (0.7 + 0.3 * Math.min(1, involved.pluto || 0)) * (B.pluto.retro ? 0.8 : 1);
@@ -1842,6 +1905,7 @@
       ctx.drawImage(cp.canvas, sx, sy, sw, sw, sx, sy, sw, sw);
       ctx.restore();
     }
+    }                                                     // the optics belong to planets: none in a pair
     ctx.restore(); // sky clip
 
     // the sigil layer: veil the sky, draw the figure of the moment in solid ink to be copied
@@ -1853,6 +1917,7 @@
       PURE = true; PURE_SIMPLE = true; PURE_LW = Math.max(lw * 2.2, 4.2 * Lt.u); PURE_BASE = lw; PURE_ALPHA = 1;
       try {
         // the sigil: the ruling figure's lines and the guardians' stars, one weight, nothing else. a key, not a drawing
+        if (ROSE) { drawRose(ctx, state, Lt, Lt.R * 0.07, Lt.R * 0.88, lw, E); drawGuardians(ctx, state, Lt, E); throw { skip: true }; }   // a pair: the rose's two outlines
         if (state.pair && state.composite) {                  // a pair: the composite's ruling figure, the two natal figures faint, the composite's two planets' glyphs
           drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t);
           const cp = state.composite.configs.primary;
@@ -1904,7 +1969,7 @@
       ctx.restore();
     }
 
-    if (state.transits && state.natal && !opts.sigil) drawContacts(ctx, state, Lt, pos, npos, lw);   // the contacts between the two skies, over the figure: cold for harmony, warm for strife
+    if (state.transits && state.natal && !opts.sigil && !ROSE) drawContacts(ctx, state, Lt, pos, npos, lw);   // the contacts between the two skies, over the figure: cold for harmony, warm for strife
     if (!bare) {
       drawRete(ctx, state, Lt, lw);
       drawFrame(ctx, state, Lt, lw);
@@ -2064,5 +2129,5 @@
 
   /* when the browser drops a canvas (memory pressure on phones), the cached plates are dropped too and drawn again */
   function resetCaches() { fieldCache.key = null; engraveCache.key = null; }
-  SD.render = { resetCaches, render, renderWallpaper, overlay, ground, captionLines, tieScale, catName, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
+  SD.render = { resetCaches, roseSummary, render, renderWallpaper, overlay, ground, captionLines, tieScale, catName, layout, signColorAt, coreColor, presence, hardness, figureColor, supportsFilter };
 })(window.SD = window.SD || {});
