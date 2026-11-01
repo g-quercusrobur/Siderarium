@@ -1312,6 +1312,7 @@
     const chordTxt = ch.name === 'none' ? i.t('cap.quiet') : `${i.t('cap.chord')} ${i.chordLong(ch)}${ch.interval ? ' · ' + i.interval(ch.interval) : ch.notes.length > 1 ? ' · ' + ch.notes.map(n => i.note(n)).join(' ') : ''}`;
     const nextTxt = state.nextChord ? `${i.t('cap.nextChord')} ${i.chordName(state.nextChord.to)} · ${fmtShort(state.nextChord.at, state.loc)}` : '';
     if (state.transits) return transitCaption(state, { T, chordTxt, nextTxt, c1, cs });
+    if (state.pairMissing) return { label: i.t('cap.synastryLabel'), stateKey: 'watch', state: c1(i.t('cap.noPair')), title: '', reason: '', l1: c1(`${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`), detail1: '', detail2: '', detail3: '', detail4: '', l2: '', l3: '', fig: '', moon: '', chord: '', decan: '', mansion: '', next: '' };
     return {
       // the tiers: the instrument, the state, the title, the reason, the moment, the day's colour, the sound
       label: i.t('cap.clockLabel'),
@@ -1340,18 +1341,20 @@
      planets' natal houses, the figure the two skies close, and the count in orb. no hour, no mode: that is the clock's. */
   function transitCaption(state, x) {
     const i = I(), tr = state.transits, inter = state.interaction, info = state.transitInfo || { spans: {}, houses: {} };
-    const P = k => i.planet(k), A = k => i.aspect(k), nat = k => C.PLANETS[k] ? `${i.t('cap.your')} ${P(k)}` : k === 'ascendant' ? `${i.t('cap.your')} ASC` : `${i.t('cap.your')} MC`;
+    const pr = state.pair, P = k => i.planet(k), A = k => i.aspect(k);
+    const own = (k, who) => pr ? `${C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : 'MC'} (${who})` : (C.PLANETS[k] ? `${i.t('cap.your')} ${P(k)}` : k === 'ascendant' ? `${i.t('cap.your')} ASC` : `${i.t('cap.your')} MC`);
+    const nat = k => own(k, pr && pr.b), mine = k => pr ? `${P(k)} (${pr.a})` : P(k);
     const when = a => { const sp = info.spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return ''; if (sp.exact) { const past = sp.exact.getTime() < state.date.getTime() - 3600e3; return ` · ${i.t(past ? 'cap.wasExact' : 'cap.exact')} ${fmtShort(sp.exact, state.loc)}`; } return sp.leave ? ` · ${i.t('cap.untilOrb')} ${fmtShort(sp.leave, state.loc)}` : ''; };
-    const line = a => `${P(a.a)} ${A(a.aspect)} ${nat(a.b)}`;
-    const short = a => `${line(a)} · ${a.orb.toFixed(1)}° ${i.t(a.applying ? 'cap.applying' : 'cap.separating')}`;
+    const line = a => `${mine(a.a)} ${A(a.aspect)} ${nat(a.b)}`;
+    const short = a => pr ? `${line(a)} · ${a.orb.toFixed(1)}°` : `${line(a)} · ${a.orb.toFixed(1)}° ${i.t(a.applying ? 'cap.applying' : 'cap.separating')}`;   // two fixed charts have no applying or separating
     const verdict = inter ? inter.verdict : 'balanced';
     const stateKey = verdict === 'harmonyPrevails' ? 'work' : verdict === 'strifePrevails' ? 'shelter' : 'watch';
     const fig = inter && inter.figures[0];
-    const figTxt = fig ? (fig.name === 'setOff' ? `${P(fig.t)} ${i.t('ui.r.setsOff')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}` : `${P(fig.t)} ${i.t('ui.r.closes')} ${i.t('ui.r.fig.' + fig.name)} ${i.t('ui.r.with')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}`) : '';
-    const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => `${P(k)} ${i.t('cap.inYourHouse')} ${i.roman(h)}`).join(' · ');
+    const figTxt = fig ? (fig.name === 'setOff' ? `${mine(fig.t)} ${i.t('ui.r.setsOff')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}` : `${mine(fig.t)} ${i.t('ui.r.closes')} ${i.t('ui.r.fig.' + fig.name)} ${i.t('ui.r.with')} ${nat(fig.a)} ${A(fig.natalAspect)} ${P(fig.b)}`) : '';
+    const housesTxt = Object.entries(info.houses).slice(0, 3).map(([k, h]) => pr ? `${P(k)} (${pr.b}) ${i.t('cap.inHouse')} ${i.roman(h)} (${pr.a})` : `${P(k)} ${i.t('cap.inYourHouse')} ${i.roman(h)}`).join(' · ');
     const applying = tr.filter(a => a.applying).length;
     return {
-      label: x.c1(`${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
+      label: x.c1(pr ? `${i.t('cap.synastryLabel')} · ${info.name}` : `${i.t('cap.transitsTo')} ${info.name || i.t('cap.nativity')}`),
       stateKey,
       state: x.c1(i.t('ui.r.' + verdict)),
       title: tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
@@ -1359,7 +1362,7 @@
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}, ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)}`) : x.cs(housesTxt),
       detail2: state.stone ? x.cs(housesTxt) : x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
-      detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(`${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
+      detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(pr ? i.t('cap.contactsN')(tr.length) : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
       detail4: x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),
       l2: '', l3: '', fig: x.c1(tr[0] ? line(tr[0]) : ''), moon: '', chord: x.c1(x.chordTxt), decan: '', mansion: '', next: ''
     };
