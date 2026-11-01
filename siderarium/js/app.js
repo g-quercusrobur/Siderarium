@@ -607,7 +607,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const cap = SD.render.captionLines(st);
     const el = st.elements ? `${R('element')} ${i.t('ui.el.' + st.elements.dominant)} ${Math.round(st.elements.shares[st.elements.dominant] * 100)}% · ${i.t('ui.el.' + st.elements.order[1])} ${Math.round(st.elements.shares[st.elements.order[1]] * 100)}%` : '';
     const guardians = `${R('guardians')} ${P(st.hour.dayRuler)}${st.hour.dayRuler === st.hour.hourRuler ? ' ' + R('alone') : ' ' + R('and') + ' ' + P(st.hour.hourRuler)}`;
-    const lead = `<p class="verdict state-${st.title.state}">${i.state(st.title.state)} · ${i.house12(st.title.house)} · ${i.cap1(i.window(st.title.mode))} · ${i.t('cap.under')} ${i.name(st.hour.angel)}</p>`;
+    const lead = st.natalView ? '' : `<p class="verdict state-${st.title.state}">${i.state(st.title.state)} · ${i.house12(st.title.house)} · ${i.cap1(i.window(st.title.mode))} · ${i.t('cap.under')} ${i.name(st.hour.angel)}</p>`;
     const inter = st.interaction;
     const interSentence = f => f.name === 'setOff' ? `${P(f.t)} ${R('setsOff')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}` : `${P(f.t)} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}`;
     const interRows = inter ? (inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${i.cap1(R(f.tone))}</td><td colspan="2">${interSentence(f)}</td></tr><tr class="sub"><td></td><td colspan="2">${P(f.t)} ${A(f.x.aspect)} ${P(f.a)} ${f.x.orb.toFixed(1)}° · ${P(f.t)} ${A(f.y.aspect)} ${P(f.b)} ${f.y.orb.toFixed(1)}° · ${f.power.toFixed(2)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`) : '';
@@ -784,6 +784,21 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <p>${T.road}: ${road}</p>
       <table>${asp}</table>
       <p class="dim">${T.symbolic} ${i.cap1(T.mean)}.${k.noTime ? ' ' + i.cap1(T.noTime) + '.' : ''}</p>`;
+  }
+
+  /* the update button: ask the server for a newer service worker, let it install (it takes over at once), then reload.
+     the pages come network-first, so the reload brings the newest files; offline it simply reloads the cached app */
+  async function updateApp() {
+    const b = $('update'); if (b.classList.contains('busy')) return; b.classList.add('busy');
+    try {
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg) {
+        await reg.update();
+        const w = reg.installing || reg.waiting;
+        if (w) await new Promise(res => { const t = setTimeout(res, 4000); w.addEventListener('statechange', () => { if (w.state === 'activated') { clearTimeout(t); res(); } }); });
+      }
+    } catch (e) { /* offline or no service worker: a plain reload still helps */ }
+    location.reload();
   }
 
   function updateControls() {
@@ -1003,6 +1018,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     bindPlaceSearch();
     $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) S.mode = 'clock'; $('birth').hidden = true; recompute(); });
     $('wallpaper').addEventListener('click', exportWallpaper);
+    $('update').addEventListener('click', updateApp);
     $('save').addEventListener('click', () => exportPNG(2048));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
