@@ -803,6 +803,49 @@
     ctx.restore();
   }
 
+  /* ---------- the figure of a pair ----------
+     the two charts' ruling polygons on one wheel, each turned to its own planet, each outlined faint in its own
+     colour; the region they have in common drawn solid, with a glow of the two colours mixed. what the two share is
+     the figure of the pair: an intersection, not a contact. a conjunction is a disc, an opposition a lens. [SD] */
+  function regionPath(cfg, bodies, state, Lt, R) {
+    const p = new Path2D(), rot = eclAngle(state, bodies[cfg.a].lon);
+    if (cfg.n === 1) { p.arc(Lt.cx, Lt.cy, R * 0.86, 0, TAU); return p; }
+    if (cfg.n === 2) {                                        // the lens of the vesica: the two circles' overlap
+      const d = R * 0.42, ax = Math.cos(rot), ay = -Math.sin(rot), c1 = { x: Lt.cx + ax * d / 2, y: Lt.cy + ay * d / 2 }, c2 = { x: Lt.cx - ax * d / 2, y: Lt.cy - ay * d / 2 };
+      const a1 = Math.atan2(c2.y - c1.y, c2.x - c1.x), h = Math.acos(0.5);   // half-angle at each centre, radius d and distance d
+      p.arc(c1.x, c1.y, d, a1 - h, a1 + h); p.arc(c2.x, c2.y, d, a1 + Math.PI - h, a1 + Math.PI + h); p.closePath(); return p;
+    }
+    const v = starVerts(Lt.cx, Lt.cy, R, cfg.n, rot), seen = new Set();
+    for (let s = 0; s < cfg.n; s++) {                         // a compound star (hexagram, octagram) has several components: walk each
+      if (seen.has(s)) continue; let j = s; p.moveTo(v[j].x, v[j].y);
+      do { seen.add(j); j = (j + cfg.k) % cfg.n; p.lineTo(v[j].x, v[j].y); } while (j !== s);
+      p.closePath();
+    }
+    return p;
+  }
+  function drawPairFigure(ctx, state, Lt, Rp, lw, E) {
+    const own = state.ownFigures; if (!own || !own.a || !own.b || !state.natal) return;
+    const stB = { ...state, bodies: state.natal.bodies };
+    const pa = regionPath(own.a, state.bodies, state, Lt, Rp), pb = regionPath(own.b, state.natal.bodies, state, Lt, Rp);
+    const ca = figureColor(state, own.a), cb = figureColor(stB, own.b), mix = K.mixLight(ca, cb, 0.5, 0.05);
+    ctx.save();
+    if (PURE) {                                               // the sigil: the shared region's outline alone, in ink, one weight
+      ctx.strokeStyle = '#fbf8f0'; ctx.lineWidth = PURE_LW; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.save(); ctx.clip(pa, 'nonzero'); ctx.stroke(pb); ctx.restore();
+      ctx.save(); ctx.clip(pb, 'nonzero'); ctx.stroke(pa); ctx.restore();
+      ctx.restore(); return;
+    }
+    ctx.globalAlpha = 0.3 * E; ctx.lineWidth = lw * 0.8;    // the two polygons, faint, in their own colours
+    ctx.strokeStyle = ca; ctx.stroke(pa); ctx.strokeStyle = cb; ctx.stroke(pb);
+    ctx.globalAlpha = 1;
+    ctx.save(); ctx.clip(pa, 'nonzero');                      // what they share: a glow of the mixed colour and a solid edge
+    ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = K.rgba(mix, 0.26 * E); ctx.fill(pb, 'nonzero');
+    ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = K.rgba('#fbf8f0', 0.92); ctx.lineWidth = lw * 1.3; ctx.lineJoin = 'round'; ctx.stroke(pb);
+    ctx.restore();
+    ctx.save(); ctx.clip(pb, 'nonzero'); ctx.strokeStyle = K.rgba('#fbf8f0', 0.92); ctx.lineWidth = lw * 1.3; ctx.lineJoin = 'round'; ctx.stroke(pa); ctx.restore();
+    ctx.restore();
+  }
+
   /* ---------- the intelligences as polygons ----------
      core   = the planet's own polygon (saturn 3, jupiter 4, mars 5, sun 6, venus 7, mercury 8), point up,
               in its tincture. the moon keeps its phase disc; the outer planets keep their optics.
@@ -1571,9 +1614,10 @@
         }
       });
     }
-    // secondary first, primary on top
-    cf.secondary.slice().reverse().forEach(c => geos.push(drawFigure(ctx, state, Lt, c, Rp, 'secondary', lw * 0.7, E, t)));
-    if (cf.primary) {
+    // secondary first, primary on top; a pair of charts draws its own figure instead
+    if (state.pair && state.ownFigures) drawPairFigure(ctx, state, Lt, Rp, lw, E);
+    else cf.secondary.slice().reverse().forEach(c => geos.push(drawFigure(ctx, state, Lt, c, Rp, 'secondary', lw * 0.7, E, t)));
+    if (cf.primary && !(state.pair && state.ownFigures)) {
       // the cut: a wedge removed toward the planet that afflicts the figure
       let wedge = null;
       if (cf.cut) {
@@ -1654,6 +1698,15 @@
       PURE = true; PURE_SIMPLE = true; PURE_LW = Math.max(lw * 2.2, 4.2 * Lt.u); PURE_BASE = lw; PURE_ALPHA = 1;
       try {
         // the sigil: the ruling figure's lines and the guardians' stars, one weight, nothing else. a key, not a drawing
+        if (state.pair && state.ownFigures) {                 // a pair: the shared region of the two ruling figures, and the two ruling planets' glyphs
+          drawPairFigure(ctx, state, Lt, Rp, lw, E);
+          const own = state.ownFigures, stB = { ...state, bodies: state.natal.bodies };
+          const vA = starVerts(Lt.cx, Lt.cy, Rp, Math.max(own.a.n, 1), eclAngle(state, state.bodies[own.a.a].lon))[0], vB = starVerts(Lt.cx, Lt.cy, Rp, Math.max(own.b.n, 1), eclAngle(stB, state.natal.bodies[own.b.a].lon))[0];
+          const glyphAt2 = (key, q, extra) => { const dx = q.x - Lt.cx, dy = q.y - Lt.cy, L = Math.hypot(dx, dy) || 1, r = L + (34 + extra) * Lt.u; G.planet(ctx, key, Lt.cx + dx / L * r, Lt.cy + dy / L * r, PURE_LW / 0.12 * 1.25, '#fbf8f0', 0.12); };
+          glyphAt2(own.a.a, vA, 0); glyphAt2(own.b.a, vB, 0);
+          drawGuardians(ctx, state, Lt, E);
+          throw { skip: true };
+        }
         if (cf.cut) {
           const th = eclAngle(state, B[cf.cut.by].lon), w = cf.cut.width * Math.PI / 360;
           const clip = new Path2D(); clip.rect(0, 0, S, S);
@@ -1680,14 +1733,8 @@
           if (moonFig.n === 1) { ctx.strokeStyle = '#fbf8f0'; ctx.lineWidth = PURE_LW; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, Rp * 0.3, 0, TAU); ctx.stroke(); }   // the Moon's conjunction: one ring
           else drawFigure(ctx, state, Lt, moonFig, Rp * 0.46, 'secondary', lw, E, 0);
         }
-        // synastry: the common sigil carries each chart's own ruling figure, smaller, inside the figure of their contact
-        if (state.ownFigures && state.natal) {
-          const own = state.ownFigures;
-          if (own.a && !same(own.a, cf.primary)) drawFigure(ctx, state, Lt, own.a, Rp * 0.5, 'secondary', lw, E, 0);
-          if (own.b) drawFigure(ctx, { ...state, bodies: state.natal.bodies }, Lt, own.b, Rp * 0.5, 'secondary', lw, E, 0);
-        }
         drawGuardians(ctx, state, Lt, E);
-      } finally { PURE = false; PURE_SIMPLE = false; }
+      } catch (e) { if (!(e && e.skip)) throw e; } finally { PURE = false; PURE_SIMPLE = false; }
       ctx.restore();
     }
 

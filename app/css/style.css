@@ -103,7 +103,7 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 .when span { font: 400 12px/1 var(--mono); color: var(--ink-2); }
 #dial { touch-action: none; cursor: grab; }
 #dial.turning { cursor: grabbing; }
-#sigil::before, #listen::before { content: ''; display: inline-block; width: 6px; height: 6px; border: 1px solid currentColor; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+#listen::before { content: ''; display: inline-block; width: 6px; height: 6px; border: 1px solid currentColor; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 #sigil.on::before, #listen.on::before { background: currentColor; }
 #readout tr.sub td { color: var(--ink-3); padding-bottom: 6px; white-space: normal; }
 #readout .hours { white-space: normal; line-height: 1.9; }
