@@ -19,9 +19,12 @@
   const CAT = {
     friendship: { set: new Set(['sun', 'moon', 'mercury', 'jupiter', 'ascendant']) },
     business: { set: new Set(['saturn', 'jupiter', 'mercury', 'midheaven', 'sun']) },
-    pleasure: { pairs: [['venus', 'mars'], ['venus', 'ascendant'], ['mars', 'ascendant'], ['sun', 'moon'], ['venus', 'sun'], ['venus', 'moon'], ['venus', 'pluto'], ['mars', 'pluto']] }
+    pleasure: { pairs: [['venus', 'mars'], ['venus', 'ascendant'], ['mars', 'ascendant'], ['sun', 'moon'], ['venus', 'sun'], ['venus', 'moon'], ['venus', 'pluto'], ['mars', 'pluto'], ['mars', 'moon']] }   // Mars–Moon as in B3
   };
   const ELEMENT = ['fire', 'earth', 'air', 'water'];
+  /* within the pleasure category, the desire pairs read hard aspects as charge, not dislike: desire is tension before it
+     is ease (Valens, the modern synastry canon; DESIGN.md "Sexual potential"). adults only; affection keeps C's polarity */
+  const DESIRE = [['venus', 'mars'], ['mars', 'ascendant'], ['venus', 'ascendant'], ['venus', 'pluto'], ['mars', 'pluto'], ['mars', 'moon']];
   const has = (pairs, a, b) => pairs.some(([p, q]) => (p === a && q === b) || (p === b && q === a));
   const inCat = (k, a, b) => CAT[k].set ? CAT[k].set.has(a) && CAT[k].set.has(b) : has(CAT[k].pairs, a, b);
   /* C6: one shared normalization for harmony, strife and adjustment; the categories share their own. Calibrated on
@@ -33,8 +36,9 @@
   const BAL_C = 0.20, INT_Q = [0.437, 0.50];
   function cell(score, intensity) { return { row: intensity >= INT_Q[1] ? 0 : intensity >= INT_Q[0] ? 1 : 2, col: score > 0.10 ? 0 : score < -0.10 ? 2 : 1 }; }
   /* each category centred on the median of random pairs born within ten years (harmony outweighs strife by the polarity
-     rules, so a raw positive is ordinary); a step of 0.10 to the first word, 0.40 to the strong one: about an eighth each side */
-  const CAT_C = { friendship: 0.25, business: 0.21, pleasure: 0.21 }, CAT_S1 = 0.10, CAT_S2 = 0.40;
+     rules, so a raw positive is ordinary); the first word past the 35th and 65th percentiles, the strong one past the
+     12.5th and 87.5th: the middle 30% neutral or mixed, an eighth strong on each side */
+  const CAT_C = { friendship: 0.271, business: 0.197, pleasure: 0.397 }, CAT_S1 = { friendship: 0.141, business: 0.128, pleasure: 0.130 }, CAT_S2 = { friendship: 0.427, business: 0.390, pleasure: 0.347 };
   const squash = (x, k) => 1 - Math.exp(-Math.max(0, x) / k);
 
   const years = (a, b) => Math.abs(b.getTime() - a.getTime()) / (365.2425 * 864e5);
@@ -93,7 +97,8 @@
         if (a === 'ascendant' && b === 'ascendant' && (key === 'c' || key === 'o')) w *= 1.5;   // B8
         if (family && (a === 'moon' || b === 'moon')) w *= 1.2;              // E2
         const [hf, sf] = polarity(name, a, b, family);
-        contacts.push({ a, b, aspect: name, angle: ang, orb, max, w, h: w * hf, s: w * sf, x: name === 'quincunx' ? w : 0,
+        const desire = age.sexual && has(DESIRE, a, b) && name !== 'quincunx', [dh, ds] = !desire ? [hf, sf] : name === 'trine' || name === 'sextile' ? [1, 0] : name === 'conjunction' ? [0.8, 0.2] : [0.7, 0.3];
+        contacts.push({ a, b, aspect: name, angle: ang, orb, max, w, h: w * hf, s: w * sf, hp: w * dh, sp: w * ds, x: name === 'quincunx' ? w : 0,
           discounted: gapY > 2 && outer, uncertain: (a === 'moon' && noA) || (b === 'moon' && noB) });
         break;                                                               // one aspect per pair of points
       }
@@ -117,9 +122,10 @@
     const cats = {};
     for (const k of ['friendship', 'business', 'pleasure']) {
       const cs = contacts.filter(c => inCat(k, c.a, c.b));
-      const ch = squash(cs.reduce((t, c) => t + c.h, 0), K_CAT), cst = squash(cs.reduce((t, c) => t + c.s, 0), K_CAT), bal = ch - cst, int = (ch + cst) / 2;
+      const hk = k === 'pleasure' ? 'hp' : 'h', sk = k === 'pleasure' ? 'sp' : 's';
+      const ch = squash(cs.reduce((t, c) => t + c[hk], 0), K_CAT), cst = squash(cs.reduce((t, c) => t + c[sk], 0), K_CAT), bal = ch - cst, int = (ch + cst) / 2;
       const sc = bal - CAT_C[k];
-      const grade = !cs.length ? 'neutral' : sc > CAT_S2 ? 'strongPositive' : sc > CAT_S1 ? 'positive' : sc < -CAT_S2 ? 'strongFriction' : sc < -CAT_S1 ? 'friction' : int >= 0.30 ? 'mixed' : 'neutral';
+      const s1 = CAT_S1[k], s2 = CAT_S2[k], grade = !cs.length ? 'neutral' : sc > s2 ? 'strongPositive' : sc > s1 ? 'positive' : sc < -s2 ? 'strongFriction' : sc < -s1 ? 'friction' : int >= 0.30 ? 'mixed' : 'neutral';
       cats[k] = { balance: bal, score: sc, intensity: int, grade, contacts: cs.slice(0, 5), n: cs.length };
     }
     // D4, D5: the featured contact, the strongest of each polarity (near-equal: angle-to-personal beats angle-to-outer)
