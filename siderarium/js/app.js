@@ -626,6 +626,34 @@
   }
   /* the card entries must exist before the first readout is linked, and again when the language changes */
   function glossaryTerms() { try { const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en'; if (!SD.glossary.dynamic(lang).length) SD.glossary.setDynamic(lang, tarotEntries(lang)); } catch (e) { /* the glossary is a nicety */ } }
+  /* hold the Natal tab (or right-click it): a menu of the saved charts; choosing one loads it on the clock */
+  let pickHeld = false;
+  function bindChartPick() {
+    const btn = document.querySelector('[data-mode="natal"]'), menu = $('chart-pick'); if (!btn || !menu) return;
+    let timer = null;
+    const show = () => {
+      pickHeld = true;
+      const i = SD.i18n;
+      menu.innerHTML = S.charts.length ? S.charts.map(c => `<button type="button" data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`;
+      const r = btn.getBoundingClientRect();
+      menu.hidden = false;
+      const w = menu.offsetWidth, left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left));
+      menu.style.left = `${left}px`; menu.style.top = `${r.bottom + 6}px`;
+      try { navigator.vibrate && navigator.vibrate(12); } catch (e) { /* no haptics */ }
+    };
+    const arm = e => { if (e.button && e.button !== 0) return; clearTimeout(timer); timer = setTimeout(show, 480); };
+    const disarm = () => { clearTimeout(timer); timer = null; };
+    btn.addEventListener('pointerdown', arm); btn.addEventListener('pointerup', disarm); btn.addEventListener('pointerleave', disarm); btn.addEventListener('pointercancel', disarm);
+    btn.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); show(); });
+    menu.addEventListener('click', e => {
+      const b = e.target.closest('button[data-id]'); if (!b) return;
+      const chart = S.charts.find(c => c.id === b.dataset.id); menu.hidden = true; if (!chart) return;
+      S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null;
+      if (!natalModes.includes(S.mode)) S.mode = 'natal'; store.set('mode', S.mode); recompute(); updateControls(); requestAnimationFrame(slideSeg);
+    });
+    document.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('#chart-pick, [data-mode="natal"]')) menu.hidden = true; });
+    window.addEventListener('keydown', e => { if (e.key === 'Escape') menu.hidden = true; });
+  }
   function openGlossary(key) {
     buildGlossary();
     $('glossary').hidden = false; $('about').hidden = true;
@@ -727,7 +755,9 @@
     $('when').addEventListener('change', commit);
     $('when').addEventListener('keydown', e => { if (e.key === 'Enter') { commit(e); e.target.blur(); } });
     $('here').addEventListener('click', () => locate(true));
+    bindChartPick();
     document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+      if (pickHeld) { pickHeld = false; return; }                     // the click that follows a hold is not a tab change
       let m = b.dataset.mode;
       if ((m === 'natal' || m === 'synastry') && !S.natal) { openBirth(); return; }
       if (m === 'chart' && S.mode === 'natal') m = 'natalchart';          // the nativity as a chart: chart + natal lit together
