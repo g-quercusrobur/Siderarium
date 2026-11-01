@@ -1422,7 +1422,8 @@
       state: i.state(T2.state),
       title: `${i.t('cap.modeOf')} ${c1(i.window(T2.mode))} · ${i.realm(T2.house)} · ${i.t('cap.under')} ${i.name(H.angel)}`,   // the mode first, named as a mode; the house as a realm; the angel
       reason: `${c1(figLine)} · ${c1(mv)}${mn}`,
-      l1: c1(`${state.natalView ? i.t('cap.nativity') + (state.relocated ? ' · ' + i.t('cap.relocated') + ' ' + i.placeName(state.relocated) : '') + ' · ' : ''}${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`),
+      copy: !!(state.natalView && !state.transits && !state.pair),   // a birth chart: a copy icon after the city
+      l1: c1(`${state.natalView ? i.t('cap.nativity') + (state.chartName ? ' · ' + state.chartName : '') + (state.relocated ? ' · ' + i.t('cap.relocated') + ' ' + i.placeName(state.relocated) : '') + ' · ' : ''}${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: cs(`${i.t('cap.dayOf')} ${i.planet(H.dayRuler)} · ${i.t('cap.hourOf')} ${i.planet(H.hourRuler)} · ${i.t('cap.sunIn')} ${i.t('cap.house')} ${i.roman(B.sun.house)} · ${dms(B.sun.deg)} ${i.sign(B.sun.sign)}`),
       detail2: cs(`${i.t('cap.decanOf')} ${i.planet(d.ruler)} · ${i.card(d)} · ${i.title(d)}`),
       detail3: state.tikkun ? c1(`${SD.tikkun.text().label}: ${SD.tikkun.text().short[state.tikkun.north.sign]} · ${SD.tikkun.major(state.tikkun.north.card)}`) : cs(`${i.ordinal(B.moon.mansion.index)} ${i.t('cap.mansion')} · ${i.name(B.moon.mansion.name)}`),   // a birth chart: its life mission in place of the Moon's mansion
@@ -1649,7 +1650,13 @@
     } else {
     // 5 · the moment, and 6 · the day's colour, on the right
     ctx.textAlign = 'right'; ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(20 * k)}px ${SANS}`;
-    f = fit(c.l1, right); put(c.l1, Lt.S - m, row(1)); ctx.font = f;
+    if (c.copy && !PURE) {                                // the birth city, then the copy icon: two squares, one behind the other
+      const iw = 17 * k, gap = 9 * k, xr = Lt.S - m;
+      f = fit(c.l1, right - iw - gap); put(c.l1, xr - iw - gap, row(1)); ctx.font = f;
+      const x0 = xr - iw, y0 = row(1) - 14 * k, sq = 10.5 * k, rr = (x, y) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, sq, sq, 2 * k); else ctx.rect(x, y, sq, sq); ctx.stroke(); };
+      ctx.save(); ctx.strokeStyle = K.rgba(INK, 0.72); ctx.lineWidth = Math.max(1, 1.3 * k); rr(x0, y0); rr(x0 + 5.5 * k, y0 + 5.5 * k); ctx.restore();
+      Lt.copyHit = { x: x0 - 6 * k, y: y0 - 6 * k, w: iw + 12 * k, h: iw + 12 * k };
+    } else { f = fit(c.l1, right); put(c.l1, Lt.S - m, row(1)); ctx.font = f; Lt.copyHit = null; }
     ctx.fillStyle = K.rgba(INK, 0.72);
     for (const [txt, r] of [[c.detail1, 2], [c.detail2, 3], [c.detail3, 4]]) { f = fit(txt, right); put(txt, Lt.S - m, row(r)); ctx.font = f; }
     }
