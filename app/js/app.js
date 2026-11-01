@@ -902,7 +902,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
 
   function updateControls() {
-    if (document.activeElement !== $('when')) $('when').value = placeStamp(S.state.date);
+    if (document.activeElement !== $('when')) { $('when').value = placeStamp(S.state.date); $('when').classList.remove('bad'); }
     $('zone').textContent = offsetOf(S.place.tz || 'UTC', S.state.date);
     const live = S.offsetMs === 0 && !S.fixed && !S.playing;
     $('live').classList.toggle('on', live);
@@ -1102,7 +1102,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (v) { e.target.value = placeStamp(v); S.playing = false; S.fixed = v; S.offsetMs = 0; recompute(); e.target.classList.remove('bad'); }   // the stamp as the place reads it: a skipped spring time shows an hour later
       else e.target.classList.add('bad');
     };
-    liveFormat($('when'), 'stamp'); liveFormat($('birth-date'), 'date'); liveFormat($('birth-time'), 'time');
+    liveFormat($('when'), 'stamp'); $('when').addEventListener('input', e => e.target.classList.remove('bad'));   // red only until the next keystroke liveFormat($('birth-date'), 'date'); liveFormat($('birth-time'), 'time');
     { let prev = '24';                                      // switching 24 h / am / pm converts the time already typed: 16:30 ⇄ 4:30 pm
       $('birth-ampm').addEventListener('focus', () => { prev = $('birth-ampm').value; });
       $('birth-ampm').addEventListener('change', () => {
@@ -1295,7 +1295,13 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (h > 23 || m > 59) return '';
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
-  const normStamp = txt => { const d = digitsOf(txt); return d.length >= 9 ? `${normDate(d.slice(0, 8))} ${normTime(d.slice(8, 12))}` : txt.trim(); };
+  /* a moment typed in the clock: a date alone means noon; an hour alone (2026-07-12 14) means on the hour */
+  const normStamp = txt => {
+    const d = digitsOf(txt); if (d.length < 8) return txt.trim();
+    const t = d.slice(8, 12), day = normDate(d.slice(0, 8)), [y, m, dd] = day.split('-').map(Number), x = new Date(Date.UTC(y, m - 1, dd));
+    if (!(y >= 1000 && y <= 3000 && x.getUTCMonth() === m - 1 && x.getUTCDate() === dd)) return txt.trim();   // 2026-13-40 or 31 February: refused, not rolled over
+    return `${day} ${!t ? '12:00' : normTime(t.length <= 2 ? t.padStart(2, '0') + '00' : t)}`;
+  };
   /* while typing, the separators appear on their own: 1990-11-27, 27-11-1990, 11:05, 9:05. the date is read as
      yyyy… when it opens with 19 or 20, as dd-mm-yyyy otherwise; the time as h:mm when its first two digits exceed 23.
      the saved value is always yyyy-mm-dd and hh:mm (normDate, normTime). */
