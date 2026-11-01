@@ -127,7 +127,7 @@
         const Bs = pairCache.state, tr = SD.engine.computeTransits(A, Bs).filter(x => x.power > 0.04);
         S.state = { ...A, natalView: true, natal: Bs, transits: tr, pair: { a: S.natal.name || '', b: Bc.name || '' } };
         S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
-        S.state.attraction = SD.engine.desireOf(tr);        // the pull between two bodies: Venus and Mars across the charts, and their kin
+        S.state.attraction = SD.engine.desireOf(tr, A, Bs);        // the pull between two bodies: Venus and Mars across the charts, and their kin
         S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
         S.state.configs = { ...A.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
         S.state.ownFigures = { a: A.configs.primary, b: Bs.configs.primary };   // each chart's own ruling figure, for the common sigil
