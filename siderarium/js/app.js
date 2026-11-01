@@ -282,6 +282,7 @@
   }
 
   let t0 = performance.now(), lastFrame = 0;
+  const REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
   function frame(ts) {
     requestAnimationFrame(frame);
     if (!S.playing && !S.dragging && ts - lastFrame < 1000 / 30) return;     // at rest 30 fps; running, every frame the screen gives
@@ -289,7 +290,7 @@
     if (S.playing) { S.offsetMs += S.speed * 3600e3 * dt; recompute(); }   // smooth: time advances with the real frame interval
     else if (performance.now() - S.lastCompute > 20000) recompute();
     lastFrame = ts;
-    const t = (ts - t0) / 1000;
+    const t = REDUCED.matches ? 0 : (ts - t0) / 1000;      // reduced motion: no twinkle, no glow pulse
     if (S.wall) {
       if (S.dirty) {
         pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, plate.width, plate.height);
@@ -595,27 +596,35 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     return ok;
   }
   const stampOf = st => st.date.toISOString().slice(0, 16).replace(/[:T]/g, '');
+  /* a file name that says what it is: siderarium-<view>-<whose or where>-<yyyymmdd>.png */
+  function fileName(st, extra) {
+    const slug = t => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const view = { clock: 'sky', chart: 'chart', natal: 'natal', natalchart: 'natal', synastry: 'transits', pair: 'synastry' }[S.mode] || 'sky';
+    const who = st.pair ? `${st.pair.a}-${st.pair.b}` : (S.mode === 'natal' || S.mode === 'natalchart' || S.mode === 'synastry') && S.natal ? S.natal.name || 'chart' : st.loc.name;
+    const day = new Date(st.date.getTime()).toISOString().slice(0, 10).replace(/-/g, '');
+    return `siderarium-${view}-${slug(who) || 'chart'}-${day}${extra ? '-' + extra : ''}.png`;
+  }
   /* share: the art of the moment as an image, with its headline and the address; where the device cannot share files,
      the text and address; where it cannot share at all, the image is saved and the text copied */
   async function shareArt() {
     const st = viewState(), cv = document.createElement('canvas'); cv.width = cv.height = 1080;
-    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, { mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
+    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
     const c = SD.render.captionLines(st), plain = t => String(t || '').replace(/<[^>]+>/g, '');
     const text = [plain(c.state), plain(c.label)].filter(Boolean).join(' · '), url = 'https://siderarium.com/app/';
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
     try {
-      const file = new File([blob], 'siderarium.png', { type: 'image/png' });
+      const file = new File([blob], fileName(st), { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Siderarium', text: `${text} · ${url}` }); return; }
       if (navigator.share) { await navigator.share({ title: 'Siderarium', text, url }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
-    downloadBlob(blob, `siderarium_${stampOf(st)}.png`);
+    downloadBlob(blob, fileName(st));
     try { await navigator.clipboard.writeText(`${text} · ${url}`); } catch (e) { /* the image is saved all the same */ }
   }
   function exportPNG(px) {
     const st = viewState(), cv = document.createElement('canvas');
     cv.width = cv.height = px;
-    SD.render.render(cv.getContext('2d'), st, px, (performance.now() - t0) / 1000, { mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: px >= 3000 ? 420 : 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous, groundEl: S.groundEl });
-    download(cv, `siderarium_${st.loc.name}_${stampOf(st)}_${px}.png`);
+    SD.render.render(cv.getContext('2d'), st, px, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: px >= 3000 ? 420 : 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous, groundEl: S.groundEl });
+    download(cv, fileName(st, px > 2048 ? String(px) : ''));
   }
   /* a wallpaper at this screen's size: the square render set in a portrait field of the same ground */
   function exportWallpaper() {
@@ -623,8 +632,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const W = Math.round((screen.width || 1080) * dpr), H = Math.round((screen.height || 2340) * dpr);
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
-    SD.render.renderWallpaper(cv.getContext('2d'), st, W, H, 3, { fieldRes: 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
-    download(cv, `siderarium_wallpaper_${st.loc.name}_${stampOf(st)}.png`);
+    SD.render.renderWallpaper(cv.getContext('2d'), st, W, H, 3, { exported: true, fieldRes: 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
+    download(cv, fileName(st, 'wallpaper'));
   }
 
   const ordinalWord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
@@ -1003,7 +1012,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('natal-summary').innerHTML = `${esc(natalSummary())}${S.natal ? ` <button class="copy-btn" aria-label="${esc(i.t('ui.copyReport'))}" title="${esc(i.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}`;
     $('natal-saveas').disabled = !S.natal; $('natal-report').disabled = !S.natal; $('natal-copy').disabled = !S.natal;
     const ul = $('charts');
-    ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${i.t('ui.useChart')}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(c.name)}</span><span class="ops"><button data-act="rename">${i.cap1(i.t('ui.rename'))}</button><button data-act="delete">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
+    ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${i.t('ui.useChart')}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(c.name)}</span><span class="ops"><button data-act="rename">${i.cap1(i.t('ui.rename'))}</button><button data-act="dup">${i.cap1(i.t('ui.dup'))}</button><button data-act="delete">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
       : `<li class="empty">${i.cap1(i.t('ui.noCharts'))}</li>`;
   }
   const esc = t => String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -1053,6 +1062,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
         const done = () => { if (finished) return; finished = true; const v = input.value.trim(); if (v) { chart.name = v; if (S.natal && S.natal.id === id) { S.natal.name = v; store.set('natal', S.natal); } store.set('charts', S.charts); } refreshMenu(); };
         input.addEventListener('keydown', ev => { if (ev.key === 'Enter') done(); if (ev.key === 'Escape') { finished = true; refreshMenu(); } ev.stopPropagation(); });
         input.addEventListener('blur', done);
+      } else if (b.dataset.act === 'dup') {               // a copy to edit without touching the original
+        const copy = { ...chart, place: chart.place && { ...chart.place }, id: uid(), name: SD.i18n.t('ui.copyOf')(chart.name || '') };
+        S.charts.splice(S.charts.indexOf(chart) + 1, 0, copy); store.set('charts', S.charts); refreshMenu();
       } else if (b.dataset.act === 'delete') {
         if (b.dataset.armed) { S.charts = S.charts.filter(c => c.id !== id); store.set('charts', S.charts); refreshMenu(); }
         else { b.dataset.armed = '1'; b.textContent = SD.i18n.cap1(SD.i18n.t('ui.confirm')); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = SD.i18n.cap1(SD.i18n.t('ui.del')); } }, 3000); }
