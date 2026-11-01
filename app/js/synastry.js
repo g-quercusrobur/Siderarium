@@ -35,10 +35,16 @@
      intensity cut into thirds of the same pairs, so "harmony leads" and "strife leads" are equally rare, a quarter each */
   const BAL_C = 0.20, INT_Q = [0.437, 0.50];
   function cell(score, intensity) { return { row: intensity >= INT_Q[1] ? 0 : intensity >= INT_Q[0] ? 1 : 2, col: score > 0.10 ? 0 : score < -0.10 ? 2 : 1 }; }
-  /* each category centred on the median of random pairs born within ten years (harmony outweighs strife by the polarity
-     rules, so a raw positive is ordinary); the first word past the 35th and 65th percentiles, the strong one past the
-     12.5th and 87.5th: the middle 30% neutral or mixed, an eighth strong on each side */
-  const CAT_C = { friendship: 0.271, business: 0.197, pleasure: 0.397 }, CAT_S1 = { friendship: 0.141, business: 0.128, pleasure: 0.130 }, CAT_S2 = { friendship: 0.427, business: 0.390, pleasure: 0.347 };
+  /* each category read against random pairs born within ten years: its proportion (h − s)/(h + s) placed among theirs.
+     the steps sit at the 12.5th, 35th, 65th and 87.5th percentiles (strong friction, friction, the middle 30%, positive,
+     strong), so every word is as rare as its place on the scale, whatever the polarity rules favour */
+  const CAT_Q = { friendship: [-0.148, 0.144, 0.281, 0.395, 0.591], business: [-0.178, 0.065, 0.174, 0.280, 0.465], pleasure: [0.016, 0.230, 0.346, 0.436, 0.582] };
+  const CAT_INT = { friendship: 0.911, business: 0.742, pleasure: 0.799 }, CAT_POS = [0.15, 0.38, 0.5, 0.62, 0.85];
+  function catPos(k, v) {                                   // where on the drawn scale: the percentile steps at fixed places, linear between
+    const q = [-1, ...CAT_Q[k], 1], at = [0, ...CAT_POS, 1];
+    for (let n = 1; n < q.length; n++) if (v <= q[n]) return at[n - 1] + (at[n] - at[n - 1]) * (v - q[n - 1]) / Math.max(1e-9, q[n] - q[n - 1]);
+    return 1;
+  }
   const squash = (x, k) => 1 - Math.exp(-Math.max(0, x) / k);
 
   const years = (a, b) => Math.abs(b.getTime() - a.getTime()) / (365.2425 * 864e5);
@@ -123,10 +129,11 @@
     for (const k of ['friendship', 'business', 'pleasure']) {
       const cs = contacts.filter(c => inCat(k, c.a, c.b));
       const hk = k === 'pleasure' ? 'hp' : 'h', sk = k === 'pleasure' ? 'sp' : 's';
-      const ch = squash(cs.reduce((t, c) => t + c[hk], 0), K_CAT), cst = squash(cs.reduce((t, c) => t + c[sk], 0), K_CAT), bal = ch - cst, int = (ch + cst) / 2;
-      const sc = bal - CAT_C[k];
-      const s1 = CAT_S1[k], s2 = CAT_S2[k], grade = !cs.length ? 'neutral' : sc > s2 ? 'strongPositive' : sc > s1 ? 'positive' : sc < -s2 ? 'strongFriction' : sc < -s1 ? 'friction' : int >= 0.30 ? 'mixed' : 'neutral';
-      cats[k] = { balance: bal, score: sc, intensity: int, grade, contacts: cs.slice(0, 5), n: cs.length };
+      /* quality and quantity together: (h − s) / (h + s + K), not a difference of two saturated numbers (which flattens
+         contact-rich pairs) nor a bare proportion (which ignores how much there is) */
+      const hs = cs.reduce((t, c) => t + c[hk], 0), ss = cs.reduce((t, c) => t + c[sk], 0), bal = (hs - ss) / (hs + ss + K_CAT), int = squash(hs + ss, K_CAT);   // damped: a few weak contacts stay near the middle, many close ones go further out
+      const Q = CAT_Q[k], grade = !cs.length ? 'neutral' : bal >= Q[4] ? 'strongPositive' : bal >= Q[3] ? 'positive' : bal <= Q[0] ? 'strongFriction' : bal <= Q[1] ? 'friction' : int >= CAT_INT[k] ? 'mixed' : 'neutral';
+      cats[k] = { balance: bal, score: bal - Q[2], pos: cs.length ? catPos(k, bal) : 0.5, intensity: int, grade, contacts: cs.slice(0, 5), n: cs.length };
     }
     // D4, D5: the featured contact, the strongest of each polarity (near-equal: angle-to-personal beats angle-to-outer)
     const pick = f => { const xs = contacts.filter(c => c[f] > 0).sort((x, y) => y[f] - x[f]); if (xs.length > 1 && xs[1][f] > 0.95 * xs[0][f] && isOuterAngle(xs[0]) && !isOuterAngle(xs[1])) return xs[1]; return xs[0] || null; };
@@ -193,5 +200,5 @@
     return out;
   }
 
-  SD.synastry = { of, activeNow, gridLabel, cell, BAL_C, BODIES, W, K_ALL, K_CAT, CAT_S1, CAT_S2 };
+  SD.synastry = { of, activeNow, gridLabel, cell, BAL_C, BODIES, W, K_ALL, K_CAT, CAT_Q, CAT_POS };
 })();

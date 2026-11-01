@@ -1557,8 +1557,7 @@
     const i = I(), Y = state.syn;
     if (Y) {                                              // v2.1: the category's balance between −0.6 and +0.6, ticks where the word changes
       const at = v => 0.5 + 0.5 * Math.max(-1, Math.min(1, v / 0.65));
-      return ['friendship', 'business', 'pleasure'].map(k => { const s1 = SD.synastry.CAT_S1[k], s2 = SD.synastry.CAT_S2[k], at2 = v => at(v * 0.40 / s2);   // centred on the typical pair, each category on its own spread
-        return { key: k, label: catName(Y, k), word: catWord(Y, k), color: CAT_INK[Y.cats[k].grade], pos: Y.cats[k].n ? at2(Y.cats[k].score) : 0.5, ticks: [at2(-s2), at2(-s1), 0.5, at2(s1), at2(s2)] }; });
+      return ['friendship', 'business', 'pleasure'].map(k => ({ key: k, label: catName(Y, k), word: catWord(Y, k), color: CAT_INK[Y.cats[k].grade], pos: Y.cats[k].pos, ticks: SD.synastry.CAT_POS }));   // the percentile steps at fixed places
     }
     const T = state.ties, steps = E_.tieSteps; if (!T) return [];
     return ['choice', 'need', 'pleasure'].map(k => {
