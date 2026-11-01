@@ -1533,7 +1533,7 @@
     const quietCats = key.split('').filter(c => c === 'z').length >= 2 && Y.cell.row === 0;
     const flavor = quietCats ? i.t('cap.intenseName')[Y.cell.col] : i.t('cap.flavor')[romance ? 'romance' : 'safe'][key][strong ? 1 : 0];
     const rank = { strongPositive: 2, positive: 1, neutral: 0, mixed: 0, friction: -1, strongFriction: -2 }, sum = ['friendship', 'business', 'pleasure'].reduce((t, k) => t + rank[Y.cats[k].grade], 0);
-    const tone = quietCats ? ['harmony', 'polar', 'strife'][Y.cell.col] : key.includes('p') && key.includes('m') ? 'polar' : key === 'ppp' && strong ? 'deepHarmony' : sum >= 3 ? 'harmony' : sum > 0 ? 'ease' : sum === 0 ? 'quiet' : sum <= -3 ? 'deepStrife' : 'strife';
+    const tone = quietCats ? ['harmony', 'polar', 'strife'][Y.cell.col] : key.includes('p') && key.includes('m') && Math.abs(sum) <= 1 ? 'polar' : key === 'ppp' && strong ? 'deepHarmony'   /* violet only when the pair is evenly split; a clear lean takes the colour of the net */ : sum >= 3 ? 'harmony' : sum > 0 ? 'ease' : sum === 0 ? 'quiet' : sum <= -3 ? 'deepStrife' : 'strife';
     const overall = i.t('cap.overallIs')(i.t('cap.gridRow')[Y.cell.row], i.t('cap.gridCol')[Y.cell.col]);   // centred on the typical pair: no positive bias
     const el = st => st.elements ? i.t('ui.el.' + st.elements.dominant) : '';
     const col = (name, st, noTime) => { const T = fmtShortDate(st.date, st.loc), s3 = n => i.sign(n).slice(0, 3), B = st.bodies;
