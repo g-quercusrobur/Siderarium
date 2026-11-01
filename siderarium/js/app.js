@@ -425,38 +425,17 @@
   /* the reading spec: the owner's own format for a natal reading, set at the head of every copied or saved birth chart
      report so that any AI it is pasted into reads the chart that way by default. Kept verbatim in English: it is an
      instruction to the model, whatever the interface language. Section 9 is reserved: the owner's text stopped at "9." */
-  const READING_SPEC = `NATAL CHART READING — OUTPUT SPEC
-
-Input: a natal chart (screenshots, table, or data). If houses/nodes are
-missing, derive them and say so in one line. Never ask for data you can infer.
-
-Open with the single structural fact that governs the whole chart — usually
-the chart ruler's condition (sign, house, dignity, retrogradation), plus the
-Sun-Moon phase if it's notable. No preamble.
-
-Then these sections, in this order, with ## headers:
-
-1. ANCORE LUNARI — the Moon's hard aspects. Define the term in one line.
-   Read sign AND house together, always. List the hard aspects with orbs,
-   then name the supporting aspects (sextiles/trines) explicitly.
-2. [SIGN NOTE] — one short chapter on the chart's dominant sign, written
-   against its stereotype. Only if one sign clearly dominates.
-3. NODES — define South Node as provenance (past-life competence, the
-   trap) and North Node as the mission of this incarnation. Read sign and
-   house for both. End with one practical tell: the sentence or reflex that
-   signals the South Node is running.
-4. SATURN — sign, house, dignity. Flag if Saturn disposits a cluster.
-5. VOCATION — MC sign and ruler's placement, aspects to MC, planets in 10th.
-6. MONEY — 2nd house sign, where its ruler sits, planets inside it. End with
-   a one-line operational synthesis: the income model that actually works.
-7. THE CRITICAL ASPECT — the tightest hard aspect in the chart. Explain its
-   mechanics (how the two planets mis-fire together), name concrete risk
-   zones, then give 2-3 literal operating rules.
-8. OCCULT LAYER — Pluto, Neptune, Uranus, 8th and 12th house placements.
-   Only if the chart actually carries it. Treat the 8th as eros, shared
-   resources, inheritance, power and depth-work — NOT as "death and crisis."
-
-Apply this spec to the chart data below.`;
+  const READING_SPEC = `NATAL READING SPEC · apply to the chart below
+Derive missing houses or nodes and say so in one line; never ask for data you can infer.
+No preamble. Open with the one fact that governs the chart: usually the chart ruler's sign, house, dignity, retrogradation; add the Sun-Moon phase if notable. Then ## sections in this order:
+1. ANCORE LUNARI: the Moon's hard aspects, term defined in one line. Sign and house together, always. Hard aspects with orbs, then the supporting sextiles and trines.
+2. [SIGN NOTE]: the dominant sign against its stereotype, briefly. Only if one sign clearly dominates.
+3. NODES: South = provenance (past-life competence, the trap); North = this incarnation's mission. Sign and house of each. End with the tell: the sentence or reflex that shows the South Node running.
+4. SATURN: sign, house, dignity; flag if it disposits a cluster.
+5. VOCATION: MC sign, its ruler's placement, aspects to MC, 10th house planets.
+6. MONEY: 2nd house sign, its ruler's placement, planets inside. End with one line: the income model that actually works.
+7. THE CRITICAL ASPECT: the tightest hard aspect. How the two planets misfire together, concrete risk zones, 2-3 literal operating rules.
+8. OCCULT LAYER, only if present: Pluto, Neptune, Uranus, 8th and 12th houses. 8th = eros, shared resources, inheritance, power, depth-work; not death and crisis.`;
   /* the mean lunar node (Meeus 47.7): the nodes are not among the bodies, and the spec reads them */
   function meanNode(date) {
     const T = (date.getTime() / 864e5 + 2440587.5 - 2451545) / 36525;
