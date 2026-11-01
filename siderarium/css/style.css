@@ -256,3 +256,9 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 .chart-pick button:hover, .chart-pick button:focus-visible { color: var(--ink); background: rgba(235, 231, 220, 0.06); outline: none; }
 .chart-pick .empty { padding: 9px 14px; color: var(--ink-3); font: 400 13px/1.4 var(--sans); }
 .chart-pick button.new { border-top: 1px solid rgba(235, 231, 220, 0.14); margin-top: 4px; padding-top: 11px; color: var(--ink); }
+
+/* the sigil toggle at the top right of the art, a twin of the speaker */
+.corner-sigil { position: absolute; right: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.corner-sigil.on { color: var(--ink); border-color: var(--ink-2); background: rgba(235, 231, 220, 0.08); }
+.corner-sigil:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+body.pair #ahead { display: none; }   /* two fixed charts: no day to scan */

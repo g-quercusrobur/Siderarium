@@ -56,6 +56,7 @@
     sigil: params.get('sigil') === '1',
     engrave: params.get('field') ? params.get('field') !== 'glow' : (params.get('engrave') !== '0' && store.get('field', 'engraved') !== 'glow'),   // engraved at rest; glow on request
     natal: store.get('natal', null),                        // { date, place, unknownTime } — stays on this device
+    pair: store.get('pair', null),                          // the second chart for synastry, by id
     lang: params.get('lang') || store.get('lang', null) || ((navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en'),
     field: params.get('field') || (store.get('field', 'engraved') === 'guilloche' ? 'guilloche' : 'waves'),   // the engraving as it was; guilloché on request
     houses: params.get('houses') || store.get('houses', 'regiomontanus'),   // lilly's system; equal and placidus to compare
@@ -86,7 +87,7 @@
   function now() { return base(); }
 
   /* the nativity, computed once per birth data */
-  const natalCache = { key: null, state: null };
+  const natalCache = { key: null, state: null }, pairCache = { key: null, state: null };
   function natalState() {
     if (!S.natal) return null;
     const place = S.relocate ? S.place : S.natal.place;     // relocated: the same instant, the houses of another horizon
@@ -98,7 +99,7 @@
     }
     return natalCache.state;
   }
-  const natalModes = ['natal', 'natalchart', 'synastry'];
+  const natalModes = ['natal', 'natalchart', 'synastry', 'pair'];
   /* the leading transits' dates (exact, entering and leaving orb) are searched once per transit and day and kept */
   const spanCache = new Map();
   function transitInfo(ns, tr) {
@@ -117,6 +118,19 @@
     const busy = S.playing || S.dragging;
     S.state = SD.engine.compute(now(), S.place, { light: busy, houses: S.houses });
     if (!busy) S.state.nextChord = SD.engine.nextChordShift(S.state.date, S.place);
+    if (S.mode === 'pair' && S.natal) {                     // two charts: the second laid over the first, the figure their strongest contact
+      const A = natalState(), Bc = S.charts.find(c => c.id === S.pair && c.id !== S.natal.id);
+      if (Bc) {
+        const key = JSON.stringify([Bc.date, Bc.place, S.houses]);
+        if (pairCache.key !== key) { pairCache.key = key; pairCache.state = SD.engine.compute(new Date(Bc.date), Bc.place, { houses: S.houses }); }
+        // the first chart is the dial, the second is the ring laid over it; the contacts run from the first's planets to the second's points
+        const Bs = pairCache.state, tr = SD.engine.computeTransits(A, Bs).filter(x => x.power > 0.04);
+        S.state = { ...A, natalView: true, natal: Bs, transits: tr, pair: { a: S.natal.name || '', b: Bc.name || '' } };
+        S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
+        S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
+        S.state.configs = { ...A.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
+      } else { S.state = { ...A, natalView: true, pairMissing: true }; }
+    }
     if (S.mode === 'synastry' && S.natal) {                 // the sky of now against the nativity: the figure is the strongest transit
       const ns = natalState(), tr = SD.engine.computeTransits(S.state, ns).filter(x => x.power > 0.04);
       S.state.natal = ns; S.state.transits = tr;
@@ -575,6 +589,7 @@
     if (PLACES[S.place.name] && $('city').value !== S.place.name) $('city').value = S.place.name;
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (S.mode === 'natalchart' && (b.dataset.mode === 'chart' || b.dataset.mode === 'natal'))));
     document.body.classList.toggle('natal', S.mode === 'natal' || S.mode === 'natalchart');
+    document.body.classList.toggle('pair', S.mode === 'pair');
     $('sigil').classList.toggle('on', S.sigil);
     slideSeg();
   }
@@ -629,31 +644,36 @@
   /* hold the Natal tab (or right-click it): a menu of the saved charts; choosing one loads it on the clock */
   let pickHeld = false;
   function bindChartPick() {
-    const btn = document.querySelector('[data-mode="natal"]'), menu = $('chart-pick'); if (!btn || !menu) return;
-    let timer = null;
+    const menu = $('chart-pick'); if (!menu) return;
+    const btnA = document.querySelector('[data-mode="natal"]'), btnB = document.querySelector('[data-mode="pair"]');
+    let timer = null, which = 'first', btn = btnA;
     const show = () => {
       pickHeld = true;
-      const i = SD.i18n;
-      menu.innerHTML = (S.charts.length ? S.charts.map(c => `<button type="button" data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`)
-        + `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>`;   // and a way to add one
+      const i = SD.i18n, onId = which === 'first' ? (S.natal && S.natal.id) : S.pair;
+      menu.innerHTML = (S.charts.length ? S.charts.map(c => `<button type="button" data-id="${c.id}"${onId === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`)
+        + (which === 'first' ? `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>` : '');   // and a way to add one
       const r = btn.getBoundingClientRect();
       menu.hidden = false;
       const w = menu.offsetWidth, left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left));
       menu.style.left = `${left}px`; menu.style.top = `${r.bottom + 6}px`;
       try { navigator.vibrate && navigator.vibrate(12); } catch (e) { /* no haptics */ }
     };
-    const arm = e => { if (e.button && e.button !== 0) return; clearTimeout(timer); timer = setTimeout(show, 480); };
     const disarm = () => { clearTimeout(timer); timer = null; };
-    btn.addEventListener('pointerdown', arm); btn.addEventListener('pointerup', disarm); btn.addEventListener('pointerleave', disarm); btn.addEventListener('pointercancel', disarm);
-    btn.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); show(); });
+    for (const [b, w] of [[btnA, 'first'], [btnB, 'second']]) {
+      if (!b) continue;
+      const arm = e => { if (e.button && e.button !== 0) return; which = w; btn = b; clearTimeout(timer); timer = setTimeout(show, 480); };
+      b.addEventListener('pointerdown', arm); b.addEventListener('pointerup', disarm); b.addEventListener('pointerleave', disarm); b.addEventListener('pointercancel', disarm);
+      b.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); which = w; btn = b; show(); });
+    }
     menu.addEventListener('click', e => {
       if (e.target.closest('button[data-new]')) { menu.hidden = true; openBirth(true); return; }   // a blank form; the loaded chart stays until the new one is saved
       const b = e.target.closest('button[data-id]'); if (!b) return;
       const chart = S.charts.find(c => c.id === b.dataset.id); menu.hidden = true; if (!chart) return;
-      S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null;
-      if (!natalModes.includes(S.mode)) S.mode = 'natal'; store.set('mode', S.mode); recompute(); updateControls(); requestAnimationFrame(slideSeg);
+      if (which === 'second') { S.pair = chart.id; store.set('pair', S.pair); S.mode = 'pair'; }
+      else { S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null; if (!natalModes.includes(S.mode)) S.mode = 'natal'; }
+      store.set('mode', S.mode); recompute(); updateControls(); requestAnimationFrame(slideSeg);
     });
-    document.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('#chart-pick, [data-mode="natal"]')) menu.hidden = true; });
+    document.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('#chart-pick, [data-mode="natal"], [data-mode="pair"]')) menu.hidden = true; });
     window.addEventListener('keydown', e => { if (e.key === 'Escape') menu.hidden = true; });
   }
   function openGlossary(key) {
@@ -761,7 +781,7 @@
     document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
       if (pickHeld) { pickHeld = false; return; }                     // the click that follows a hold is not a tab change
       let m = b.dataset.mode;
-      if ((m === 'natal' || m === 'synastry') && !S.natal) { openBirth(); return; }
+      if ((m === 'natal' || m === 'synastry' || m === 'pair') && !S.natal) { openBirth(); return; }
       if (m === 'chart' && S.mode === 'natal') m = 'natalchart';          // the nativity as a chart: chart + natal lit together
       else if (m === 'natal' && S.mode === 'chart') m = 'natalchart';
       S.mode = m; store.set('mode', S.mode); recompute();
