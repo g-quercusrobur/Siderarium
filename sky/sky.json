@@ -1,26 +1,26 @@
 {
- "rendered": "2026-11-01 23:30 utc",
+ "rendered": "2026-11-02 05:51 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Monday · 2 November 2026 · 00:30 CET · Rome",
-   "figure": "Mercury biquintile Saturn",
-   "chord": "Chord A#–D · major third"
+   "caption": "Monday · 2 November 2026 · 06:51 CET · Rome",
+   "figure": "Moon square Mercury",
+   "chord": "Chord E half-diminished · D E G A#"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Sunday · 1 November 2026 · 18:30 GMT-5 · New York",
-   "figure": "Mercury square Mars",
-   "chord": "Chord A#–D · major third"
+   "caption": "Monday · 2 November 2026 · 00:52 GMT-5 · New York",
+   "figure": "Moon square Mercury",
+   "chord": "Chord E half-diminished · D E G A#"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Sunday · 1 November 2026 · 23:30 GMT · Greenwich",
-   "figure": "Sun quincunx Saturn",
-   "chord": "Chord A#–D · major third"
+   "caption": "Monday · 2 November 2026 · 05:52 GMT · Greenwich",
+   "figure": "Moon square Mercury",
+   "chord": "Chord E half-diminished · D E G A#"
   }
  ]
 }
