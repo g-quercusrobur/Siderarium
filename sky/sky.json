@@ -1,26 +1,26 @@
 {
- "rendered": "2026-11-02 05:51 utc",
+ "rendered": "2026-11-02 15:37 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Monday · 2 November 2026 · 06:51 CET · Rome",
-   "figure": "Moon square Mercury",
-   "chord": "Chord E half-diminished · D E G A#"
+   "caption": "Monday · 2 November 2026 · 16:37 CET · Rome",
+   "figure": "Sun conjunction Mercury",
+   "chord": "Chord G · unison"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Monday · 2 November 2026 · 00:52 GMT-5 · New York",
-   "figure": "Moon square Mercury",
-   "chord": "Chord E half-diminished · D E G A#"
+   "caption": "Monday · 2 November 2026 · 10:37 GMT-5 · New York",
+   "figure": "Venus sextile Jupiter",
+   "chord": "Chord G · unison"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Monday · 2 November 2026 · 05:52 GMT · Greenwich",
-   "figure": "Moon square Mercury",
-   "chord": "Chord E half-diminished · D E G A#"
+   "caption": "Monday · 2 November 2026 · 15:37 GMT · Greenwich",
+   "figure": "Sun conjunction Mercury",
+   "chord": "Chord G · unison"
   }
  ]
 }
