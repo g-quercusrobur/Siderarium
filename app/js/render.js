@@ -1748,6 +1748,40 @@
     ctx.fillText(NOTICE(), W - 0.02 * s, H - 0.02 * s); ctx.restore();
   }
 
+  /* ---------- Algol: a small black point with an eerie aura, where the star stands ----------
+     on the clock in the sky by its altitude, like the planets; on the chart inside the zodiac, by its longitude. the
+     aura breathes slowly and widens and darkens while the star is in eclipse, its light failing. [SD] */
+  const ALGOL_INK = '#bfe0c6';
+  function drawAlgol(ctx, state, Lt, mode, t) {
+    if (!state || !state.loc || !Lt) return;
+    const al = E_.algol(state.date, state.loc), ec = al.eclipse, u = Lt.u * Math.min(2.2, Math.max(1, Lt.ts || 1));   // on a phone the point grows with the text, so it reads
+    const p = mode === 'chart' ? polar(Lt, eclAngle(state, al.lon), Lt.R - 40 * u) : skyPoint(Lt, { lon: al.lon, alt: al.alt });
+    const br = 0.5 + 0.5 * Math.sin(t * 0.55), R = (40 + 18 * ec) * u;
+    ctx.save();
+    const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R * 1.25);   // a shadow that eats the field around it
+    halo.addColorStop(0, `rgba(0,0,0,${0.85})`); halo.addColorStop(0.35, `rgba(0,0,0,${0.5 + 0.2 * ec})`); halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(p.x, p.y, R * 1.25, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'screen';                 // the corona: a pale, cold, greenish ring and tendrils that drift
+    const cor = ctx.createRadialGradient(p.x, p.y, 6 * u, p.x, p.y, R);
+    cor.addColorStop(0, K.rgba(ALGOL_INK, 0)); cor.addColorStop(0.32, K.rgba(ALGOL_INK, 0.16 + 0.12 * br + 0.1 * ec)); cor.addColorStop(0.6, K.rgba(ALGOL_INK, 0.05)); cor.addColorStop(1, K.rgba(ALGOL_INK, 0));
+    ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, TAU); ctx.fill();
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 7; k++) {
+      const a = k * TAU / 7 + t * 0.04 + 0.25 * Math.sin(t * 0.6 + k * 1.7), r0 = 11 * u, r1 = r0 + (10 + 9 * (0.5 + 0.5 * Math.sin(t * 0.8 + k * 2.3)) + 8 * ec) * u;
+      const bend = 0.35 * Math.sin(t * 0.5 + k);
+      ctx.strokeStyle = K.rgba(ALGOL_INK, 0.1 + 0.08 * br + 0.08 * ec); ctx.lineWidth = 1.1 * u;
+      ctx.beginPath(); ctx.moveTo(p.x + r0 * Math.cos(a), p.y + r0 * Math.sin(a));
+      ctx.quadraticCurveTo(p.x + (r0 + r1) / 2 * Math.cos(a + bend), p.y + (r0 + r1) / 2 * Math.sin(a + bend), p.x + r1 * Math.cos(a + bend * 1.6), p.y + r1 * Math.sin(a + bend * 1.6));
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(p.x, p.y, 6 * u, 0, TAU); ctx.fill();   // the point itself: black, with a hair of light at its rim
+    ctx.strokeStyle = K.rgba(ALGOL_INK, 0.45 + 0.25 * br); ctx.lineWidth = 0.9 * u; ctx.stroke();
+    ctx.fillStyle = K.rgba(ALGOL_INK, 0.55); ctx.font = `400 ${Math.round(12 * u)}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(ec > 0.3 ? `Algol · ${I().t('cap.algolDim')}` : 'Algol', p.x, p.y + 15 * u);
+    ctx.restore();
+  }
+
   /* ---------- clock mode ---------- */
   /* the ground: midnight by the moon's light. prototype (?ground=element): tinted by the element of the hour through its
      qualities, hot or cold as warmth of the dark, wet or dry as a lift of light. air, the hot and wet, is the lightest dark;
@@ -1989,6 +2023,7 @@
   }
   /* the living layer over a cached plate: lunar ripple, star breath */
   function overlay(ctx, info, t) {
+    if (info && info.algol && !info.sigil) drawAlgol(ctx, info.state, info.layout, info.mode, t);   // the living Algol over the plate
     if (!info || info.mode !== 'clock') return;
     const Lt = info.layout;
     if (!info.bare && !info.groundEl) drawAuraLive(ctx, info.state, Lt, t);
@@ -2112,13 +2147,17 @@
       ctx.fillStyle = K.rgba(INK, 0.6); ctx.fillText(l, lx + 38 * u, ly + 1); lx += 38 * u + ctx.measureText(l).width + 30 * u;
     }
     if (opts.caption !== false) drawCaption(ctx, state, Lt);
-    return { mode: 'chart', layout: Lt };
+    return { mode: 'chart', layout: Lt, state };
   }
 
   function render(ctx, state, S, t, opts = {}) {
     FAST = !!opts.fast; EXPORTING = !!opts.exported; ENGRAVE = !!opts.engrave || opts.field === 'guilloche'; LUMINOUS = !!opts.luminous; TIGHT = !!opts.tight; GROUND_EL = !!opts.groundEl;
     GUILLOCHE = ENGRAVE && opts.field !== 'waves';          // the engraving is grain d'orge; ?field=waves keeps the older wobble
-    try { return (opts.mode === 'chart' ? renderChart : renderClock)(ctx, state, S, t, opts); }
+    try {
+      const info = (opts.mode === 'chart' ? renderChart : renderClock)(ctx, state, S, t, opts);
+      if (info) { info.algol = !!opts.algol; if (opts.algol && !opts.plate && !opts.sigil) drawAlgol(ctx, state, info.layout, info.mode, t); }   // exports carry it; the live view draws it in the overlay
+      return info;
+    }
     finally { FAST = false; EXPORTING = false; ENGRAVE = false; LUMINOUS = false; TIGHT = false; GROUND_EL = false; GUILLOCHE = false; }
   }
   /* a wallpaper: the sky without its wheel, the field running to the edges of a W × H canvas. the dial is sized to the width. */
