@@ -410,10 +410,13 @@ The pair's dial has no planets. Overlaid, two charts were noise, and the reading
 
 ## Algol
 
-A switch at the bottom of the screen, remembered between visits, shows Algol (beta Persei, the Demon Star) on the art. It appears on the clock, in the sky by its altitude like the planets, and on the chart and natal views just inside the zodiac, by its longitude.
+A switch in the Bodies table, under Algol's own row (its degree, its house and the next eclipse), is remembered between visits and shows Algol (beta Persei, the Demon Star) on the art. It appears on the clock, in the sky by its altitude like the planets, and on the chart and natal views just inside the zodiac, by its longitude.
 
 - **Position:** the J2000 coordinates (RA 3h08m10s, Dec +40°57′20″) are carried to the true ecliptic and the horizon of the moment, giving 26°33′ Taurus in 2026.
 - **The mark:** a black point with a hair of pale green-white light at its rim. A shadow around it eats the field, and a cold corona with seven drifting tendrils breathes slowly.
 - **The eclipse:** the star's real eclipse uses the GCVS elements, minimum at JD 2445641.5135 with a period of 2.8673043 days. The aura widens and darkens as a Gaussian of the hours from minimum (σ 2.2 h). When it passes 0.3, the label reads "Algol · in eclipse". The period has drifted slightly since the epoch, so the minima are good to roughly an hour.
 - **Exports and sigil:** exported images carry the mark; the sigil layer leaves it out.
 - **Glossary:** has an Algol entry.
+
+
+The Bodies table also lists the four angles after the planets, in house order: ASC (I), IC (IV), DSC (VII), MC (X). A chart without a birth time has none.
