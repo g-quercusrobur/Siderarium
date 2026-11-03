@@ -163,7 +163,7 @@
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
     for (const k of ['label', 'state', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
-    $('caption').innerHTML = `<button class="share-btn" aria-label="${esc(SD.i18n.t('ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
+    $('caption').innerHTML = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -407,7 +407,6 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
-  function download(cv, name) { cv.toBlob(b => downloadBlob(b, name), 'image/png'); }
 
   /* ---------- charts out and in: a small file of the saved charts and settings, to carry between devices and addresses ---------- */
   function exportCharts() {
@@ -605,36 +604,83 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const day = new Date(st.date.getTime()).toISOString().slice(0, 10).replace(/-/g, '');
     return `siderarium-${view}-${slug(who) || 'chart'}-${day}${extra ? '-' + extra : ''}.png`;
   }
+  /* the three image buttons answer the tap at once: the button says it is preparing, the page paints, and only then
+     the heavy drawing starts; afterwards it says what happened. a second tap while it works does nothing */
+  const nextPaint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+  async function busy(btn, work) {
+    if (!btn || btn.dataset.busy) return;
+    const label = btn.innerHTML, i = SD.i18n; btn.dataset.busy = '1'; btn.classList.add('busy'); btn.setAttribute('aria-busy', 'true');
+    btn.textContent = i.cap1(i.t('ui.preparing'));
+    await nextPaint();
+    let note = '';
+    try { note = (await work()) || ''; } catch (e) { note = ''; }
+    finally {
+      btn.classList.remove('busy'); btn.removeAttribute('aria-busy'); delete btn.dataset.busy;
+      if (note) { btn.textContent = i.cap1(note); setTimeout(() => { if (!btn.dataset.busy && btn.textContent === i.cap1(note)) btn.innerHTML = label; }, 2200); } else btn.innerHTML = label;
+    }
+  }
+  const renderOpts = extra => ({ exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous, ...extra });
   /* share: the art of the moment as an image, with its headline and the address; where the device cannot share files,
-     the text and address; where it cannot share at all, the image is saved and the text copied */
-  async function shareArt() {
+     the text and address; where it cannot share at all, the image is saved and the text copied.
+     a browser opens its share sheet only within a few seconds of a tap: when the drawing takes longer, the image is
+     kept and the button asks for a second tap, which shares at once */
+  let shareReady = null, shareState = '';
+  const shareKey = () => { const st = viewState(), live = !S.fixed && !S.offsetMs && !S.playing && (S.mode === 'clock' || S.mode === 'chart');   // the live sky moves by the second: within the two minutes an image is kept, it is the same moment
+    return [S.mode, live ? 'live' : st.date.getTime(), S.sigil, S.algol, S.field, S.natal && S.natal.id, S.pair, S.lang].join('|'); };
+  function setShare(state) {
+    shareState = state; const i = SD.i18n, bar = $('share');
+    document.querySelectorAll('.share-btn').forEach(b => { b.classList.toggle('busy', state === 'busy'); b.classList.toggle('ready', state === 'ready'); b.setAttribute('aria-label', i.t(state === 'ready' ? 'ui.tapToShare' : 'ui.share')); });
+    if (bar && !bar.dataset.busy) bar.textContent = i.cap1(i.t(state === 'ready' ? 'ui.tapToShare' : state === 'busy' ? 'ui.preparing' : 'ui.shareBtn'));
+    bar && bar.classList.toggle('ready', state === 'ready'); bar && bar.classList.toggle('busy', state === 'busy');
+  }
+  async function makeShare() {
     const st = viewState(), cv = document.createElement('canvas'); cv.width = cv.height = 1080;
-    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous });
+    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, renderOpts());
     const c = SD.render.captionLines(st), plain = t => String(t || '').replace(/<[^>]+>/g, '');
     const text = [plain(c.state), plain(c.label)].filter(Boolean).join(' · '), url = 'https://siderarium.com/app/';
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
-    try {
-      const file = new File([blob], fileName(st), { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Siderarium', text: `${text} · ${url}` }); return; }
-      if (navigator.share) { await navigator.share({ title: 'Siderarium', text, url }); return; }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
-    downloadBlob(blob, fileName(st));
-    try { await navigator.clipboard.writeText(`${text} · ${url}`); } catch (e) { /* the image is saved all the same */ }
+    return { key: shareKey(), at: Date.now(), blob, name: fileName(st), text, url };
   }
-  function exportPNG(px) {
+  async function doShare(p) {
+    try {
+      const file = new File([p.blob], p.name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Siderarium', text: `${p.text} · ${p.url}` }); return 'shared'; }
+      if (navigator.share) { await navigator.share({ title: 'Siderarium', text: p.text, url: p.url }); return 'shared'; }
+    } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; if (e && e.name === 'NotAllowedError') return 'needTap'; }
+    await downloadBlob(p.blob, p.name);
+    try { await navigator.clipboard.writeText(`${p.text} · ${p.url}`); } catch (e) { /* the image is saved all the same */ }
+    return 'saved';
+  }
+  async function shareArt() {
+    if (shareState === 'busy') return;
+    if (shareReady && shareReady.key === shareKey() && Date.now() - shareReady.at < 120000) {   // the second tap: the image is ready, share now
+      const p = shareReady; shareReady = null; setShare(''); if ((await doShare(p)) === 'needTap') { shareReady = p; setShare('ready'); }
+      return;
+    }
+    shareReady = null; setShare('busy'); await nextPaint();
+    const t = performance.now(); let p;
+    try { p = await makeShare(); } catch (e) { setShare(''); return; }
+    if (performance.now() - t > 3500) { shareReady = p; setShare('ready'); return; }   // the tap's few seconds are spent: one more tap
+    setShare('');
+    if ((await doShare(p)) === 'needTap') { shareReady = p; setShare('ready'); }
+  }
+  const download = (cv, name) => new Promise(r => cv.toBlob(async b => { await downloadBlob(b, name); r(); }, 'image/png'));
+  async function exportPNG(px) {
     const st = viewState(), cv = document.createElement('canvas');
     cv.width = cv.height = px;
-    SD.render.render(cv.getContext('2d'), st, px, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: px >= 3000 ? 420 : 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous, groundEl: S.groundEl });
-    download(cv, fileName(st, px > 2048 ? String(px) : ''));
+    SD.render.render(cv.getContext('2d'), st, px, (performance.now() - t0) / 1000, renderOpts({ fieldRes: px >= 3000 ? 420 : 300, groundEl: S.groundEl }));
+    await download(cv, fileName(st, px > 2048 ? String(px) : ''));
+    return SD.i18n.t('ui.savedFile');
   }
   /* a wallpaper at this screen's size: the square render set in a portrait field of the same ground */
-  function exportWallpaper() {
+  async function exportWallpaper() {
     const st = viewState(), dpr = window.devicePixelRatio || 1;
     const W = Math.round((screen.width || 1080) * dpr), H = Math.round((screen.height || 2340) * dpr);
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
-    SD.render.renderWallpaper(cv.getContext('2d'), st, W, H, 3, { exported: true, fieldRes: 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous });
-    download(cv, fileName(st, 'wallpaper'));
+    SD.render.renderWallpaper(cv.getContext('2d'), st, W, H, 3, renderOpts());
+    await download(cv, fileName(st, 'wallpaper'));
+    return SD.i18n.t('ui.savedFile');
   }
 
   const ordinalWord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
@@ -1142,7 +1188,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('birth-save').addEventListener('click', saveBirth);
     bindPlaceSearch();
     $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) S.mode = 'clock'; $('birth').hidden = true; recompute(); });
-    $('wallpaper').addEventListener('click', exportWallpaper);
+    $('wallpaper').addEventListener('click', e => busy(e.currentTarget, exportWallpaper));
     $('update').addEventListener('click', updateApp);
     for (const cv of [canvas, plate]) if (cv && cv.addEventListener) cv.addEventListener('contextrestored', () => { SD.render.resetCaches(); S.dirty = true; });   // a canvas the browser dropped is drawn again
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { SD.render.resetCaches(); S.dirty = true; } });   // back from the background: fresh plates
@@ -1153,11 +1199,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('readout').addEventListener('change', e => {           // the relationship type of the pair on show
       if (e.target.id !== 'pair-type' || !S.state.pair) return;
       const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });
-    $('save').addEventListener('click', () => exportPNG(2048));
+    $('save').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(2048)));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
     $('readout').addEventListener('click', e => { if (!e.target.closest('[data-act="algol"]')) return; S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateReadout(); });   // the Demon Star on the art, kept between visits
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
-    $('save-hd').addEventListener('click', () => exportPNG(4096));
+    $('save-hd').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(4096)));
     $('listen-corner').addEventListener('click', () => listen(!audio.on));
     $('about-open').addEventListener('click', () => { $('about').hidden = !$('about').hidden; $('about-open').classList.toggle('on', !$('about').hidden); if (!$('about').hidden) openMenu(false); });
     $('about-close').addEventListener('click', () => { $('about').hidden = true; $('about-open').classList.remove('on'); });
