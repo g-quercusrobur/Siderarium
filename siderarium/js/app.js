@@ -54,6 +54,7 @@
     playing: false,
     preview: 0,                                            // minutes ahead, from the 24-hour strip
     sigil: params.get('sigil') === '1',
+    algol: store.get('algol', false),
     engrave: params.get('field') ? params.get('field') !== 'glow' : (params.get('engrave') !== '0' && store.get('field', 'engraved') !== 'glow'),   // engraved at rest; glow on request
     natal: store.get('natal', null),                        // { date, place, unknownTime } — stays on this device
     pair: store.get('pair', null),                          // the second chart for synastry, by id
@@ -294,7 +295,7 @@
     if (S.wall) {
       if (S.dirty) {
         pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, plate.width, plate.height);
-        info = SD.render.renderWallpaper(pctx, viewState(), plate.width, plate.height, t, { fieldRes: 300, plate: true, fast: S.playing, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
+        info = SD.render.renderWallpaper(pctx, viewState(), plate.width, plate.height, t, { fieldRes: 300, plate: true, fast: S.playing, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous });
         S.dirty = false; lastPlate = ts;
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(plate, 0, 0);
@@ -306,7 +307,7 @@
       pctx.setTransform(S.dpr * view.z, 0, 0, S.dpr * view.z, S.dpr * (view.x + S.ox), S.dpr * view.y);   // the view: zoom and pan, the square centred in the canvas
       const busy = S.playing || S.dragging || view.pinching || S.quick;
       const bounds = { x: -(view.x + S.ox) / view.z, y: -view.y / view.z, w: (S.side + 2 * S.ox) / view.z, h: S.side / view.z };   // the canvas, in dial coordinates
-      info = SD.render.render(pctx, viewState(), S.side, t, { mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: busy ? 110 : 200, caption: S.side >= 560, plate: true, fast: busy, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous, tight: S.side < 560, groundEl: S.groundEl, bounds });
+      info = SD.render.render(pctx, viewState(), S.side, t, { mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: busy ? 110 : 200, caption: S.side >= 560, plate: true, fast: busy, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous, tight: S.side < 560, groundEl: S.groundEl, bounds });
       S.dirty = false; lastPlate = ts;
       if (S.quick) { S.quick = false; S.dirty = true; }               // a quick frame is followed by the full one
     }
@@ -608,7 +609,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
      the text and address; where it cannot share at all, the image is saved and the text copied */
   async function shareArt() {
     const st = viewState(), cv = document.createElement('canvas'); cv.width = cv.height = 1080;
-    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
+    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous });
     const c = SD.render.captionLines(st), plain = t => String(t || '').replace(/<[^>]+>/g, '');
     const text = [plain(c.state), plain(c.label)].filter(Boolean).join(' · '), url = 'https://siderarium.com/app/';
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
@@ -623,7 +624,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   function exportPNG(px) {
     const st = viewState(), cv = document.createElement('canvas');
     cv.width = cv.height = px;
-    SD.render.render(cv.getContext('2d'), st, px, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: px >= 3000 ? 420 : 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous, groundEl: S.groundEl });
+    SD.render.render(cv.getContext('2d'), st, px, (performance.now() - t0) / 1000, { exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: px >= 3000 ? 420 : 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous, groundEl: S.groundEl });
     download(cv, fileName(st, px > 2048 ? String(px) : ''));
   }
   /* a wallpaper at this screen's size: the square render set in a portrait field of the same ground */
@@ -632,7 +633,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const W = Math.round((screen.width || 1080) * dpr), H = Math.round((screen.height || 2340) * dpr);
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
-    SD.render.renderWallpaper(cv.getContext('2d'), st, W, H, 3, { exported: true, fieldRes: 300, field: S.field, sigil: S.sigil, engrave: S.engrave, luminous: S.luminous });
+    SD.render.renderWallpaper(cv.getContext('2d'), st, W, H, 3, { exported: true, fieldRes: 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous });
     download(cv, fileName(st, 'wallpaper'));
   }
 
@@ -917,6 +918,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     document.body.classList.toggle('natal', S.mode === 'natal' || S.mode === 'natalchart');
     document.body.classList.toggle('pair', S.mode === 'pair');
     $('sigil').classList.toggle('on', S.sigil);
+    $('algol').setAttribute('aria-pressed', S.algol ? 'true' : 'false'); $('algol').classList.toggle('on', S.algol);
     slideSeg();
   }
   /* the segmented control: an indicator slides under the lit view (two of them in natal chart) */
@@ -1142,6 +1144,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });
     $('save').addEventListener('click', () => exportPNG(2048));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
+    $('algol').addEventListener('click', () => { S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateControls(); });   // the Demon Star on the art, kept between visits
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
     $('save-hd').addEventListener('click', () => exportPNG(4096));
     $('listen-corner').addEventListener('click', () => listen(!audio.on));

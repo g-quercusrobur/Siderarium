@@ -308,3 +308,11 @@ body.natal .bar.bottom .group.time, body.natal .bar.bottom .group.place, body.pa
 
 /* a held tab must not select its text or call up the system menu on a phone */
 .seg button, .chart-pick, .corner-sigil, .corner-speaker { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+
+/* Algol: a switch in the bottom bar */
+.toggle { display: inline-flex; align-items: center; gap: 8px; }
+.toggle .sw { position: relative; width: 28px; height: 16px; border-radius: 8px; border: 1px solid var(--ink-3); flex: none; transition: border-color 0.2s, background 0.2s; }
+.toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); transition: transform 0.2s, background 0.2s, box-shadow 0.2s; }
+.toggle[aria-pressed="true"] .sw { border-color: #bfe0c6; background: rgba(191, 224, 198, 0.08); }
+.toggle[aria-pressed="true"] .sw::after { transform: translateX(12px); background: #000; box-shadow: 0 0 0 1px #bfe0c6, 0 0 8px 2px rgba(191, 224, 198, 0.45); }
+@media (prefers-reduced-motion: reduce) { .toggle .sw, .toggle .sw::after { transition: none; } }

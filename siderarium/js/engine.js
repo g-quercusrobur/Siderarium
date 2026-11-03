@@ -967,5 +967,22 @@
     if (orbAt(tm) < Math.min(0.5, orbMax * 0.35)) exact = new Date(tm);
     return { exact, enter: enter ? new Date(enter) : null, leave: leave ? new Date(leave) : null, orbNow: o0 };
   }
-  SD.engine = { compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, lonOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  /* Algol, beta Persei, the Demon Star: the head of Medusa in the hand of Perseus. its J2000 place, carried to the
+     ecliptic and horizon of the moment; and its light, which fails every 2 d 20 h 49 m when the dimmer companion passes
+     in front (GCVS elements: minimum at JD 2445641.5135, period 2.8673043 d; the eclipse lasts about ten hours) */
+  const ALGOL = { ra: 3.136148, dec: 40.955647, E0: 2445641.5135, P: 2.8673043 };
+  const algolCache = { k: null, v: null };
+  function algol(date, loc) {
+    const k = Math.round(date.getTime() / 60000) + '|' + loc.lat + '|' + loc.lon;
+    if (algolCache.k === k) return algolCache.v;
+    const t = A.MakeTime(date), v = A.VectorFromSphere(new A.Spherical(ALGOL.dec, ALGOL.ra * 15, 1), t);
+    const lon = A.SphereFromVector(A.RotateVector(A.Rotation_EQJ_ECT(t), v)).lon;
+    const eq = A.EquatorFromVector(A.RotateVector(A.Rotation_EQJ_EQD(t), v));
+    const alt = A.Horizon(t, new A.Observer(loc.lat, loc.lon, 0), eq.ra, eq.dec, 'normal').altitude;
+    const jd = date.getTime() / 864e5 + 2440587.5, ph = ((jd - ALGOL.E0) % ALGOL.P + ALGOL.P) % ALGOL.P;
+    const off = Math.min(ph, ALGOL.P - ph) * 24;                       // hours from the nearest minimum
+    const out = { lon, alt, eclipse: Math.exp(-0.5 * (off / 2.2) * (off / 2.2)), nextMin: new Date(date.getTime() + (ALGOL.P - ph) * 864e5) };
+    algolCache.k = k; algolCache.v = out; return out;
+  }
+  SD.engine = { algol, compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, lonOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});
