@@ -1,24 +1,24 @@
 {
- "rendered": "2026-11-02 23:26 utc",
+ "rendered": "2026-11-03 06:35 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Tuesday · 3 November 2026 · 00:26 CET · Rome",
+   "caption": "Tuesday · 3 November 2026 · 07:35 CET · Rome",
    "figure": "Sun conjunction Mercury",
    "chord": "Chord G · unison"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Monday · 2 November 2026 · 18:26 GMT-5 · New York",
+   "caption": "Tuesday · 3 November 2026 · 01:35 GMT-5 · New York",
    "figure": "Sun conjunction Mercury",
    "chord": "Chord G · unison"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Monday · 2 November 2026 · 23:26 GMT · Greenwich",
+   "caption": "Tuesday · 3 November 2026 · 06:35 GMT · Greenwich",
    "figure": "Sun conjunction Mercury",
    "chord": "Chord G · unison"
   }
