@@ -649,6 +649,18 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const dig = C.PLANETS[k].kind === 'optic' ? i.flag('noDignity') : `${b.dignity.score > 0 ? '+' : ''}${b.dignity.score} · ${b.dignity.labels.map(l => i.dignity(l)).join(', ') || '—'}`;
       return `<tr><td>${P(k)}</td><td>${Math.floor(b.deg)}°${String(Math.floor((b.deg % 1) * 60)).padStart(2, '0')}′ ${i.sign(b.sign)}</td><td>${R('house')} ${i.roman(b.house)}</td></tr><tr class="sub"><td></td><td colspan="2">${i.cap1(dig)}${flags ? ' · ' + flags : ''}</td></tr>`;
     }).join('');
+    // the four angles after the bodies, in the order of their houses (I, IV, VII, X); none for a chart without a birth time
+    const dms = lon => { const L = ((lon % 360) + 360) % 360, d = L % 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(Math.floor(L / 30))}`; };
+    const noTime = st.natalView && S.natal && S.natal.unknownTime;
+    const angleRows = noTime ? '' : [['asc', st.asc, 1], ['ic', st.mc + 180, 4], ['dsc', st.asc + 180, 7], ['mc', st.mc, 10]]
+      .map(([k, lon, h]) => `<tr><td>${i.t('ui.r.angleName.' + k)}</td><td>${dms(lon)}</td><td>${R('house')} ${i.roman(h)}</td></tr>`).join('');
+    // Algol: its place, its house, its light, and the switch that shows it on the art
+    const al = SD.engine.algol(st.date, st.loc), alTz = st.loc.tz || 'UTC';
+    const alWhen = d => new Intl.DateTimeFormat(i.locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: alTz }).format(d);
+    const alNote = al.eclipse > 0.3 ? R(st.natalView ? 'algolDimBirth' : 'algolDimNow') : st.natalView ? '' : `${R('algolNext')} ${alWhen(al.nextMin)}`;
+    const algolRows = `<tr><td>Algol</td><td>${dms(al.lon)}</td><td>${noTime ? '' : `${R('house')} ${i.roman(SD.engine.houseIn(st.cusps, al.lon))}`}</td></tr>
+      ${alNote ? `<tr class="sub"><td></td><td colspan="2">${i.cap1(alNote)}</td></tr>` : ''}
+      <tr class="sub"><td></td><td colspan="2"><button class="toggle algol-toggle" data-act="algol" aria-pressed="${S.algol ? 'true' : 'false'}"><span class="sw" aria-hidden="true"></span><span>${i.cap1(R(S.algol ? 'algolShown' : 'algolShow'))}</span></button></td></tr>`;
     const cf = st.configs;
     const figName = a => a.natal ? `${P(a.a)} ${A(a.aspect)} ${i.t('cap.natal')} ${P(a.b)}` : `${P(a.a)} ${A(a.aspect)} ${P(a.b)}`;
     const evName = e => e.split(' ').map(w => i.event(w)).join(' ');
@@ -680,7 +692,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('readout').innerHTML = `
       ${lead}
       ${st.tikkun ? tikkunHead(st) : ''}
-      <h3>${H('bodies')}</h3><table>${rows}</table>
+      <h3>${H('bodies')}</h3><table>${rows}${angleRows}${algolRows}</table>
       <h3>${H('figure')}</h3><table>${figs || `<tr><td>${i.cap1(i.t('ui.quietSky'))}</td></tr>`}</table>
       <h3>${H('sound')}</h3><p>${i.chordLong(st.chord)}${st.chord.interval ? ' · ' + i.interval(st.chord.interval) : ''}${st.chord.notes.length ? ` · ${R('notes')} ` + st.chord.notes.map(n => i.note(n)).join(' ') : ''}${st.chord.planets ? ` · ${R('from')} ` + st.chord.planets.map(P).join(', ') : ''}${st.chord.moonNote ? ` · ${R('moonNote')} ${i.note(st.chord.moonNote)}` : ''}${st.chord.ground && st.chord.ground.length ? ` · ${R('ground')} ` + st.chord.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(' ') : ''}${st.nextChord ? ` · ${R('next')} ${i.chordName(st.nextChord.to)} ${R('at')} ${hm(st.nextChord.at)}` : ''}</p>
       <h3>${H('tarot')}</h3>${tarot}
@@ -918,7 +930,6 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     document.body.classList.toggle('natal', S.mode === 'natal' || S.mode === 'natalchart');
     document.body.classList.toggle('pair', S.mode === 'pair');
     $('sigil').classList.toggle('on', S.sigil);
-    $('algol').setAttribute('aria-pressed', S.algol ? 'true' : 'false'); $('algol').classList.toggle('on', S.algol);
     slideSeg();
   }
   /* the segmented control: an indicator slides under the lit view (two of them in natal chart) */
@@ -1144,7 +1155,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });
     $('save').addEventListener('click', () => exportPNG(2048));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
-    $('algol').addEventListener('click', () => { S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateControls(); });   // the Demon Star on the art, kept between visits
+    $('readout').addEventListener('click', e => { if (!e.target.closest('[data-act="algol"]')) return; S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateReadout(); });   // the Demon Star on the art, kept between visits
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
     $('save-hd').addEventListener('click', () => exportPNG(4096));
     $('listen-corner').addEventListener('click', () => listen(!audio.on));
