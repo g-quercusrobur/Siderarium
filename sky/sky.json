@@ -1,26 +1,26 @@
 {
- "rendered": "2026-11-06 09:17 utc",
+ "rendered": "2026-11-06 17:25 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Friday · 6 November 2026 · 10:17 CET · Rome",
-   "figure": "Uranus trine Pluto",
-   "chord": "Chord G minor · D G A#"
+   "caption": "Friday · 6 November 2026 · 18:25 CET · Rome",
+   "figure": "Sun biquintile Saturn",
+   "chord": "Chord G–C · perfect fourth"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Friday · 6 November 2026 · 04:17 GMT-5 · New York",
+   "caption": "Friday · 6 November 2026 · 12:25 GMT-5 · New York",
    "figure": "Uranus trine Pluto",
-   "chord": "Chord G minor · D G A#"
+   "chord": "Chord G–C · perfect fourth"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Friday · 6 November 2026 · 09:17 GMT · Greenwich",
+   "caption": "Friday · 6 November 2026 · 17:25 GMT · Greenwich",
    "figure": "Uranus trine Pluto",
-   "chord": "Chord G minor · D G A#"
+   "chord": "Chord G–C · perfect fourth"
   }
  ]
 }
