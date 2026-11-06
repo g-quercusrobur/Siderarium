@@ -1,25 +1,25 @@
 {
- "rendered": "2026-11-06 01:30 utc",
+ "rendered": "2026-11-06 09:17 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Friday · 6 November 2026 · 02:30 CET · Rome",
-   "figure": "Sun conjunction Mercury",
+   "caption": "Friday · 6 November 2026 · 10:17 CET · Rome",
+   "figure": "Uranus trine Pluto",
    "chord": "Chord G minor · D G A#"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Thursday · 5 November 2026 · 20:30 GMT-5 · New York",
-   "figure": "Sun conjunction Mercury",
+   "caption": "Friday · 6 November 2026 · 04:17 GMT-5 · New York",
+   "figure": "Uranus trine Pluto",
    "chord": "Chord G minor · D G A#"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Friday · 6 November 2026 · 01:30 GMT · Greenwich",
-   "figure": "Sun conjunction Mercury",
+   "caption": "Friday · 6 November 2026 · 09:17 GMT · Greenwich",
+   "figure": "Uranus trine Pluto",
    "chord": "Chord G minor · D G A#"
   }
  ]
