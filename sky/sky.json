@@ -1,26 +1,26 @@
 {
- "rendered": "2026-11-08 23:39 utc",
+ "rendered": "2026-11-09 06:06 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Monday · 9 November 2026 · 00:39 CET · Rome",
-   "figure": "Venus sextile Mars",
-   "chord": "Chord E–F# · major second"
+   "caption": "Monday · 9 November 2026 · 07:06 CET · Rome",
+   "figure": "Sun conjunction Moon · new moon",
+   "chord": "Chord G · unison"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Sunday · 8 November 2026 · 18:39 GMT-5 · New York",
-   "figure": "Venus sextile Mars",
-   "chord": "Chord E–F# · major second"
+   "caption": "Monday · 9 November 2026 · 01:07 GMT-5 · New York",
+   "figure": "Sun conjunction Moon · new moon",
+   "chord": "Chord G · unison"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Sunday · 8 November 2026 · 23:39 GMT · Greenwich",
-   "figure": "Venus sextile Mars",
-   "chord": "Chord E–F# · major second"
+   "caption": "Monday · 9 November 2026 · 06:07 GMT · Greenwich",
+   "figure": "Sun conjunction Moon · new moon",
+   "chord": "Chord G · unison"
   }
  ]
 }
