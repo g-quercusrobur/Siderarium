@@ -13,7 +13,7 @@
   --max: 1180px;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; }   /* no smooth scroll: a link lands at once */
 body { margin: 0; background: var(--void); color: var(--ink); font: 400 17px/1.55 var(--sans); }
 a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; height: auto; }

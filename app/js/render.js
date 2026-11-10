@@ -1756,28 +1756,28 @@
     if (!state || !state.loc || !Lt) return;
     const al = E_.algol(state.date, state.loc), ec = al.eclipse, u = Lt.u * Math.min(2.2, Math.max(1, Lt.ts || 1));   // on a phone the point grows with the text, so it reads
     const p = mode === 'chart' ? polar(Lt, eclAngle(state, al.lon), Lt.R - 40 * u) : skyPoint(Lt, { lon: al.lon, alt: al.alt });
-    const br = 0.5 + 0.5 * Math.sin(t * 0.55), R = (40 + 18 * ec) * u;
+    const br = 0.5 + 0.5 * Math.sin(t * 0.55), R = (40 + 18 * ec) * u, paper = mode === 'chart', AI = paper ? '#2f4436' : ALGOL_INK;   // on the paper chart: a dark-green ink, no screen glow
     ctx.save();
     const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R * 1.25);   // a shadow that eats the field around it
     halo.addColorStop(0, `rgba(0,0,0,${0.85})`); halo.addColorStop(0.35, `rgba(0,0,0,${0.5 + 0.2 * ec})`); halo.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(p.x, p.y, R * 1.25, 0, TAU); ctx.fill();
-    ctx.globalCompositeOperation = 'screen';                 // the corona: a pale, cold, greenish ring and tendrils that drift
+    ctx.globalCompositeOperation = paper ? 'source-over' : 'screen';   // the corona: a pale, cold, greenish ring and tendrils that drift
     const cor = ctx.createRadialGradient(p.x, p.y, 6 * u, p.x, p.y, R);
-    cor.addColorStop(0, K.rgba(ALGOL_INK, 0)); cor.addColorStop(0.32, K.rgba(ALGOL_INK, 0.16 + 0.12 * br + 0.1 * ec)); cor.addColorStop(0.6, K.rgba(ALGOL_INK, 0.05)); cor.addColorStop(1, K.rgba(ALGOL_INK, 0));
+    cor.addColorStop(0, K.rgba(AI, 0)); cor.addColorStop(0.32, K.rgba(AI, 0.16 + 0.12 * br + 0.1 * ec)); cor.addColorStop(0.6, K.rgba(AI, 0.05)); cor.addColorStop(1, K.rgba(AI, 0));
     ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, TAU); ctx.fill();
     ctx.lineCap = 'round';
     for (let k = 0; k < 7; k++) {
       const a = k * TAU / 7 + t * 0.04 + 0.25 * Math.sin(t * 0.6 + k * 1.7), r0 = 11 * u, r1 = r0 + (10 + 9 * (0.5 + 0.5 * Math.sin(t * 0.8 + k * 2.3)) + 8 * ec) * u;
       const bend = 0.35 * Math.sin(t * 0.5 + k);
-      ctx.strokeStyle = K.rgba(ALGOL_INK, 0.1 + 0.08 * br + 0.08 * ec); ctx.lineWidth = 1.1 * u;
+      ctx.strokeStyle = K.rgba(AI, 0.1 + 0.08 * br + 0.08 * ec); ctx.lineWidth = 1.1 * u;
       ctx.beginPath(); ctx.moveTo(p.x + r0 * Math.cos(a), p.y + r0 * Math.sin(a));
       ctx.quadraticCurveTo(p.x + (r0 + r1) / 2 * Math.cos(a + bend), p.y + (r0 + r1) / 2 * Math.sin(a + bend), p.x + r1 * Math.cos(a + bend * 1.6), p.y + r1 * Math.sin(a + bend * 1.6));
       ctx.stroke();
     }
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(p.x, p.y, 6 * u, 0, TAU); ctx.fill();   // the point itself: black, with a hair of light at its rim
-    ctx.strokeStyle = K.rgba(ALGOL_INK, 0.45 + 0.25 * br); ctx.lineWidth = 0.9 * u; ctx.stroke();
-    ctx.fillStyle = K.rgba(ALGOL_INK, 0.55); ctx.font = `400 ${Math.round(12 * u)}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.strokeStyle = K.rgba(AI, 0.45 + 0.25 * br); ctx.lineWidth = 0.9 * u; ctx.stroke();
+    ctx.fillStyle = K.rgba(AI, 0.55); ctx.font = `400 ${Math.round(12 * u)}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText(ec > 0.3 ? `Algol · ${I().t('cap.algolDim')}` : 'Algol', p.x, p.y + 15 * u);
     ctx.restore();
   }
@@ -2054,31 +2054,34 @@
     const Lt = layout(S); Lt.asc = state.asc;
     const u = Lt.u, B = state.bodies;
     ctx.fillStyle = GROUND_EL ? ground(state) : VOID; const gb = opts.bounds || { x: 0, y: 0, w: S, h: S }; ctx.fillRect(gb.x, gb.y, gb.w, gb.h);
-    // plain ground inside: midnight, slightly lifted at the centre
+    // the chart is printed on paper: a warm ivory disc and band, dark ink, the colours deepened to hold on the light ground.
+    // the labels and legend outside the band stay in the light ink of the night around it
+    const LIGHT = INK, PAPER = '#f4efe3', PAPER_EDGE = '#e9e1cf', BAND = '#ddd2ba', INK_D = '#26221b';
+    const deep = c => K.shade(c, -0.2);                     // a sign or aspect colour darkened for paper
     const bg = ctx.createRadialGradient(Lt.cx, Lt.cy, 0, Lt.cx, Lt.cy, Lt.R);
-    bg.addColorStop(0, '#0b1230'); bg.addColorStop(1, '#04071a');
+    bg.addColorStop(0, PAPER); bg.addColorStop(1, PAPER_EDGE);
     ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, Lt.R, 0, TAU); ctx.fill();
 
     // zodiac band: twelve sectors with full boundaries, glyphs, degree scale
     const r0 = Lt.Rzi - 18 * u, r1 = Lt.Rb * 0.97;
     const band = new Path2D(); band.arc(Lt.cx, Lt.cy, r1, 0, TAU); band.arc(Lt.cx, Lt.cy, Lt.R, 0, TAU, true);
-    ctx.fillStyle = VOID; ctx.fill(band, 'evenodd');
+    ctx.fillStyle = BAND; ctx.fill(band, 'evenodd');
     for (let i = 0; i < 12; i++) {
       const a0 = eclAngle(state, i * 30), am = eclAngle(state, i * 30 + 15);
       const p0 = polar(Lt, a0, Lt.R), p1 = polar(Lt, a0, r1);
-      ctx.strokeStyle = K.rgba(INK, 0.55); ctx.lineWidth = 1.4 * u;
+      ctx.strokeStyle = K.rgba(INK_D, 0.55); ctx.lineWidth = 1.4 * u;
       ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
       const g = polar(Lt, am, (Lt.Rz + r1) / 2 + 4 * u);
-      G.sign(ctx, i, g.x, g.y, 40 * u, K.rgba(C.SIGNS[i].color, 0.95), 0.1);
+      G.sign(ctx, i, g.x, g.y, 40 * u, K.rgba(deep(C.SIGNS[i].color), 1), 0.1);
     }
     for (let d = 0; d < 360; d++) {
       if (d % 30 === 0) continue;
       const a = eclAngle(state, d), l = d % 10 === 0 ? 14 : d % 5 === 0 ? 9 : 5;
       const p0 = polar(Lt, a, Lt.R), p1 = polar(Lt, a, Lt.R + l * u);
-      ctx.strokeStyle = K.rgba(INK, d % 10 === 0 ? 0.5 : 0.28); ctx.lineWidth = (d % 10 === 0 ? 1.2 : 0.8) * u;
+      ctx.strokeStyle = K.rgba(INK_D, d % 10 === 0 ? 0.5 : 0.28); ctx.lineWidth = (d % 10 === 0 ? 1.2 : 0.8) * u;
       ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
     }
-    ctx.strokeStyle = K.rgba(INK, 0.35); ctx.lineWidth = u;
+    ctx.strokeStyle = K.rgba(INK_D, 0.35); ctx.lineWidth = u;
     for (const r of [Lt.R, r1]) { ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, r, 0, TAU); ctx.stroke(); }
 
     // houses: the cusps (Regiomontanus unless set otherwise), the angles stronger, the number mid-house
@@ -2089,13 +2092,13 @@
       const a = eclAngle(state, state.cusps[h]);
       const angle = h % 3 === 1;
       const p0 = polar(Lt, a, rIn), p1 = polar(Lt, a, angle ? r1 : Lt.R);
-      ctx.strokeStyle = K.rgba(INK, angle ? 0.6 : 0.16); ctx.lineWidth = (angle ? 1.6 : 1) * u;
+      ctx.strokeStyle = K.rgba(INK_D, angle ? 0.6 : 0.16); ctx.lineWidth = (angle ? 1.6 : 1) * u;
       ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
       const span = E_.norm360(state.cusps[h % 12 + 1] - state.cusps[h]);
       const lp = polar(Lt, eclAngle(state, state.cusps[h] + span / 2), rIn + 22 * u);
-      ctx.fillStyle = K.rgba(INK, 0.4); ctx.fillText(String(h), lp.x, lp.y);
+      ctx.fillStyle = K.rgba(INK_D, 0.4); ctx.fillText(String(h), lp.x, lp.y);
     }
-    ctx.strokeStyle = K.rgba(INK, 0.2); ctx.lineWidth = u; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, rIn, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = K.rgba(INK_D, 0.2); ctx.lineWidth = u; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, rIn, 0, TAU); ctx.stroke();
 
     // aspects, each in its own colour; width by exactness
     const pts = {};
@@ -2103,7 +2106,7 @@
     ctx.save(); ctx.lineCap = 'round';
     for (const a of state.aspects.slice().reverse()) {
       if (a.aspect === 'conjunction') continue;           // conjunctions read from the planets' closeness
-      const col = ASPECT_INK[a.aspect], p0 = pts[a.a], p1 = pts[a.b];
+      const col = deep(ASPECT_INK[a.aspect]), p0 = pts[a.a], p1 = pts[a.b];
       ctx.strokeStyle = K.rgba(col, 0.35 + 0.6 * a.exact);
       ctx.lineWidth = u * (1 + 2.6 * a.exact);
       ctx.setLineDash((ASPECT_DASH[a.aspect] || []).map(v => v * u));
@@ -2124,18 +2127,18 @@
     for (const it of items) {
       const b = B[it.k];
       const n0 = polar(Lt, it.a0, Lt.R), n1 = polar(Lt, it.a0, Lt.R - 16 * u), lead = polar(Lt, it.a, track + 30 * u);
-      ctx.strokeStyle = K.rgba(INK, 0.85); ctx.lineWidth = 2.4 * u; ctx.beginPath(); ctx.moveTo(n0.x, n0.y); ctx.lineTo(n1.x, n1.y); ctx.stroke();
-      ctx.strokeStyle = K.rgba(INK, 0.3); ctx.lineWidth = u; ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(lead.x, lead.y); ctx.stroke();
+      ctx.strokeStyle = K.rgba(INK_D, 0.85); ctx.lineWidth = 2.4 * u; ctx.beginPath(); ctx.moveTo(n0.x, n0.y); ctx.lineTo(n1.x, n1.y); ctx.stroke();
+      ctx.strokeStyle = K.rgba(INK_D, 0.3); ctx.lineWidth = u; ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(lead.x, lead.y); ctx.stroke();
       const p = polar(Lt, it.a, track);
-      const col = it.k === 'saturn' ? '#aab0bb' : C.PLANETS[it.k].kind === 'optic' ? INK : K.mixLight(coreColor(state, it.k), INK, 0.3, 0.08);
+      const col = it.k === 'saturn' ? '#3c414a' : C.PLANETS[it.k].kind === 'optic' ? INK_D : K.mixLight(K.shade(coreColor(state, it.k), -0.32), INK_D, 0.35, 0);
       G.planet(ctx, it.k, p.x, p.y, 46 * u, col, 0.1);
       const dp = polar(Lt, it.a, track - 50 * u);
-      ctx.fillStyle = K.rgba(INK, 0.7);
+      ctx.fillStyle = K.rgba(INK_D, 0.7);
       ctx.fillText(`${Math.floor(b.deg)}°${b.retro ? 'r' : ''}`, dp.x, dp.y);
-      G.sign(ctx, b.sign, polar(Lt, it.a, track - 76 * u).x, polar(Lt, it.a, track - 76 * u).y, 18 * u, K.rgba(C.SIGNS[b.sign].color, 0.9), 0.12);
+      G.sign(ctx, b.sign, polar(Lt, it.a, track - 76 * u).x, polar(Lt, it.a, track - 76 * u).y, 18 * u, K.rgba(deep(C.SIGNS[b.sign].color), 1), 0.12);
     }
-    // labels
-    ctx.font = `400 ${Math.round(18 * u * Lt.ts)}px ${SANS}`; ctx.fillStyle = K.rgba(INK, 0.6);
+    // labels, outside the band on the night ground
+    ctx.font = `400 ${Math.round(18 * u * Lt.ts)}px ${SANS}`; ctx.fillStyle = K.rgba(LIGHT, 0.7);
     for (const [s, a] of [['ASC', Math.PI], ['DSC', 0], ['MC', am], ['IC', am + Math.PI]]) { const p = polar(Lt, a, r1 + 22 * u); ctx.fillText(s, p.x, p.y); }
     // legend
     ctx.font = `400 ${Math.round(15 * u * Lt.ts)}px ${MONO}`; ctx.textAlign = 'left';
@@ -2144,7 +2147,7 @@
     for (const [k, l] of leg) {
       ctx.strokeStyle = ASPECT_INK[k]; ctx.lineWidth = 3 * u; ctx.setLineDash((ASPECT_DASH[k] || []).map(v => v * u));
       ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 30 * u, ly); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = K.rgba(INK, 0.6); ctx.fillText(l, lx + 38 * u, ly + 1); lx += 38 * u + ctx.measureText(l).width + 30 * u;
+      ctx.fillStyle = K.rgba(LIGHT, 0.6); ctx.fillText(l, lx + 38 * u, ly + 1); lx += 38 * u + ctx.measureText(l).width + 30 * u;
     }
     if (opts.caption !== false) drawCaption(ctx, state, Lt);
     return { mode: 'chart', layout: Lt, state };
