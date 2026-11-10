@@ -965,14 +965,15 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('zone').textContent = offsetOf(S.place.tz || 'UTC', S.state.date);
     const live = S.offsetMs === 0 && !S.fixed && !S.playing;
     $('live').classList.toggle('on', live);
-    $('now-float').hidden = live;                           // the way back, in sight whenever the clock has been moved
+    $('now-float').hidden = live || S.mode === 'natal' || S.mode === 'natalchart';   // the birth dial does not move with the clock; the chart button holds that corner                           // the way back, in sight whenever the clock has been moved
     if (document.activeElement !== $('preview')) $('preview').value = Math.max(0, Math.min(STRIP_H * 60, Math.round(S.offsetMs / 60000)));
     $('play').classList.toggle('on', S.playing);
     $('play').textContent = SD.i18n.cap1(SD.i18n.t(S.playing ? 'ui.pause' : 'ui.run'));
     $('speed').textContent = S.speed < 1 ? `${S.speed * 60}m/s` : `${S.speed}h/s`;
     $('here').classList.toggle('on', S.place.name === 'here');
     if (PLACES[S.place.name] && $('city').value !== S.place.name) $('city').value = S.place.name;
-    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (S.mode === 'natalchart' && (b.dataset.mode === 'chart' || b.dataset.mode === 'natal'))));
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (S.mode === 'natalchart' && b.dataset.mode === 'natal')));
+    { const ct = $('chart-toggle'), on = S.mode === 'natalchart', i = SD.i18n; ct.classList.toggle('on', on); ct.setAttribute('aria-pressed', on ? 'true' : 'false'); ct.setAttribute('aria-label', i.t(on ? 'ui.asArt' : 'ui.asChart')); ct.title = i.t(on ? 'ui.asArt' : 'ui.asChart'); }
     document.body.classList.toggle('natal', S.mode === 'natal' || S.mode === 'natalchart');
     document.body.classList.toggle('pair', S.mode === 'pair');
     $('sigil').classList.toggle('on', S.sigil);
@@ -991,6 +992,61 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const uid = () => Math.random().toString(36).slice(2, 10);
   /* ---------- the glossary panel: built once per language, opened at a term ---------- */
   let glossaryLang = null;
+  /* install: always from the clock itself, so the icon on the home screen opens the clock. the website's "Install on your
+     phone" lands here with ?install=1 and this card opens over the dial at once. where the browser offers its own prompt
+     (Chrome, Edge, Android) the card carries an Install button; elsewhere the steps for this device, in plain words.
+     the card never shows once the app runs installed */
+  let installEvt = null;
+  const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; const n = $('install-native'); if (n && !$('install-sheet').hidden) n.hidden = false; });
+  window.addEventListener('appinstalled', () => { installEvt = null; const r = $('install-row'); if (r) r.hidden = true; const h = $('install-how'); if (h) h.innerHTML = `<p>${esc(SD.i18n.t('ui.install.done'))}</p>`; const n = $('install-native'); if (n) n.hidden = true; });
+  function openInstall() {
+    const i = SD.i18n, ua = navigator.userAgent, how = $('install-how'), L = k => i.t('ui.install.' + k);
+    const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const safari = ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|GSA|Instagram|FBAN|FBAV/.test(ua);
+    const inApp = /Instagram|FBAN|FBAV|Line\/|WhatsApp|; wv\)/.test(ua);
+    const steps = arr => `<ol>${arr.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    how.innerHTML = standalone() ? `<p>${esc(L('done'))}</p>` : `<p>${esc(L('lead'))}</p>` + (inApp ? `<p class="warn">${esc(L('inapp'))}</p>` : '')
+      + (installEvt ? '' : ios ? (safari ? steps(L('ios')) : `<p class="warn">${esc(L('iosOther'))}</p>` + steps(L('ios'))) : /Android/.test(ua) ? steps(L('android')) : steps(L('desktop')));
+    $('install-native').hidden = !installEvt || standalone();
+    $('menu').hidden = true; $('install-sheet').hidden = false;
+  }
+  function setupInstall() {
+    const row = $('install-row'); if (!row) return;
+    row.hidden = standalone();
+    $('install-btn').addEventListener('click', openInstall);
+    $('install-close').addEventListener('click', () => { $('install-sheet').hidden = true; });
+    $('install-sheet').addEventListener('click', e => { if (e.target.id === 'install-sheet') $('install-sheet').hidden = true; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') $('install-sheet').hidden = true; });
+    $('install-native').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { /* closed */ } installEvt = null; $('install-sheet').hidden = true; });
+    if (params.get('install') === '1') {                   // arrived from the website's button: the address loses the flag (iPhone saves the address it is on)
+      try { const u = new URL(location.href); u.searchParams.delete('install'); history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash); } catch (e) { /* the card opens all the same */ }
+      if (!standalone()) setTimeout(openInstall, 400);    // the clock first, then the card over it
+    }
+  }
+  /* a tarot card named anywhere in the reading: a lightbox over the page, at once, with the plate, its Golden Dawn line and
+     its meaning; the plate taps through to the full scan; a tap outside, Close or Escape shuts it */
+  function openCard(key) {
+    glossaryTerms();
+    const i = SD.i18n, lang = i.locale().startsWith('es') ? 'es' : 'en', x = SD.glossary.dynamic(lang).find(e => e.key === key);
+    if (!x) { openGlossary(key); return; }
+    let v = document.querySelector('.card-view');
+    if (!v) {
+      v = document.createElement('div'); v.className = 'card-view'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true');
+      v.addEventListener('click', e => { const im = e.target.closest('img'); if (im) { openPlate(im.dataset.full, im.alt); return; } if (e.target === v || e.target.closest('.cv-close')) v.hidden = true; });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') v.hidden = true; });
+      document.body.appendChild(v);
+    }
+    const m = SD.tarotMeanings && SD.tarotMeanings[lang] && SD.tarotMeanings[lang][key];
+    v.innerHTML = `<div class="cv-card"><button class="cv-close">${esc(i.cap1(i.t('ui.close')))}</button><img src="${x.img.replace('img/tarot/', 'img/tarot/sm/')}" data-full="${x.img}" alt="${esc(x[lang][0])}" width="440" height="760"><div class="cv-text"><h2>${esc(x[lang][0])}</h2><p class="gd">${esc(x[lang][1])}</p>${m ? `<p class="meaning">${esc(m)}</p>` : ''}</div></div>`;
+    v.hidden = false; v.scrollTop = 0;
+  }
+  /* a tarot plate at full size, over everything; any tap or Escape closes it */
+  function openPlate(src, alt) {
+    let v = document.querySelector('.plate-view');
+    if (!v) { v = document.createElement('div'); v.className = 'plate-view'; v.setAttribute('role', 'dialog'); v.addEventListener('click', () => { v.hidden = true; }); document.addEventListener('keydown', e => { if (e.key === 'Escape') v.hidden = true; }); document.body.appendChild(v); }
+    v.innerHTML = `<img src="${src}" alt="${esc(alt || '')}">`; v.hidden = false;
+  }
   function buildGlossary() {
     const i = SD.i18n, lang = i.locale().startsWith('es') ? 'es' : 'en', GL = SD.glossary;
     if (glossaryLang === lang) return; glossaryLang = lang;
@@ -1000,10 +1056,13 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('glossary-index').innerHTML = order.map(g => `<a href="#gg-${g}">${groups[g]}</a>`).join('');
     $('glossary-body').innerHTML = order.map(g => {
       const items = (g === 'tarot' ? tarot : GL.entries.filter(x => x.group === g));
-      const plate = x => x.img ? `<dd class="plate"><img loading="lazy" src="${x.img}" alt="${esc(x[lang][0])}" width="110"><p>${esc(x[lang][1])}</p></dd>` : `<dd>${esc(x[lang][1])}</dd>`;
+      // a plate: the card at a size that reads (a 440 px copy, tap for the full scan), the Golden Dawn line, then its meaning
+      const meaning = x => { const m = SD.tarotMeanings && SD.tarotMeanings[lang] && SD.tarotMeanings[lang][x.key]; return m ? `<p class="meaning nolink">${esc(m)}</p>` : ''; };
+      const plate = x => x.img ? `<dd class="plate"><img loading="lazy" decoding="async" src="${x.img.replace('img/tarot/', 'img/tarot/sm/')}" data-full="${x.img}" alt="${esc(x[lang][0])}" width="440" height="760"><div><p class="gd">${esc(x[lang][1])}</p>${meaning(x)}</div></dd>` : `<dd>${esc(x[lang][1])}</dd>`;
       return `<h2 id="gg-${g}">${groups[g]}</h2>${g === 'tarot' ? `<p class="meta nolink">${esc(i.t('ui.tarot.note'))}</p>` : ''}<dl>${items.map(x => `<dt id="g-${x.key}">${esc(x[lang][0])}</dt>${plate(x)}`).join('')}</dl>`;
     }).join('');
     SD.glossary.link($('glossary-body'), lang);                 // the entries link to one another
+    if (!$('glossary-body').dataset.plates) { $('glossary-body').dataset.plates = '1'; $('glossary-body').addEventListener('click', e => { const im = e.target.closest('dd.plate img'); if (im) openPlate(im.dataset.full, im.alt); }); }
   }
   /* the tarot plates: one entry per decan card (36) and per trump (22), named in the reader's language, each with its
      Rider plate. built per language from the correspondences and the strings; the files are the Commons scans. */
@@ -1028,6 +1087,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   function glossaryTerms() { try { const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en'; if (!SD.glossary.dynamic(lang).length) SD.glossary.setDynamic(lang, tarotEntries(lang)); } catch (e) { /* the glossary is a nicety */ } }
   /* hold the Natal tab (or right-click it): a menu of the saved charts; choosing one loads it on the clock */
   let pickHeld = 0;                                          // when the chart menu was last shown by a long press
+  let openPick = null;                                       // opens the chart menu under a tab: set by bindChartPick
   function bindChartPick() {
     const menu = $('chart-pick'); if (!menu) return;
     const btnA = document.querySelector('[data-mode="natal"]'), btnB = document.querySelector('[data-mode="pair"]');
@@ -1044,6 +1104,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       try { navigator.vibrate && navigator.vibrate(12); } catch (e) { /* no haptics */ }
     };
     const disarm = () => { clearTimeout(timer); timer = null; };
+    openPick = (w, b) => { which = w; btn = b; show(); pickHeld = 0; };
     for (const [b, w] of [[btnA, 'first'], [btnB, 'second']]) {
       if (!b) continue;
       const arm = e => { if (e.button && e.button !== 0) return; which = w; btn = b; clearTimeout(timer); timer = setTimeout(() => { show(); try { window.getSelection && window.getSelection().removeAllRanges(); } catch (x) { /* none */ } }, 480); };
@@ -1066,7 +1127,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('glossary').hidden = false; $('about').hidden = true;
     const t = key && document.getElementById('g-' + key);
     document.querySelectorAll('#glossary-body .lit').forEach(x => x.classList.remove('lit'));
-    if (t) { t.scrollIntoView({ block: 'start' }); t.classList.add('lit'); }   // the entry stays lit until the next word is followed
+    if (t) { t.scrollIntoView({ block: 'start', behavior: 'instant' }); t.classList.add('lit'); }   // the entry at once, no slide; it stays lit until the next word is followed
     else $('glossary').scrollTop = 0;
   }
   const linkTerms = root => { try { SD.glossary.link(root, SD.i18n.locale().startsWith('es') ? 'es' : 'en'); } catch (e) { /* the glossary is a nicety */ } };
@@ -1147,6 +1208,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => { S.offsetMs += Number(b.dataset.step) * 3600e3; recompute(); }));
     $('live').addEventListener('click', () => { S.offsetMs = 0; S.fixed = null; S.playing = false; recompute(); });
     $('now-float').addEventListener('click', () => $('live').click());
+    $('chart-toggle').addEventListener('click', () => { if (!S.natal) return; S.mode = S.mode === 'natalchart' ? 'natal' : 'natalchart'; store.set('mode', S.mode); updateControls(); S.quick = true; recompute(); });   // in Natal: the birth as the dial, or as a printed chart
     $('play').addEventListener('click', () => {
       S.playing = !S.playing;
       if (!S.playing) recompute(); else updateControls();  // on pause, the full reading of the moment where it stopped
@@ -1172,15 +1234,15 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('when-go').addEventListener('click', () => commit({ target: $('when') }));
     $('when').addEventListener('keydown', e => { if (e.key === 'Enter') { commit(e); e.target.blur(); } });
     $('here').addEventListener('click', () => locate(true));
-    bindChartPick();
+    bindChartPick(); setupInstall();
     document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
       if (pickHeld && performance.now() - pickHeld < 900) { pickHeld = 0; return; }   // only the click that ends a hold is swallowed; a later tap always goes through
       let m = b.dataset.mode;
       if ((m === 'natal' || m === 'synastry' || m === 'pair') && !S.natal) { openBirth(); return; }
-      if (m === 'chart' && S.mode === 'natal') m = 'natalchart';          // the nativity as a chart: chart + natal lit together
-      else if (m === 'natal' && S.mode === 'chart') m = 'natalchart';
-      S.mode = m; store.set('mode', S.mode);
-      document.querySelectorAll('[data-mode]').forEach(x => x.classList.toggle('on', x.dataset.mode === m || (m === 'natalchart' && (x.dataset.mode === 'chart' || x.dataset.mode === 'natal'))));   // the tab answers at once
+      // a second tap on the lit Natal or Synastry tab opens its list of charts (holding it still works)
+      if ((m === 'natal' && (S.mode === 'natal' || S.mode === 'natalchart')) || (m === 'pair' && S.mode === 'pair')) { openPick && openPick(m === 'pair' ? 'second' : 'first', b); return; }
+      S.mode = m; store.set('mode', S.mode);                // one tab, one view: whatever was lit goes dark
+      document.querySelectorAll('[data-mode]').forEach(x => x.classList.toggle('on', x.dataset.mode === m));   // the tab answers at once
       requestAnimationFrame(() => setTimeout(() => { S.quick = true; recompute(); }, 0));   // the work after the paint; the first frame quick, the full plate on the next
     }));
     if ($('birth-open')) $('birth-open').addEventListener('click', openBirth);   // the button is gone from the place row; the form opens from the Natal tab and the menu
@@ -1209,7 +1271,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('about-close').addEventListener('click', () => { $('about').hidden = true; $('about-open').classList.remove('on'); });
     $('glossary-open').addEventListener('click', () => { openGlossary(); openMenu(false); });
     $('glossary-close').addEventListener('click', () => { $('glossary').hidden = true; });
-    document.addEventListener('click', e => { const a = e.target.closest('a.g, [data-g]'); if (!a) return; e.preventDefault(); openGlossary(a.dataset.g); });
+    document.addEventListener('click', e => { const a = e.target.closest('a.g, [data-g]'); if (!a) return; e.preventDefault(); if (/^(card_|trump_)/.test(a.dataset.g || '')) openCard(a.dataset.g); else openGlossary(a.dataset.g); });   // a tarot card opens as a lightbox, at once
     const fullScreen = () => {                              // the f key: the bare dial, full screen where the browser allows it
       document.body.classList.toggle('bare');
       if (document.body.classList.contains('bare') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});

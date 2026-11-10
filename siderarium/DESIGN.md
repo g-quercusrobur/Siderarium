@@ -420,3 +420,29 @@ A switch in the Bodies table, under Algol's own row (its degree, its house and t
 
 
 The Bodies table also lists the four angles after the planets, in house order: ASC (I), IC (IV), DSC (VII), MC (X). A chart without a birth time has none.
+
+## Usability audit, November 2026 (phone first)
+
+An audit at 390 px found the app clunky for three reasons: interactions with no visible sign, desktop-sized text, and installs happening on the wrong page. Fixed in this build:
+
+- **Install from the clock.** Every install link on the website goes to `app/?install=1`. The clock opens with an install card over it, shown at once, with no scroll. Where the browser fires `beforeinstallprompt`, the card has an Install now button. Otherwise it gives the steps for the device (iPhone Safari, Android, desktop), plus warnings inside in-app browsers (WhatsApp, Instagram) and non-Safari iPhone browsers. The `install` flag is removed from the address before an iPhone saves it, so the icon opens the clock. The menu has the same card, and the card is hidden in standalone mode. The website lost `scroll-behavior: smooth`.
+- **One tab, one view.** A tap always switches completely. Natal shown as a chart (`natalchart`) now sits behind a wheel button at the top right of the dial, in Natal only. Natal lights alone, and the Now button is hidden there.
+- **Discoverable chart lists.** Natal and Synastry carry a chevron, and a second tap on the lit tab opens the list. A long press still works. No blinking: a repeating animation competes with the dial.
+- **Paper chart.** The Chart view is dark ink on ivory (`#f4efe3` to `#e9e1cf`, band `#ddd2ba`, ink `#26221b`), with sign and aspect colours shaded −0.2 so they hold on the light ground. The labels and legend outside the band stay light on the night ground. Algol is drawn in dark green ink on paper.
+- **Type on phones.** No running text under 14 px. The reading and its headings are 15 px, notes 14 px, the caption's date and detail lines 15 px, bar buttons 15 px, tabs 13.5 px.
+- **Tarot plates:**
+  - `img/tarot/sm/` holds 440 px copies at quality 80: 6 MB for the deck, against 53 MB for the scans.
+  - In the glossary a plate is up to 200 px wide, or 240 px stacked on a phone; a tap shows the full scan.
+  - A card named anywhere in the reading opens a lightbox at once (`openCard`), with no scroll to the glossary.
+  - `js/tarot-meanings.js` holds a meaning for each of the 58 cards, in EN and ES: the picture, the Golden Dawn reading, the light, the shadow and a counsel.
+- Glossary jumps use `behavior: 'instant'`.
+
+Proposed and waiting:
+- dotted links only on a term's first appearance in each section;
+- a plain line for beginners, with the operation of the hour;
+- three first-visit cards;
+- coordinates hidden in the birth form;
+- a bottom bar in three labelled rows;
+- names for the corner icons;
+- glossary search;
+- the blur drawn in one layer.
