@@ -1,24 +1,24 @@
 {
- "rendered": "2026-11-10 08:19 utc",
+ "rendered": "2026-11-10 16:59 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Tuesday · 10 November 2026 · 09:19 CET · Rome",
+   "caption": "Tuesday · 10 November 2026 · 17:59 CET · Rome",
    "figure": "Venus sextile Mars",
    "chord": "Chord E–F# · major second"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Tuesday · 10 November 2026 · 03:19 GMT-5 · New York",
-   "figure": "Venus sextile Mars",
+   "caption": "Tuesday · 10 November 2026 · 11:59 GMT-5 · New York",
+   "figure": "Uranus trine Pluto",
    "chord": "Chord E–F# · major second"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Tuesday · 10 November 2026 · 08:19 GMT · Greenwich",
+   "caption": "Tuesday · 10 November 2026 · 16:59 GMT · Greenwich",
    "figure": "Uranus trine Pluto",
    "chord": "Chord E–F# · major second"
   }
