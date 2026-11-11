@@ -487,47 +487,56 @@ At the foot of the Clock's reading: for each of the seven planets, the next mome
 
 **The formula** is the one the image recipes repeat: "in the hour of the planet, the planet ascending" in its own sign or exaltation (Agrippa II.38-44; Picatrix II.10). The Midheaven is admitted as Agrippa II.30 and Picatrix III.7 admit it. "On the angle" means from 7° before the cusp, still to rise or culminate, to 3° past it. Houses use Lilly's five-degree rule.
 
-**Core rules.** A moment that breaks any of them is never listed. The sources call these indispensable, or say they turn the talisman against its maker (Agrippa II.22: made with the planet unfortunate, the table does "the contrary").
+**Core rules.** A moment that breaks any of them is never listed. The sources call these indispensable, give them as the timing of a harmful work, or say they turn the talisman against its maker (Agrippa II.22: made with the planet unfortunate, the table does "the contrary"; Picatrix I.4: the Moon aspected by Saturn or Mars is the timing "in omni opere malo").
 - the planet's own hour;
-- essential dignity, and not in detriment or fall;
-- direct and not combust;
-- on the Ascendant or the Midheaven;
-- no conjunction, square or opposition from Mars or Saturn, applying or within half the orb. Orbs are Lilly's moieties, half of each planet's orb added together (his larger set, Christian Astrology p. 107: Saturn 10, Jupiter 12, Mars 7½, Sun 17, Venus 8, Mercury 7, Moon 12½), not the clock's narrower display orbs. The same holds for the Moon;
-- no Mars or Saturn (other than the planet) in the first house or within 5° of an angle;
-- the lord of the Ascendant neither retrograde nor combust;
-- the Moon waxing ("nec lumine minuatur", Agrippa II.30; "Luna crescente", the Fourth Book and the Heptameron), at least 12° from the Sun (Picatrix I.4), out of the Via Combusta, not void of course, not impeded by Mars or Saturn, with her next aspect a trine, sextile or conjunction and not with the Sun's body;
-- no solar or umbral lunar eclipse from three days before to one day after (Bonatti).
+- essential dignity, and not in detriment or fall (Agrippa II.34, its "dejections"; Thabit ch. 5; Lilly's table);
+- direct, not combust, not cazimi ("all Planets are afraid of the conjunction of the Sun", Agrippa II.29);
+- on the Ascendant (east of the meridian) or the Midheaven. Beyond the polar circles the formula's Ascendant is, for some hours of each sidereal day, the point setting in the west; such moments are refused;
+- no conjunction, square or opposition from Mars or Saturn, applying, or separating within half the orb; between Saturn and Mars, the whole orb ("the worst of all is his square with Mars", Picatrix III.7). Orbs are Lilly's moieties, half of each planet's orb added together (his larger set, Christian Astrology p. 107: Saturn 10, Jupiter 12, Mars 7½, Sun 17, Venus 8, Mercury 7, Moon 12½), not the clock's narrower display orbs;
+- not besieged between the bodies of Mars and Saturn;
+- no Mars or Saturn (other than the planet) in the 1st house or within 5° of an angle (Picatrix I.4: in the ascendant it "will overturn and destroy the effect");
+- the lord of the Ascendant neither retrograde ("nullo modo", Picatrix II.3) nor combust, nor in the 8th, nor in conjunction, square or opposition with Mars or Saturn without reception by domicile or exaltation. Thabit (ch. 1) and the Speculum (ch. 11) give that configuration for the images of expulsion and destruction, and "the contrary" for good ones;
+- the Moon waxing ("nec lumine minuatur", Agrippa II.30), at least 12° from the Sun (Picatrix I.4), out of the Via Combusta (taken from 8° Libra to 15° Scorpio, the Picatrix's English bounds and Bonatti's and Lilly's together), not void of course, not within 5° of a node ("non sit in ecliptica", Agrippa II.30; Sahl 30, "horribile");
+- the Moon neither joined to Mars or Saturn nor in their square or opposition, applying or within half the orb, the talisman's own planet no exception; her next aspect a trine, sextile or conjunction, and not to the body of the Sun, Mars or Saturn;
+- the Moon directed: her next aspect to the planet itself (Agrippa II.29, "nihil enim sine lunae beneficio perfeceris") or to a fortune ("et iungatur fortunis bonis aspectibus", Picatrix I.4), or at the least her beholding a fortune and the lord of the Ascendant by trine or sextile (Picatrix II.3's minimum);
+- no solar or umbral lunar eclipse from three days before to one day after (Bonatti's bound for the Moon's; kept for the Sun's [SD]).
 
-**Lesser impediments** ("avoid if possible"). Each costs 6 to 14 points and is named in orange on the line:
-- Mars or Saturn in the 7th or 10th;
-- the planet besieged;
-- the Dragon's Tail on an angle;
-- the Moon in Scorpio or Capricorn, on the Ascendant (except her own talisman), cadent in the 6th, 8th, 9th or 12th, within 12° of a Node, slow (under 12° a day), within 12° of the full, applying to Mars or Saturn even by trine or sextile, or in the last term of a sign.
+The planet's day is weighed, not required. Agrippa II.29 asks for "day and hour", but II.34 allows "both or one", Picatrix II.10 names the hour only, and Ficino III.2 asks for the day "si fieri potest".
 
-A moment may carry one lesser impediment, or two when Jupiter or Venus is in the 1st or 10th. The Picatrix (I.4) says they "will rectify an unfortunate Moon". Three, never.
+**Lesser impediments.** Each costs 6 to 14 points and is named in orange on the line. A moment carries two at most; three, never [SD]. They come in three kinds:
+- *The Moon's misfortunes in the Picatrix's own list (I.4):* slow (under 12° a day), at the end of her sign (its last term), cadent in the 9th, in trine or sextile with Mars or Saturn. These are borne only with the remedy: Jupiter or Venus in the 1st or 10th, direct, out of the beams, out of its detriment and fall, and free of any aspect of Mars and Saturn (Picatrix I.4, "they will rectify an unfortunate Moon"; Ficino III.6, one of them is enough; Dorotheus V.5.11-13 on why they must be free). The talisman's own planet counts when it is the fortune rising or culminating.
+- *The Picatrix's other "roots" (II.3):* Mars or Saturn in the 4th, 7th or 10th; the lord of the Ascendant cadent or in its detriment or fall; the Moon on the Ascendant (except for her own talisman; the Picatrix itself disagrees, I.4). These are broken only while II.3's minimum holds: the Moon beholding a fortune and the lord of the Ascendant by trine or sextile.
+- *The other authors' (Sahl, Bonatti, Dorotheus, Ramesey):* the Moon in Scorpio or Capricorn, in the 6th, 8th or 12th, within 12° of a Node, within 12° of the full, her lord retrograde, burnt, or debilitated and cadent; the Dragon's Tail on the Ascendant or Midheaven; the Sun in the 1st outside Leo and Aries.
+
+The line names the planet behind each: "Saturn in an angle", "the Moon in trine with Mars", "Mercury, lord of the Ascendant, cadent", "Moon in Capricorn, her detriment". A window lists every impediment met anywhere inside it, not only at its best instant.
 
 **Sect in doubt.** A lesser election whose only dignity is a triplicity is not listed in the minutes when the Sun's rim is up and its centre is not, or the reverse. The sect is in doubt there, and the dignity with it [SD].
 
-**Tiers.** First-rate means the planet in its own sign or exaltation. Its own terms or triplicity (Agrippa II.30; the Picatrix III.7 fallback) is listed apart, and only while the first-rate moments are more than 400 days off. Face alone is not accepted.
+**Calibration.** Applied all at once and to the letter, every condition from every author leaves no moment at all: Rome had no Sun election in seven years. The sources expect this and rank their own conditions. Picatrix II.3 gives a minimum "si omnia ista non possent plene considerari", and I.4 and Ficino III.6 give the remedy for a necessary work. The rules above follow that ranking: what is harmful is excluded; what the sources call ideal is kept where its own author allows it to be broken. Measured by switching each rule off in turn and counting what it alone blocks. Even so, elections that keep every rule are rare: about one a year per planet at a given place, fewer far north.
+
+**Tiers.** First-rate means the planet in its own sign or exaltation. Its own terms or triplicity (Agrippa II.30; the Picatrix III.7 fallback, with its conditions: in a masculine quarter, the 10th to the 12th house or the 4th to the 6th after Bonatti, so on the Midheaven before it culminates and on the Ascendant once risen; and, for Mars, Jupiter and Saturn, oriental) is listed apart, and only while the first-rate moments are more than 400 days off. Face alone is not accepted.
 
 **Ranking.** Among the moments that pass, these rank higher:
 - the planet's day as well as its hour;
-- the Ascendant over the Midheaven, and the nearness to the cusp;
-- the Moon applying to the planet itself, then to a fortune, then to the lord of the Ascendant;
+- the Ascendant over the Midheaven for the first rate, the Midheaven for the lesser (Picatrix III.7), and the nearness to the cusp;
+- the Moon applying to the planet itself, then to a fortune, then to the lord of the Ascendant; her beholding a fortune and the lord;
 - her light and speed, her dispositor angular;
-- the planet free of the beams or cazimi, oriental for the superiors, occidental for Venus and Mercury, out of the terms of Mars and Saturn;
-- the fortunes aspecting the planet or on an angle.
+- the planet free of the beams, oriental for the superiors, occidental for Venus and Mercury, out of the terms of Mars and Saturn, out of their trine and sextile (Bonatti Tr. VII: "it subtracts something of its goodness"); the Moon out of their terms (Ficino III.6);
+- the fortunes aspecting the planet; the lord of the Ascendant dignified and angular; the remedy present.
 
 Within a window of 45 to 90 days from the first find, the three highest are shown in time order.
 
 **The search** (`js/talismans.js`) runs in the page's idle time, 8 ms at a slice. Each moment is judged by `SD.engine.compute`, the same state the clock shows, so the clock opened at a listed moment shows its conditions. The steps:
 - the planetary day is found from sunrise to sunrise, as the clock finds it;
 - the planet's hours are scanned for the minutes it stands on the Ascendant or Midheaven;
-- each window is judged at its best instant, then walked outward two minutes at a time, so a condition that fails and recovers inside the window is never stepped over. The edge is then found to a second or two;
+- each window is judged at its best instant. When what fails there may lift as the sky turns (a house, an angle, the lord of the rising sign, the Moon perfecting an aspect), the window is searched six minutes at a time for an instant that passes;
+- from that instant the window is walked outward two minutes at a time, so a condition that fails and recovers inside it is never stepped over. The edge is then found to a second or two;
 - the Moon's next aspect is counted until its last second. In the minute before an exact aspect the clock's own reading has already moved on, the two disagree, and the moment is not listed;
-- a planetary day is accepted only if it holds the instant asked for. An eclipse search that fails leaves those days unlisted.
+- a planetary day is accepted only if it holds the instant asked for. An eclipse search that fails leaves those days unlisted;
+- days when the Moon wanes from start to end are passed over before any chart is cast; a planet's dignity is read at both ends of the day, so an ingress inside it is not lost; the search starts a day early, so the planetary day under way is searched too (west of Greenwich it was being skipped);
+- the engine keeps the planetary days it has found, so the many instants of one day share one set of sunrise and sunset searches. Each search starts a few seconds past the last crossing: begun on the very instant, it could return that crossing.
 
-Slow planets step over the days or months without dignity. The full search takes about 3 to 5 seconds of computation per place, and the result is kept in `cw.talismans` for the day, the place and the house system. Horizons: Moon 900 days, Sun 2600, Mercury 1500, Venus 1000, Mars 1600, Jupiter 4600, Saturn 6000. When a planet has no dignity for a long time, the list says until when.
+Slow planets step over the days or months without dignity. The full search takes about 8 to 11 seconds of computation per place, and the result is kept in `cw.talismans` for the day, the place and the house system. Horizons: Sun 3650 days; Moon, Mercury, Venus and Mars 2600; Jupiter 4600; Saturn 6000. When a planet has no dignity for a long time, the list says until when.
 
 **Display rules:**
 - A planet's dates appear only once its own search is finished; until then it reads "reading the coming years…". A half-searched list is not yet the best three, and its lesser moments can still drop out.
@@ -535,8 +544,10 @@ Slow planets step over the days or months without dignity. The full search takes
 - The window is shown in whole minutes inside its true bounds: the start rounded up, the end rounded down. The length given is the shown span.
 - The link opens the instant the planet stands nearest the cusp, held inside the shown window.
 - When a listed moment has passed, the search runs again from the present.
-- The orange cautions name the infortune: "Saturn in an angle", "Moon applying to Mars". When the Moon reaches an infortune only after her next aspect, the line says "the Moon going on to Mars". For the Moon in Scorpio or Capricorn, it says fall or detriment.
+- Each line gives the Moon's mansion. Its fitness depends on the work, which the instrument does not know (Agrippa II.33).
 
 **Cautions shown.** For Mars and Saturn, Ficino's rule: place them in their dignities only for one whose birth chart they signify, otherwise in their debilities (Three Books on Life III.10), and "when you fear Mars, set Venus opposite; when you fear Saturn, use Jupiter" (III.6). For all, the note to look at the moment against the maker's own birth chart, and the entertainment and study framing.
 
-**Not computed:** the Moon's mansions, the dark and pitted degrees, the Part of Fortune, the lord of the preceding lunation, and the maker's nativity.
+**Not computed:** the fitness of the Moon's mansion to the work (the mansion is shown), the dark and pitted degrees, the Part of Fortune, the lord of the preceding lunation, and the maker's nativity.
+
+**Verification.** Three independent checks ran on the module: a recomputation of the listed elections from the astronomy library alone, an audit of every rule against the primary texts, and a line-by-line code review. Their findings shaped the rules above: Lilly's orbs, the sect, the Moon's own-planet exemption removed, the lord of the Ascendant, the Picatrix's gates, the polar Ascendant, the first day west of Greenwich.
