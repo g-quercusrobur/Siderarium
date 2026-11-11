@@ -54,20 +54,34 @@
     jupiter: [['sapphire', 'air'], ['hyacinth', 'air'], ['emerald', 'water'], ['beryl', 'water'], ['greenJasper', 'earth']],
     saturn: [['onyx', 'earth'], ['jet', 'earth'], ['sapphire', 'air'], ['chalcedony', 'water'], ['brownJasper', 'earth'], ['lodestone', 'earth']]
   };
-  /* the stone of the day draws on the stones most people know. Agrippa's own attributions (Occult Philosophy I.23-29)
-     wherever his stone is still a common one: carbuncle and ruby for the Sun, crystal and selenite for the Moon, agate,
-     emerald and topaz for Mercury, lapis lazuli and carnelian for Venus, jasper, bloodstone and diamond for Mars,
-     sapphire and beryl (aquamarine) for Jupiter, onyx for Saturn. the rest are the common modern attributions, by
-     colour and by the planet's metal: the trade's own lore, not the old books'. each stone leans to an element by its
-     colour and matter, so the chart's own elements choose among them [SD]. listed by renown. */
+  /* the stone of the day: each planet's stones, those the tradition names first (Agrippa I.23-29 with Lilly, who copies
+     him; the Picatrix; Ficino; the Vedic navaratna and its accepted substitutes), then the stones most used in crystal
+     practice, after the modern attributions (Cunningham first). each with one element, the instrument's device for
+     choosing among them by the chart's own elements [SD]. DESIGN.md, "Stone of the day", gives the sources stone by stone. */
+  /* the stone of the day: each planet's stones, those the tradition names first (Agrippa I.23-29 with Lilly, who copies
+     him; the Picatrix; Ficino; the Vedic navaratna and its accepted substitutes), then the stones most used in crystal
+     practice, after the modern attributions (Cunningham first). each with one element, the instrument's device for
+     choosing among them by the chart's own elements [SD]. DESIGN.md, "Stone of the day", gives the sources stone by stone. */
+  /* the stone of the day: each planet's stones, those the tradition names first (Agrippa I.23-29 with Lilly, who copies
+     him; the Picatrix; Ficino; the Vedic navaratna and its accepted substitutes), then the stones most used in crystal
+     practice, after the modern attributions (Cunningham first). each with one element, the instrument's device for
+     choosing among them by the chart's own elements [SD]. DESIGN.md, "Stone of the day", gives the sources stone by stone. */
+  /* the stone of the day: each planet's stones, those the tradition names first (Agrippa I.23-29 with Lilly, who copies
+     him; the Picatrix; Ficino; the Vedic navaratna and its accepted substitutes), then the stones most used in crystal
+     practice, after the modern attributions (Cunningham first). each with one element, the instrument's device for
+     choosing among them by the chart's own elements [SD]. DESIGN.md, "Stone of the day", gives the sources stone by stone. */
+  /* the stone of the day: each planet's stones, those the tradition names first (Agrippa I.23-29 with Lilly, who copies
+     him; the Picatrix; Ficino; the Vedic navaratna and its accepted substitutes), then the stones most used in crystal
+     practice, after the modern attributions (Cunningham first). each with one element, the instrument's device for
+     choosing among them by the chart's own elements [SD]. DESIGN.md, "Stone of the day", gives the sources stone by stone. */
   const STONES_KNOWN = {
-    sun: [['ruby', 'fire'], ['citrine', 'air'], ['tigerEye', 'earth'], ['amber', 'water']],
-    moon: [['moonstone', 'water'], ['pearl', 'water'], ['crystal', 'air'], ['selenite', 'earth'], ['opal', 'fire']],
-    mercury: [['agate', 'earth'], ['emerald', 'water'], ['topaz', 'fire'], ['fluorite', 'air']],
-    venus: [['roseQuartz', 'water'], ['jade', 'earth'], ['lapis', 'air'], ['carnelian', 'fire']],
-    mars: [['garnet', 'fire'], ['redJasper', 'fire'], ['hematite', 'earth'], ['bloodstone', 'water'], ['diamond', 'air']],
-    jupiter: [['amethyst', 'water'], ['sapphire', 'air'], ['turquoise', 'air'], ['aquamarine', 'water'], ['aventurine', 'earth']],
-    saturn: [['onyx', 'earth'], ['obsidian', 'fire'], ['blackTourmaline', 'earth'], ['smokyQuartz', 'air']]
+    sun: [['ruby', 'fire'], ['garnet', 'fire'], ['peridot', 'earth'], ['diamond', 'fire'], ['bloodstone', 'fire'], ['topaz', 'fire'], ['zircon', 'fire'], ['pyrite', 'fire'], ['sunstone', 'fire'], ['tigerEye', 'fire'], ['citrine', 'fire'], ['amber', 'fire']],
+    moon: [['pearl', 'water'], ['moonstone', 'water'], ['crystal', 'water'], ['selenite', 'water'], ['aquamarine', 'water'], ['chalcedony', 'water'], ['opal', 'water'], ['labradorite', 'water'], ['calcite', 'water'], ['howlite', 'air']],
+    mercury: [['emerald', 'earth'], ['agate', 'fire'], ['peridot', 'earth'], ['greenTourmaline', 'earth'], ['mossAgate', 'earth'], ['blueAgate', 'water'], ['fluorite', 'air'], ['greenAventurine', 'air'], ['blueAventurine', 'air'], ['hawkEye', 'air'], ['kyanite', 'air'], ['amazonite', 'earth']],
+    venus: [['lapis', 'water'], ['coral', 'water'], ['carnelian', 'fire'], ['emerald', 'earth'], ['peridot', 'earth'], ['malachite', 'earth'], ['greenJasper', 'earth'], ['diamond', 'fire'], ['roseQuartz', 'water'], ['jade', 'water'], ['nephrite', 'water'], ['turquoise', 'earth'], ['chrysoprase', 'earth'], ['greenTourmaline', 'earth'], ['greenAventurine', 'air'], ['opal', 'water'], ['lodestone', 'water'], ['unakite', 'earth'], ['rhodochrosite', 'fire'], ['sodalite', 'water'], ['chrysocolla', 'water'], ['celestite', 'water']],
+    mars: [['diamond', 'fire'], ['lodestone', 'water'], ['redJasper', 'fire'], ['hematite', 'earth'], ['polychromeJasper', 'air'], ['amethyst', 'water'], ['carnelian', 'fire'], ['onyx', 'fire'], ['coral', 'water'], ['garnet', 'fire'], ['ruby', 'fire'], ['rubellite', 'fire'], ['bloodstone', 'fire'], ['rhodonite', 'fire'], ['lavaStone', 'fire'], ['rhodochrosite', 'fire'], ['unakite', 'earth']],
+    jupiter: [['yellowSapphire', 'air'], ['blueSapphire', 'water'], ['emerald', 'earth'], ['topaz', 'fire'], ['amethyst', 'water'], ['aquamarine', 'water'], ['zircon', 'fire'], ['crystal', 'water'], ['greenJasper', 'earth'], ['citrine', 'fire'], ['azurite', 'water'], ['lepidolite', 'water'], ['celestite', 'water']],
+    saturn: [['blueSapphire', 'water'], ['lodestone', 'water'], ['onyx', 'fire'], ['chalcedony', 'water'], ['brownJasper', 'earth'], ['pyrite', 'fire'], ['turquoise', 'earth'], ['jet', 'earth'], ['lapis', 'water'], ['hematite', 'earth'], ['amethyst', 'water'], ['chrysoprase', 'earth'], ['blackTourmaline', 'earth'], ['obsidian', 'fire'], ['smokyQuartz', 'earth'], ['goldSheenObsidian', 'fire'], ['iolite', 'air'], ['labradorite', 'water'], ['amazonite', 'earth'], ['serpentine', 'fire'], ['aegirine', 'earth']]
   };
   const ELEMENTS = { air: '#f2e8a0', water: '#4a7ef0', fire: '#ff5a2a', earth: '#1c1410' };
   const CHALDEAN = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon'];

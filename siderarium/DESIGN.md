@@ -459,8 +459,156 @@ The Transits caption carries one line just before the chord: "Stone of the day: 
   - Any other hard transit is answered by the planet of the chart it strikes.
   - An easy transit is carried by its own planet.
   - With nothing in orb, or no classical planet in the transit, the planet of the weekday.
-- **The stones** (`C.STONES_KNOWN`): only stones most people know. Agrippa's attributions (Occult Philosophy I.23-29, read from the 1651 English) are kept where his stone is still common: ruby, clear quartz, selenite, agate, emerald, topaz, lapis lazuli, carnelian, jasper, bloodstone, diamond, sapphire, aquamarine (his beryl), onyx. The rest are common modern attributions by colour and metal: citrine, tiger's eye, amber, moonstone, pearl, opal, fluorite, rose quartz, jade, garnet, hematite, amethyst, turquoise, aventurine, obsidian, black tourmaline, smoky quartz. The glossary says which is which.
-- **The pair.** Each stone leans to an element. The first stone is the planet's best-known one of the chart's dominant element, or its best-known stone if it has none of that element. The alternative leans to another of the chart's elements.
+- **The stones** (`C.STONES_KNOWN`): the owner's list of 51 stones, with 19 common additions. Nine additions are traditional: pearl, bloodstone, aquamarine, red coral, zircon, green, brown and polychrome jasper, iolite. Ten are common staples: black obsidian, lava stone, howlite, unakite, sodalite, rhodonite, rhodochrosite, lepidolite, celestite, chrysocolla. Each planet lists first the stones the tradition gives it, by the strength of the witness, then the Vedic, then the modern by fame, the owner's before the additions.
+  - The traditions weighed: Agrippa I.23-29 (and I.32, II.14), Ficino III, Lilly's Stones lines (he copies Agrippa, who copies Ficino: one chain), and the Picatrix II.10 and III.1 apart; the Vedic navaratna (Phaladeepika II.29, Jataka Parijata II.21) and its widely agreed substitutes; for stones the tradition does not name, the modern attributions, Cunningham (1988) first.
+  - Old names read as modern stones: chrysolite as peridot, the carbuncle as garnet, the heliotrope as bloodstone, the beryl as aquamarine, the golden marcasite as pyrite, the selenites as moonstone and selenite. Marked uncertain: the hyacinth (zircon, perhaps sapphire), Agrippa's Martial blood-stone (haematite or heliotrope), the eye of the Sun (tiger's eye by description), Proclus's helitis (sunstone by name).
+  - A stone sits under up to three planets when the traditions give it strongly to each: emerald (Mercury, Venus, Jupiter), peridot, amethyst, diamond, lodestone.
+  - Researched by three readers (the Western texts on disk; the Vedic sources; modern practice), synthesised, then checked by two adversarial verifiers. Their corrections are in: the Picatrix's iargonza is ruby, so it is no witness for zircon; Ficino reads feyrizech as sapphire, so he is no second witness for turquoise; the slot-fillers without a source were removed or moved to their attested planet.
+- **The draw.** Each stone carries one element, the instrument's device [SD]. Among the planet's stones of the chart's leading element, one is drawn for the day by a hash of the date, the chart and the planet: the same chart and day always draw the same stones. The list's order weighs the draw (weights n, n-1 ... 1), so the traditional stones come up most often and every stone comes up in time. An element with fewer than three of the planet's stones is topped up from the chart's next element, its own stones still first, so a lone stone never owns a chart. The alternative is drawn the same way from the chart's other elements. A simulation over two years and the 24 orders of the elements reaches all 70 stones.
+- **The table** (sources stone by stone; 'kind' is the strongest witness):
+
+**Sun** (12):
+
+| stone | element | kind | sources |
+|---|---|---|---|
+| Ruby | fire | classical | Agrippa I.23; Lilly ch.XI; Picatrix II.10, III.1 (rubinus, iargonza); the navaratna |
+| Garnet | fire | classical | the carbuncle: Agrippa I.23, Lilly ch.XI, Ficino III.1; a Jyotish substitute for ruby |
+| Peridot | earth | classical | the chrysolite: Agrippa I.23, Lilly ch.XI, Ficino III.1 |
+| Diamond | fire | classical | Lilly ch.XI; Picatrix II.10; Cunningham |
+| Bloodstone (added) | fire | classical | the heliotrope: Agrippa I.23, Ficino III.1 |
+| Topaz | fire | classical | Agrippa I.23, I.32; Cunningham (Sun, Fire) |
+| zircon (added) | fire | classical | the old hyacinth: Agrippa I.23, Lilly ch.XI; Cunningham (Sun, Fire) |
+| Pyrite | fire | classical | Picatrix II.10 marchasita aurea; CDC, KER |
+| Sunstone | fire | modern | Cunningham (Sun, Fire); Ficino III.14 gives Proclus's helitis, a 'sun-stone' by name only |
+| Tiger eye | fire | modern | Cunningham (Sun, Fire); the 'eye of the Sun' of Agrippa I.23 and Ficino III.14 by description only |
+| Citrine | fire | modern | Cunningham, CDC, KER; Agrippa I.23 'things of a golden colour, and very lucid' |
+| Amber | fire | modern | Cunningham, Snavely, CDC, KER |
+
+**Moon** (10):
+
+| stone | element | kind | sources |
+|---|---|---|---|
+| Pearl (added) | water | classical | Agrippa I.24; Ficino III.2; Picatrix II.10, III.1; the navaratna |
+| Moonstone | water | classical | the selenites of Agrippa I.24, Lilly ch.XIV, Ficino III.15 (moonstone or selenite); a Jyotish substitute for pearl; Cunningham |
+| Clear quartz | water | classical | Agrippa I.24; Lilly ch.XIV; Picatrix II.10; Ficino III.2 |
+| Selenite | water | classical | the selenites by name: Agrippa I.24, Lilly ch.XIV; Cunningham (Moon, Water) |
+| Aquamarine (added) | water | classical | the beryl: Agrippa I.24; Cunningham (Moon, Water) |
+| Chalcedony | water | classical | Agrippa II.14 gives chalcedony to Cancer, the Moon's sign; Cunningham |
+| Opal | water | modern | CDC, KER |
+| Labradorite | water | modern | Conway (spectrolite); kin of rainbow moonstone |
+| Calcite | water | modern | Cunningham (clear calcite); Lilly's lunar 'all soft Stones' |
+| Howlite (added) | air | modern | CDC; Cunningham's white-stone rule |
+
+**Mercury** (12):
+
+| stone | element | kind | sources |
+|---|---|---|---|
+| Emerald | earth | classical | Agrippa I.29, I.32; Picatrix II.10; Ficino III.2; the navaratna |
+| Agate | fire | classical | Agrippa I.29 'Achates'; Lilly ch.XIII; Ficino III.2, III.12; Cunningham |
+| Peridot | earth | classical | the chrysolite: Agrippa I.32; a Jyotish substitute for emerald |
+| Green tourmaline | earth | Jyotish | widely agreed emerald substitute (Frawley, Johari, de Fouw & Svoboda, Braha) |
+| Moss agate | earth | modern | Cunningham's agates: Mercury |
+| Blue agate | water | classical | agate: Agrippa I.29, Lilly ch.XIII, Ficino III.2, III.12; Cunningham, CDC |
+| Fluorite | air | modern | CDC, Snavely, KER; fits Agrippa I.29 'stones of divers colours' |
+| Green aventurine | air | modern | Cunningham (aventurine), CDC |
+| Blue aventurine | air | modern | Cunningham's aventurine (Mercury, Air) |
+| Hawk's eye | air | modern | Snavely (Mercury, Air) |
+| Kyanite | air | modern | CDC |
+| Amazonite | earth | modern | Virgo in Eason, CDC and Conway |
+
+**Venus** (22):
+
+| stone | element | kind | sources |
+|---|---|---|---|
+| Lapis lazuli | water | classical | Agrippa I.28 'the Lazull stone'; Lilly ch.XII; Picatrix II.10 azurum; Ficino III.2 |
+| Red coral (added) | water | classical | Agrippa I.28; Lilly ch.XII; Picatrix II.10; Ficino III.2 |
+| Carnelian | fire | classical | Agrippa I.28; Lilly ch.XII; Ficino III.2; Picatrix II.10 (Venus images in alaquech) |
+| Emerald | earth | classical | Agrippa I.28, I.32; Ficino III.8, III.16; Cunningham |
+| Peridot | earth | classical | the chrysolite: Agrippa I.28, Lilly ch.XII; Cunningham |
+| Malachite | earth | classical | Picatrix II.10 dehenech (dahnaj); Cunningham, CDC, Snavely |
+| Green jasper (added) | earth | classical | Agrippa I.28; Cunningham |
+| Diamond | fire | Jyotish | the navaratna (vajra) |
+| Rose quartz | water | modern | CDC, Snavely, KER; Cunningham's pink rule |
+| Jade | water | modern | Cunningham, Snavely, CDC, KER |
+| Nephrite | water | modern | by kinship with jade (Cunningham, CDC, KER); Cunningham's green rule |
+| Turquoise | earth | modern | Cunningham, CDC |
+| Chrysoprase | earth | modern | Cunningham (Venus, Earth) |
+| Green tourmaline | earth | modern | Cunningham, CDC |
+| Green aventurine | air | modern | KER; green is Venus's colour in Agrippa I.28 and in Cunningham |
+| Opal | water | modern | Snavely; a Venus substitute in the Indian trade |
+| Lodestone | water | modern | Cunningham (Venus, Water) |
+| Unakite (added) | earth | modern | kerykeion (Venus, Earth); Cunningham's pink and green colour rules |
+| Rhodochrosite (added) | fire | modern | crystals.com, kerykeion, Snavely |
+| Sodalite (added) | water | modern | Cunningham (CDC and KER: Mercury) |
+| Chrysocolla (added) | water | modern | Cunningham, KER |
+| Celestite (added) | water | modern | Cunningham (Venus and Neptune) |
+
+**Mars** (17):
+
+| stone | element | kind | sources |
+|---|---|---|---|
+| Diamond | fire | classical | Agrippa I.27, I.32; Lilly ch.X; Picatrix II.10 (a Mars image in diamond) |
+| Lodestone | water | classical | Agrippa I.27; Lilly ch.X |
+| Red jasper | fire | classical | Agrippa I.27 'the Jasper'; Lilly ch.X 'Jasper'; Picatrix II.10, III.1 red stones; a Jyotish substitute for coral; Cunningham (Mars, Fire) |
+| Hematite | earth | classical | Agrippa I.27 and Lilly ch.X 'Blood-stone', read as haematite (identity uncertain: haematite or heliotrope); crystals.com, kerykeion |
+| polychrome jasper (added) | air | classical | Agrippa I.27 'iaspis multigenius', the jasper of many kinds, read as the many-coloured jasper |
+| Amethyst | water | classical | Agrippa I.27, I.32; Lilly ch.X |
+| Carnelian | fire | classical | Picatrix II.10 alaquech; a Jyotish substitute for coral |
+| Onyx | fire | classical | Picatrix II.10 aliaza; Cunningham (Mars, Saturn) |
+| Red coral (added) | water | Jyotish | navaratna pravala, Phaladeepika II.29 |
+| Garnet | fire | classical | Regulus, Jovial-Martial (Agrippa I.32; Ficino III.8); Cunningham (Mars, Fire) |
+| Ruby | fire | classical | Aldebaran, Martial (Ficino III.8); Cunningham (Mars) |
+| Rubellite | fire | modern | Cunningham 'Red Tourmaline (Rubellite)' |
+| Bloodstone (added) | fire | modern | Cunningham, Snavely, KER |
+| Rhodonite (added) | fire | modern | Cunningham, Snavely |
+| lava stone (added) | fire | modern | Cunningham (Mars, Fire) |
+| Rhodochrosite (added) | fire | modern | Cunningham (Mars, Fire) |
+| Unakite (added) | earth | modern | crystals.com (Mars, Earth) |
+
+**Jupiter** (13):
+
+| stone | element | kind | sources |
+|---|---|---|---|
+| Yellow sapphire | air | Jyotish | the navaratna (pushparaga, Phaladeepika II.29); Picatrix II.10, III.1 (Atallah: yellow, white and brown corundum) |
+| Blue sapphire | water | classical | Agrippa I.26, I.32; Lilly ch.IX; Ficino III.1, III.16, III.19 |
+| Emerald | earth | classical | Agrippa I.26; Lilly ch.IX; Picatrix II.10, III.1 |
+| Topaz | fire | classical | Lilly ch.IX; Ficino III.1 (a marginal addition); a Jyotish substitute (Frawley, Braha, Johari) |
+| Amethyst | water | classical | Lilly ch.IX; Agrippa I.32 (with Mars); Cunningham |
+| Aquamarine (added) | water | classical | the beryl: Agrippa I.26, Ficino III.1 |
+| zircon (added) | fire | classical | the old hyacinth, identity uncertain (often sapphire or zircon): Agrippa I.26, Lilly ch.IX, Ficino III.1, III.12 |
+| Clear quartz | water | classical | Lilly ch.IX; Picatrix II.10, III.1; Ficino III.1 |
+| Green jasper (added) | earth | classical | Agrippa I.26 |
+| Citrine | fire | Jyotish | widely agreed yellow-sapphire substitute, sunela (Frawley, Johari, de Fouw & Svoboda) |
+| Azurite | water | classical | by analogy: Ficino III.19 gives the Armenian stone (perhaps azurite) the power of his Jovial lapis lazuli |
+| Lepidolite (added) | water | modern | Cunningham (Jupiter, Neptune) |
+| Celestite (added) | water | modern | Neptune's sign Pisces, Jupiter's: Cunningham, crystals.com, kerykeion |
+
+**Saturn** (21):
+
+| stone | element | kind | sources |
+|---|---|---|---|
+| Blue sapphire | water | classical | Agrippa I.25, I.32; Lilly ch.VIII; Ficino III.18 (the Picatrix's feyrizech read as sapphire); the navaratna (nila) |
+| Lodestone | water | classical | Agrippa I.25; Lilly ch.VIII; Ficino III.2 |
+| Onyx | fire | classical | Agrippa I.25; Picatrix II.10, III.1 aliaza; CDC, Snavely |
+| Chalcedony | water | classical | Agrippa I.25, I.32; Ficino III.2 |
+| Brown jasper (added) | earth | classical | Agrippa I.25 'the brown Jasper'; Ficino III.2 fusca iaspis; Cunningham |
+| Pyrite | fire | classical | golden marcasite: Agrippa I.25, Picatrix II.10, Ficino III.2 |
+| Turquoise | earth | classical | Picatrix II.10 ferus (fayruz, per Pingree's index and Atallah), the ring of Saturn (MS H only); Frawley 2005, a Jyotish substitute |
+| Jet | earth | classical | Picatrix II.10 azebehe, 'black and clear'; III.1 black stones; Cunningham |
+| Lapis lazuli | water | classical | Lilly ch.VIII 'Saphire, Lapis Lazuli'; widely agreed Jyotish blue-sapphire substitute |
+| Hematite | earth | classical | Picatrix II.10 sedina (haematites); Cunningham |
+| Amethyst | water | Jyotish | a Jyotish substitute for blue sapphire (Frawley, Johari) |
+| Chrysoprase | earth | classical | Agrippa II.14 gives Chrysoprasus to Capricorn, Saturn's sign |
+| Black tourmaline | earth | classical | Picatrix III.1 'omnes lapides nigros'; Cunningham (Saturn, Earth) |
+| black obsidian (added) | fire | modern | Cunningham (Saturn, Fire), crystals.com; Picatrix III.1 'omnes lapides nigros' |
+| Smoky quartz | earth | classical | Agrippa I.25's dusky stones; crystals.com, kerykeion, Conway (Saturn, Earth) |
+| Gold-sheen obsidian | fire | modern | Cunningham and CDC (obsidian); Saturn's black stones (Picatrix III.1) |
+| iolite (added) | air | Jyotish | Jyotish substitute for blue sapphire (Johari; Gemstone Universe); crystals.com Saturn/Air |
+| Labradorite | water | modern | Uranus in CDC, KER and Conway, mapped to Saturn |
+| Amazonite | earth | modern | Uranus in Cunningham, Eason and CDC, mapped to Saturn |
+| Serpentine | fire | modern | Cunningham (tentative) |
+| Aegirine | earth | classical | Picatrix III.1 'omnes lapides nigros', by colour |
+
 - The older `stoneOf` (by state and hour) stays in the engine, unused.
 
 ## Aspects in three colours (reading)

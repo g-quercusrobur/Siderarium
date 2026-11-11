@@ -1559,7 +1559,7 @@
       detail1: x.cs(housesTxt),
       detail2: x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
       detail3: x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
-      stone: !pr && state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)} ${i.t('cap.or')} ${i.stone(state.stone.alternative)}`) : '',   // the stone of the day, read just before the chord
+      stone: !pr && state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}${state.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(state.stone.alternative)}` : ''}`) : '',   // the stone of the day, read just before the chord
       detail4: pr ? x.c1(tr[0] ? line(tr[0]) : i.t('cap.noTransit')) : x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),   // the pair has no chord of its own: its strongest contact instead
       pairLine: pr ? x.cs(`${harmonyTxt} · ${strifeTxt}`) : '',
       pairLine2: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}${state.attraction && state.attraction.grade ? ' · ' + i.t('ui.desire.' + state.attraction.grade) : ''}`) : '',
