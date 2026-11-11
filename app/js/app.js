@@ -937,7 +937,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
      recurring cards said in words, the tikkun's own cards marked */
   function tikkunCards(st) {
     const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major, P = p => i.cap1(i.planet(p)), A = a => i.aspect(a), R = x => i.t('ui.r.' + x);
-    const lt = l => `${SD.tikkun.text().name[l]}, ${SD.tikkun.text().letter[l]}`;
+    const lt = l => `${SD.tikkun.text().name[l]} <span class="he" lang="he" dir="rtl">${SD.tikkun.GLYPH[l]}</span>, ${SD.tikkun.text().letter[l]}`;   // the name, the letter itself, what it depicts
+    const dl = (key, word) => `<button type="button" class="deflink" data-def="${key}" aria-expanded="false">${word}</button>`;   // a word of the left column: a tap opens its definition
     const dm = lon => { const s = Math.floor(lon / 30), d = lon - s * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(s)}`; };
     const hs = h => h ? ` · ${i.roman(h)}` : '';                // sign and house only: the degrees are in the planets above
     const mine = new Set([k.north.card, k.engine.card]);
@@ -946,11 +947,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const head = (a, b, c) => `<tr class="head nolink"><td>${a}</td><td>${b}</td><td>${c}</td></tr>`;
     // 1 · the tikkun
     const t1 = [head('', T.place, T.card),
-      r2(T.karma, `${T.south} · ${i.sign(k.south.sign)}${hs(k.south.house)}`, cell(k.south.card), lt(k.south.letter)),
-      r2(T.mission, `${T.north} · ${i.sign(k.north.sign)}${hs(k.north.house)}`, cell(k.north.card), lt(k.north.letter)),
-      r2(T.engine, `${P(k.engine.planet)} · ${i.sign(k.engine.sign)}${hs(k.engine.house)}`, cell(k.engine.card), lt(k.engine.letter) + (k.engine.doubled ? ` · ${T.doubled}` : '')),
-      ...k.conj.map(c => r2(T.conj, `${P(c.planet)} · ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}°`, cell(c.card), lt(c.letter))),
-      ...k.threshold.map(t => r2(T.threshold, SD.tikkun.near(t), cell(t.card), lt(t.letter)))].join('');
+      r2(dl('karma', T.karma), `${T.south} · ${i.sign(k.south.sign)}${hs(k.south.house)}`, cell(k.south.card), lt(k.south.letter)),
+      r2(dl('mission', T.mission), `${T.north} · ${i.sign(k.north.sign)}${hs(k.north.house)}`, cell(k.north.card), lt(k.north.letter)),
+      r2(dl('engine', T.engine), `${P(k.engine.planet)} · ${i.sign(k.engine.sign)}${hs(k.engine.house)}`, cell(k.engine.card), lt(k.engine.letter) + (k.engine.doubled ? ` · ${T.doubled}` : '')),
+      ...k.conj.map(c => r2(dl('conj', T.conj), `${P(c.planet)} · ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}°`, cell(c.card), lt(c.letter))),
+      ...k.threshold.map(t => r2(dl('threshold', T.threshold), SD.tikkun.near(t), cell(t.card), lt(t.letter)))].join('');
     // 2 · the signs on the road, in the order of the chart
     const order = (k.noTime ? [] : ['ascendant']).concat(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']).concat(k.noTime ? [] : ['midheaven']);
     const lonOf = x => x === 'ascendant' ? st.asc : x === 'midheaven' ? st.mc : st.bodies[x].lon, nm = x => x === 'ascendant' ? i.cap1(R('ascendant')) : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
@@ -1360,6 +1361,24 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('save').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(2048)));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
     $('readout').addEventListener('click', e => { const a = e.target.closest('[data-tal]'); if (!a) return; e.preventDefault(); openMoment(new Date(a.dataset.tal)); });
+    // the tikkun's words: one small square at a time, under the word (above it near the foot of the screen); the word
+    // again, a tap elsewhere, Escape or a resize closes it
+    let defOpen = null;
+    const closeDef = () => { if (!defOpen) return; defOpen.box.remove(); defOpen.btn.setAttribute('aria-expanded', 'false'); defOpen = null; };
+    const openDef = btn => {
+      const same = defOpen && defOpen.btn === btn; closeDef(); if (same) return;
+      const txt = (SD.tikkun.text().defs || {})[btn.dataset.def]; if (!txt) return;
+      const box = document.createElement('div'); box.className = 'popdef'; box.id = 'popdef'; box.setAttribute('role', 'note'); box.textContent = txt;
+      document.body.appendChild(box);
+      const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight, w = box.offsetWidth, h = box.offsetHeight;
+      const left = Math.max(16, Math.min(vw - 16 - w, r.left)), below = r.bottom + 8 + h <= vh - 8 || r.top - 8 - h < 8;
+      box.style.left = (left + window.scrollX) + 'px'; box.style.top = ((below ? r.bottom + 8 : r.top - 8 - h) + window.scrollY) + 'px';
+      btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', 'popdef');
+      defOpen = { btn, box };
+    };
+    document.addEventListener('click', e => { const b = e.target.closest('[data-def]'); if (b) { e.preventDefault(); openDef(b); return; } if (defOpen && !e.target.closest('.popdef')) closeDef(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDef(); });
+    window.addEventListener('resize', closeDef);
     $('readout').addEventListener('click', e => { if (!e.target.closest('[data-act="algol"]')) return; S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateReadout(); });   // the Demon Star on the art, kept between visits
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
     $('save-hd').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(4096)));

@@ -105,6 +105,14 @@
         'From personal glory to the group: work for a cause larger than the self, as the friend and the innovator rather than the star.',
         'From control, criticism and the list to faith: trust the larger order, serve through compassion, let the work be inspired.'
       ],
+      // what each word of the cards' left column means, for the small square that opens on it
+      defs: {
+        karma: 'The South Node: what the soul brings in. The skill already mastered, and the reflex it falls back on under pressure. Its sign gives the letter and the card; the Roman numeral is the house where it is lived.',
+        mission: 'The North Node: the tikkun itself, the correction this life asks for. Unpractised, so it feels uphill. It is lived in the house where the node falls, the Roman numeral.',
+        engine: 'The planet that rules the North Node’s sign: it carries the mission out. The card of the sign it stands in shows how the work gets done. When that card is the Mission’s own, the mission is doubled.',
+        conj: 'A planet within 5° of a node. Its own card joins the node’s and colours the karma (South Node) or the mission (North Node) with its nature.',
+        threshold: 'Shown when the North Node stands within one degree of the next sign or the previous one. That sign’s card is the edge the mission touches, and what it opens onto.'
+      },
       cards: 'Cards of the tikkun', place: 'Point', sign: 'Sign', card: 'Card', aspect: 'Aspect', quality: 'Quality', tikkunMark: 'a green dot marks a card that is also the card of the Mission or of the Engine', pathOf: 'path of', recurs: (card, n, where) => `${card} appears ${['', 'once', 'twice', 'three times', 'four times', 'five times', 'six times', 'seven times', 'eight times', 'nine times'][n]}: ${where}.`, nearSign: (dist, sign) => `${dist} from ${sign}`, label: 'Life mission (tikkun)', karma: 'Karma', mission: 'Mission', engine: 'Engine', conj: 'Conjunct', threshold: 'Threshold', doubled: 'the mission doubled',
       livedIn: 'Lived in the', north: 'North Node', south: 'South Node', mean: 'true node', road: 'Signs on the road', aspects: 'Aspect cards',
       gift: 'gift', lesson: 'lesson', fusion: 'fusion', weak: 'out of sign, weak', psalm: 'Psalm 119', noTime: 'no birth time: houses, Ascendant and Midheaven left out',
@@ -131,6 +139,13 @@
         'De la gloria personal al grupo: trabajar por una causa mayor, como amigo e innovador antes que como estrella.',
         'Del control, la crítica y la lista a la fe: confiar en el orden mayor, servir con compasión, dejar que la obra sea inspirada.'
       ],
+      defs: {
+        karma: 'El Nodo Sur: lo que trae el alma. Lo que ya domina, y el reflejo al que vuelve bajo presión. Su signo da la letra y la carta; el número romano es la casa donde se vive.',
+        mission: 'El Nodo Norte: el tikún mismo, la corrección que pide esta vida. Poco practicada, por eso cuesta. Se vive en la casa donde cae el nodo, el número romano.',
+        engine: 'El planeta que rige el signo del Nodo Norte: lleva a cabo la misión. La carta del signo en que está muestra cómo se cumple. Cuando esa carta es la de la Misión, la misión se duplica.',
+        conj: 'Un planeta a menos de 5° de un nodo. Su carta se suma a la del nodo y tiñe de su naturaleza el karma (Nodo Sur) o la misión (Nodo Norte).',
+        threshold: 'Aparece cuando el Nodo Norte está a menos de un grado del signo siguiente o del anterior. La carta de ese signo es el borde que toca la misión, y hacia donde se abre.'
+      },
       cards: 'Cartas del tikún', place: 'Punto', sign: 'Signo', card: 'Carta', aspect: 'Aspecto', quality: 'Cualidad', tikkunMark: 'un punto verde marca una carta que es también la de la Misión o la del Motor', pathOf: 'sendero de', recurs: (card, n, where) => `${card} aparece ${['', 'una vez', 'dos veces', 'tres veces', 'cuatro veces', 'cinco veces', 'seis veces', 'siete veces', 'ocho veces', 'nueve veces'][n]}: ${where}.`, nearSign: (dist, sign) => `a ${dist} de ${sign}`, label: 'Misión de vida (tikún)', karma: 'Karma', mission: 'Misión', engine: 'Motor', conj: 'Conjunción', threshold: 'Umbral', doubled: 'la misión duplicada',
       livedIn: 'Vivida en el', north: 'Nodo Norte', south: 'Nodo Sur', mean: 'nodo verdadero', road: 'Señales del camino', aspects: 'Cartas de los aspectos',
       gift: 'don', lesson: 'lección', fusion: 'fusión', weak: 'fuera de signo, débil', psalm: 'Salmo 119', noTime: 'sin hora de nacimiento: sin casas, Ascendente ni Medio Cielo',
@@ -145,10 +160,13 @@
     if (PLANET_CARD[n]) return I().trumpPlanet(PLANET_CARD[n]);
     return I().t('ui.tarot.' + ({ 0: 'fool', 12: 'hanged', 20: 'judgement' })[n]);
   }
-  const letter = k => `${T().name[k]} (${T().letter[k]})`;
+  // the letters themselves, for the reader who wants the shape as well as the name
+  const GLYPH = { aleph: 'א', beth: 'ב', gimel: 'ג', daleth: 'ד', heh: 'ה', vav: 'ו', zayin: 'ז', cheth: 'ח', teth: 'ט', yod: 'י', kaph: 'כ',
+    lamed: 'ל', mem: 'מ', nun: 'נ', samekh: 'ס', ayin: 'ע', peh: 'פ', tzaddi: 'צ', qoph: 'ק', resh: 'ר', shin: 'ש', tav: 'ת' };
+  const letter = k => `${T().name[k]} ${GLYPH[k]} (${T().letter[k]})`;
   const arcmin = d => d >= 1 ? `${d.toFixed(1)}°` : `${Math.round(d * 60)}′`;
   const near = t => T().nearSign(arcmin(t.dist), I().sign(t.sign));
   const cardOf = x => x.path ? major(x.card) : x.cards.map(major).join(' + ');
 
-  SD.tikkun = { of, aspectCard, major, letter, cardOf, near, text: T, SIGN, PLANET, PATH };
+  SD.tikkun = { of, aspectCard, major, letter, cardOf, near, text: T, SIGN, PLANET, PATH, GLYPH };
 })();
