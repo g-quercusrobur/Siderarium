@@ -446,3 +446,35 @@ Proposed and waiting:
 - names for the corner icons;
 - glossary search;
 - the blur drawn in one layer.
+
+## Stone of the day (Transits view)
+
+The Transits caption carries one line just before the chord: "Stone of the day: X or Y". On the desktop canvas it sits in the right column, level with the chord. The reading has a section with the reason.
+
+- **One stone per day.** The rule is read at the place's local noon of the day on show (`stoneOfTheDay` in app.js, cached per chart, place and civil date), so it holds from midnight to midnight and does not change with the hour.
+- **The planet** (`SD.engine.stoneOfDay`): the day's leading transit to the chart decides, with the Moon's transits left out because they pass within hours and a floor of 0.1 on power.
+  - A hard transit from Mars, Saturn or Pluto is answered by the planet that tempers it: Jupiter for Saturn and Pluto, Venus for Mars.
+  - Any other hard transit is answered by the planet of the chart it strikes.
+  - An easy transit is carried by its own planet.
+  - With nothing in orb, or no classical planet in the transit, the planet of the weekday.
+- **The stones** (`C.STONES_KNOWN`): only stones most people know. Agrippa's attributions (Occult Philosophy I.23-29, read from the 1651 English) are kept where his stone is still common: ruby, clear quartz, selenite, agate, emerald, topaz, lapis lazuli, carnelian, jasper, bloodstone, diamond, sapphire, aquamarine (his beryl), onyx. The rest are common modern attributions by colour and metal: citrine, tiger's eye, amber, moonstone, pearl, opal, fluorite, rose quartz, jade, garnet, hematite, amethyst, turquoise, aventurine, obsidian, black tourmaline, smoky quartz. The glossary says which is which.
+- **The pair.** Each stone leans to an element. The first stone is the planet's best-known one of the chart's dominant element, or its best-known stone if it has none of that element. The alternative leans to another of the chart's elements.
+- The older `stoneOf` (by state and hour) stays in the engine, unused.
+
+## Aspects in three colours (reading)
+
+Every aspect written in the reading carries a colour: positive (green), tense (orange) or afflicting (red). A key sits under the Hierarchy heading.
+
+- **The rule** (`SD.engine.aspectTone`):
+  - Trine, sextile and the small creative aspects are positive.
+  - Square and opposition are afflicting when Mars, Saturn or Pluto is in them, tense otherwise.
+  - Quincunx, semisquare and sesquisquare are tense.
+  - A conjunction goes by its planets: afflicting with an infortune, tense when a fortune (Venus, Jupiter) meets the infortune, positive with a fortune alone; within 8°30′ of the Sun afflicting (burnt), within 17′ positive (in the Sun's heart); otherwise uncoloured.
+  - Septiles stay uncoloured.
+  - The ranking of aspects and the infortunes are the tradition's (Ptolemy, Tetrabiblos I.13; Lilly, Christian Astrology); the reduction to three colours is the instrument's.
+- **Where:** the figure, the hierarchy, the Moon's next aspect, the planets on the angles, the transits and the figures they close, the natal aspect cards. In a pair each contact is coloured by its own polarity in the rules v2.1: harmony share ≥ 0.6 positive, ≤ 0.4 afflicting with an infortune in it, otherwise tense.
+- **The colours** were measured on black. Pure red is dim there: 5.3:1, and 4.2:1 to a protanope. The red is a coral, `#ff6b61`, at 7.5:1 (6.6:1 to a protanope). The orange is `#ffb454` (11.9:1). The green leans to teal, `#5fd3a1` (11.3:1), which keeps red and green apart under red-green colour blindness (ΔE 21 protan, 36 deutan, against 18 and 26 with the app's own green).
+
+## Fix: a transit conjunct an angle
+
+A transit by conjunction to the chart's Ascendant or Midheaven, when it was among the three leading transits, threw in `drawFigure` (an angle has no planetary number) and left the Transits dial blank. `numOf` now returns 0 for an angle.
