@@ -142,7 +142,7 @@
         let t = ms + dist / rel * DAY;
         if (t > leave + 6 * HOUR) continue;
         for (let i = 0; i < 4; i++) t += n180(lon(k, t) + sgn * ang - lon('moon', t)) / rel * DAY;
-        if (t > ms + 1000 && t < leave) out.push({ planet: k, aspect: name, at: t });   // an aspect a second from exact is still to come
+        if (t > ms && t < leave) out.push({ planet: k, aspect: name, at: t });   // an aspect not yet exact is still to come, to the last instant
       }
     }
     return { leave, speed: vM, list: out.sort((a, b) => a.at - b.at) };
