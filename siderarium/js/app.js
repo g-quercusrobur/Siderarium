@@ -1088,9 +1088,10 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const dig = e => e.dignity.includes('exaltation') ? T('exalted') : e.dignity.includes('domicile') ? T('ownSign') : e.dignity.includes('triplicity') ? T('triplicity') : T('term');
     const line = (e, k) => {
       const where = T(e.angle === 'asc' ? 'rising' : 'culminating')(k, P(k), i.sign(e.sign));
-      const moon = T('moonLine')(i.sign(e.moon.sign), i.aspect(e.moon.aspect), e.moon.to === k ? '' : e.moon.to, e.moon.to === k ? T('itself') : P(e.moon.to));
-      const by = e.cautionBy || {}, cBy = T('cBy');         // name the infortune, and say fall or detriment for the Moon
-      const said = c => c === 'moonFall' ? cBy.moonFall(i.sign(e.moon.sign), e.moon.sign === 7) : by[c] && cBy[c] ? cBy[c](by[c].by.map(P), by[c].then) : T('c')[c] || c;
+      const mn = e.moon.mansion ? `${i.ordinal(e.moon.mansion.index)} ${i.t('cap.mansion')} · ${i.name(e.moon.mansion.name)}` : '';   // her mansion: its use depends on the work (Agrippa II.33)
+      const moon = T('moonLine')(i.sign(e.moon.sign), mn, i.aspect(e.moon.aspect), e.moon.to === k ? '' : e.moon.to, e.moon.to === k ? T('itself') : P(e.moon.to));
+      const by = e.cautionBy || {}, cBy = T('cBy'), x = { P, asp: a => i.aspect(a), ord: n => i.ordinal(n) };   // name the planet behind a caution, and say fall or detriment for the Moon
+      const said = c => c === 'moonFall' ? cBy.moonFall(i.sign(e.moon.sign), e.moon.sign === 7) : by[c] && cBy[c] ? cBy[c](by[c].by, by[c].how, x) : T('c')[c] || c;
       const caut = e.cautions.length ? ` · <span class="asp asp-tension">${e.cautions.map(said).join(', ')}</span>` : '';
       const a = Math.ceil(e.start / 6e4) * 6e4, z = Math.floor(e.end / 6e4) * 6e4, at = Math.min(Math.max(e.at, a), z);   // whole minutes inside the window, never past its edges
       return `<li><a href="#" class="tal-at" data-tal="${new Date(at).toISOString()}">${cap(day.format(a))} · ${hm.format(a)}–${hm.format(z)}</a> · ${T('minutes')(Math.round((z - a) / 6e4))}<br><span class="tal-why nolink">${where}, ${dig(e)} · ${e.day ? T('dayHour')(k, P(k)) : T('hourOf')(k, P(k))} · ${moon}${caut}</span></li>`;

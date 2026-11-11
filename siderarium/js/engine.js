@@ -125,22 +125,31 @@
     }
     return new Date(date.getTime() + loc.lon / 15 * 3600e3).getUTCDay();
   }
+  // the planetary days already found, newest first: sunrise, sunset and the next sunrise at a place. a day is kept only
+  // when it holds the instant it was searched for, so a hit is the same day the searches below would find
+  const sunDays = [];
   function planetaryHour(t, obs, loc, full) {
-    const S = A.Body.Sun;
-    let rise = A.SearchRiseSet(S, obs, +1, t.AddDays(-1.1), 1.2);
-    if (!rise) return fallbackHour(t, loc);
-    for (;;) {
-      const r2 = A.SearchRiseSet(S, obs, +1, rise.AddDays(0.01), 1.2);
-      if (r2 && r2.ut <= t.ut) rise = r2; else break;
+    const S = A.Body.Sun, key = loc.lat + ',' + loc.lon;
+    let rise, set, next = null;
+    const hit = sunDays.find(d => d.key === key && t.ut >= d.rise.ut && t.ut < d.next.ut);
+    if (hit) { rise = hit.rise; set = hit.set; next = hit.next; }
+    else {
+      rise = A.SearchRiseSet(S, obs, +1, t.AddDays(-1.1), 1.2);
+      if (!rise) return fallbackHour(t, loc);
+      for (;;) {
+        const r2 = A.SearchRiseSet(S, obs, +1, rise.AddDays(0.01), 1.2);
+        if (r2 && r2.ut <= t.ut) rise = r2; else break;
+      }
+      set = A.SearchRiseSet(S, obs, -1, rise.AddDays(1e-4), 1.2);           // a few seconds on: begun on the very instant of
+      if (!set) return fallbackHour(t, loc);                                  // a crossing, the search can return that crossing
+      next = A.SearchRiseSet(S, obs, +1, set.AddDays(1e-4), 1.2);
+      if (next && rise.ut <= t.ut && t.ut < next.ut) { sunDays.unshift({ key, rise, set, next }); if (sunDays.length > 24) sunDays.pop(); }
     }
-    const set = A.SearchRiseSet(S, obs, -1, rise, 1.2);
-    if (!set) return fallbackHour(t, loc);
     const dayRuler = C.WEEKDAY_RULER[weekdayAt(rise.date, loc)];
-    let isDay, start, len, idx, next = null;
+    let isDay, start, len, idx;
     if (t.ut < set.ut) {
       isDay = true; start = rise.ut; len = (set.ut - rise.ut) / 12; idx = Math.floor((t.ut - start) / len);
     } else {
-      next = A.SearchRiseSet(S, obs, +1, set, 1.2);
       if (!next) return fallbackHour(t, loc);
       isDay = false; start = set.ut; len = (next.ut - set.ut) / 12; idx = 12 + Math.floor((t.ut - start) / len);
     }
@@ -149,7 +158,7 @@
     const ruler = C.CHALDEAN[(first + idx) % 7];
     let table = null;
     if (full) {                                            // the day's 24 hours, for the readout
-      if (!next) next = A.SearchRiseSet(S, obs, +1, set, 1.2);
+      if (!next) next = A.SearchRiseSet(S, obs, +1, set.AddDays(1e-4), 1.2);
       const dl = (set.ut - rise.ut) / 12, nl = next ? (next.ut - set.ut) / 12 : dl;
       table = [];
       for (let i = 0; i < 24; i++) {
