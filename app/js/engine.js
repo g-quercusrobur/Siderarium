@@ -494,6 +494,56 @@
     const list = C.STONES[planet].slice().sort((a, b) => (b[1] === flavour) - (a[1] === flavour));
     return { planet, rule, flavour, stone: list[0][0], alternatives: list.slice(1, 3).map(x => x[0]), why: why ? { a: why.a, aspect: why.aspect, b: why.b } : null };
   }
+  /* The colour of an aspect in the reading: positive, tense or afflicting. it follows the tradition's own ranking, the
+     sextile and trine being aspects of friendship, the square and opposition of enmity (Ptolemy, Tetrabiblos I.13;
+     Lilly, Christian Astrology, pp. 105-106), and Mars and Saturn the infortunes whose square, opposition and
+     conjunction do the harm:
+       trine, sextile, and the small creative aspects ... positive, whoever makes them;
+       square, opposition .............................. afflicting with Mars, Saturn or Pluto in it, else tense;
+       quincunx, semisquare, sesquisquare .............. tense;
+       conjunction ..................................... by its planets: with an infortune afflicting, unless a fortune
+                                                         (Venus, Jupiter) meets it, then tense; with a fortune and no
+                                                         infortune positive; within 8°30' of the Sun burnt (afflicting),
+                                                         in the Sun's heart (17') positive; otherwise uncoloured.
+     the septiles stay uncoloured. the reduction to three colours is [SD]. `b` may be an angle of a chart. */
+  function aspectTone(aspect, a, b, orb) {
+    const mal = k => k === 'mars' || k === 'saturn' || k === 'pluto', ben = k => k === 'venus' || k === 'jupiter';
+    const def = C.ASPECTS.find(x => x.key === aspect), nature = def ? def.nature : '';
+    if (aspect === 'trine' || aspect === 'sextile' || nature === 'creative') return 'flow';
+    if (aspect === 'square' || aspect === 'opposition') return mal(a) || mal(b) ? 'afflict' : 'tension';
+    if (nature === 'hard') return 'tension';
+    if (aspect === 'conjunction') {
+      const M = mal(a) || mal(b), B = ben(a) || ben(b);
+      if (M) return B ? 'tension' : 'afflict';
+      if ((a === 'sun' || b === 'sun') && orb != null && orb < 8.5) return orb < 0.2833 && a !== 'moon' && b !== 'moon' ? 'flow' : 'afflict';
+      return B ? 'flow' : '';
+    }
+    return '';
+  }
+  /* The stone of the day for a chart [SD]. `day` is the sky at the local noon of the day, `transits` its transits to the
+     chart. the day's leading transit decides the planet; the Moon's own transits are left out, they pass within hours.
+     a hard transit from a malefic is answered by the planet that tempers it, Jupiter for Saturn, Venus for Mars (the
+     tradition's remedy; Pluto is given to Jupiter here); any other hard transit by the planet of the chart it strikes,
+     to hold it up; an easy transit by its own planet, to go with it. with no transit of the seven in orb, the planet
+     of the weekday. of that planet's best-known stones, the one of the chart's dominant element comes first and the
+     next (the chart's second element if the planet has such a stone) is the alternative. */
+  function stoneOfDay(day, natal, transits) {
+    const known = k => !!C.STONES_KNOWN[k], malefic = k => k === 'mars' || k === 'saturn' || k === 'pluto', antidote = { saturn: 'jupiter', mars: 'venus', pluto: 'jupiter' };
+    const dayRuler = day.hour && day.hour.dayRuler ? day.hour.dayRuler : C.WEEKDAY_RULER[weekdayAt(day.date, day.loc)];
+    const lead = (transits || []).find(t => !t.moon && t.power >= 0.1);
+    let planet = dayRuler, rule = 'day', why = null;
+    if (lead) {
+      const hard = lead.nature === 'hard' || (lead.aspect === 'conjunction' && malefic(lead.a));
+      const pick = hard ? (malefic(lead.a) ? antidote[lead.a] : known(lead.b) ? lead.b : null) : (known(lead.a) ? lead.a : known(lead.b) ? lead.b : null);
+      if (pick) { planet = pick; rule = hard ? 'answer' : 'carry'; why = { a: lead.a, aspect: lead.aspect, b: lead.b }; }
+    }
+    const el = natal && natal.elements ? natal.elements.order : (day.elements ? day.elements.order : ['earth', 'water']);
+    const rank = e => { const n = el.indexOf(e); return n < 0 ? 9 : n; };
+    const list = C.STONES_KNOWN[planet].map((s, n) => ({ key: s[0], el: s[1], n }));
+    const first = list.slice().sort((a, b) => (rank(a.el) > 0) - (rank(b.el) > 0) || a.n - b.n)[0];   // the best-known stone of the dominant element, else the best known
+    const rest = list.filter(s => s !== first).sort((a, b) => (a.el === first.el) - (b.el === first.el) || rank(a.el) - rank(b.el) || a.n - b.n);   // the alternative leans to another element of the chart
+    return { planet, rule, stone: first.key, alternative: rest[0].key, why, dayRuler };
+  }
   /* The wheel of the year: the eight feasts by the calendar, in the place's own zone. the four solar points and the
      four cross-quarters; the names are the neopagan Wheel's, laid over older festivals (the veil also knows the
      astronomical doors, the Sun at 0°/15° of the signs). today's feast, if any, and the next with its date. */
@@ -984,5 +1034,5 @@
     const out = { lon, alt, eclipse: Math.exp(-0.5 * (off / 2.2) * (off / 2.2)), nextMin: new Date(date.getTime() + (ALGOL.P - ph) * 864e5) };
     algolCache.k = k; algolCache.v = out; return out;
   }
-  SD.engine = { algol, compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, lonOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  SD.engine = { algol, stoneOfDay, aspectTone, compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, lonOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});

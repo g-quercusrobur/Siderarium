@@ -105,6 +105,20 @@
     }
     return natalCache.state;
   }
+  /* the stone of the day for the chart on show: read from the sky at the place's local noon of the day displayed, so it
+     holds from midnight to midnight and does not flicker with the hour (SD.engine.stoneOfDay) */
+  const stoneCache = { key: null, v: null };
+  function stoneOfTheDay(ns) {
+    try {
+      const p = placeParts(now(), S.place.tz), key = [S.natal.id || S.natal.date, S.natal.date, p.year, p.month, p.day, S.place.lat, S.place.lon].join('|');
+      if (stoneCache.key !== key) {
+        const noon = fromStamp(`${p.year}-${p.month}-${p.day} 12:00`, S.place.tz) || now();
+        const day = SD.engine.compute(noon, S.place, { light: true, houses: S.houses });
+        stoneCache.key = key; stoneCache.v = SD.engine.stoneOfDay(day, ns, SD.engine.computeTransits(day, ns));
+      }
+      return stoneCache.v;
+    } catch (e) { return null; }                            // the stone is a courtesy: the transits never wait on it
+  }
   const natalModes = ['natal', 'natalchart', 'synastry', 'pair'];
   /* the leading transits' dates (exact, entering and leaving orb) are searched once per transit and day and kept */
   const spanCache = new Map();
@@ -152,7 +166,7 @@
       S.state.natal = ns; S.state.transits = tr;
       S.state.interaction = SD.engine.computeInteractions(S.state, ns, tr);   // what the two skies make together
       S.state.transitInfo = transitInfo(ns, tr);                                 // when each leading transit is exact, and where it stands in the natal houses
-      // the companion stone (SD.engine.stoneOf) is kept but not shown for now
+      S.state.stone = stoneOfTheDay(ns);                                         // one stone for the whole day, with one alternative
       S.state.configs = { ...S.state.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
     }
     S.lastCompute = performance.now();
@@ -163,7 +177,7 @@
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
     for (const k of ['label', 'state', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
-    $('caption').innerHTML = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p><p class="detail">${c.detail4}</p>`}`;
+    $('caption').innerHTML = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p>${c.stone ? `<p class="detail stone-line">${c.stone}</p>` : ''}<p class="detail">${c.detail4}</p>`}`;
     linkTerms($('caption'));
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -709,16 +723,21 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <tr class="sub"><td></td><td colspan="2"><button class="toggle algol-toggle" data-act="algol" aria-pressed="${S.algol ? 'true' : 'false'}"><span class="sw" aria-hidden="true"></span><span>${i.cap1(R(S.algol ? 'algolShown' : 'algolShow'))}</span></button></td></tr>`;
     const cf = st.configs;
     const figName = a => a.natal ? `${P(a.a)} ${A(a.aspect)} ${i.t('cap.natal')} ${P(a.b)}` : `${P(a.a)} ${A(a.aspect)} ${P(a.b)}`;
+    // every aspect in the reading wears its colour: positive, tense or afflicting (SD.engine.aspectTone)
+    const toned = (tone, html) => tone ? `<span class="asp asp-${tone}">${html}</span>` : html;
+    const fig = a => toned(SD.engine.aspectTone(a.aspect, a.a, a.b, a.orb), figName(a));
+    const aspKey = `<p class="asp-key nolink"><span class="asp asp-flow">${R('aspFlow')}</span> · <span class="asp asp-tension">${R('aspTension')}</span> · <span class="asp asp-afflict">${R('aspAfflict')}</span></p>`;
     const evName = e => e.split(' ').map(w => i.event(w)).join(' ');
     const figs = [cf.primary, ...cf.secondary].filter(Boolean).map((a, n) =>
-      `<tr><td>${i.cap1(n ? R('ring') : R('figure'))}</td><td colspan="2">${figName(a)} · {${a.n}/${a.k}}</td></tr><tr class="sub"><td></td><td colspan="2">${i.cap1(R('orb'))} ${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}${a.dissociate ? ' · ' + i.flag('outOfSign') : ''} · ${a.power.toFixed(2)}${a.event ? ' · ' + evName(a.event) : ''}</td></tr>`).join('');
+      `<tr><td>${i.cap1(n ? R('ring') : R('figure'))}</td><td colspan="2">${fig(a)} · {${a.n}/${a.k}}</td></tr><tr class="sub"><td></td><td colspan="2">${i.cap1(R('orb'))} ${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}${a.dissociate ? ' · ' + i.flag('outOfSign') : ''} · ${a.power.toFixed(2)}${a.event ? ' · ' + evName(a.event) : ''}</td></tr>`).join('');
     const cap = SD.render.captionLines(st);
     const el = st.elements ? `${R('element')} ${i.t('ui.el.' + st.elements.dominant)} ${Math.round(st.elements.shares[st.elements.dominant] * 100)}% · ${i.t('ui.el.' + st.elements.order[1])} ${Math.round(st.elements.shares[st.elements.order[1]] * 100)}%` : '';
     const guardians = `${R('guardians')} ${P(st.hour.dayRuler)}${st.hour.dayRuler === st.hour.hourRuler ? ' ' + R('alone') : ' ' + R('and') + ' ' + P(st.hour.hourRuler)}`;
     const lead = st.natalView ? '' : `<p class="verdict state-${st.title.state}">${i.state(st.title.state)} · ${i.house12(st.title.house)} · ${i.cap1(i.window(st.title.mode))} · ${i.t('cap.under')} ${i.name(st.hour.angel)}</p>`;
     const inter = st.interaction;
     const interSentence = f => f.name === 'setOff' ? `${P(f.t)} ${R('setsOff')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}` : `${P(f.t)} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}`;
-    const interRows = inter ? (inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${i.cap1(R(f.tone))}</td><td colspan="2">${interSentence(f)}</td></tr><tr class="sub"><td></td><td colspan="2">${P(f.t)} ${A(f.x.aspect)} ${P(f.a)} ${f.x.orb.toFixed(1)}° · ${P(f.t)} ${A(f.y.aspect)} ${P(f.b)} ${f.y.orb.toFixed(1)}° · ${f.power.toFixed(2)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`) : '';
+    const figTone = f => f.tone === 'harmony' ? 'flow' : ['mars', 'saturn', 'pluto'].some(m => m === f.t || m === f.a || m === f.b) ? 'afflict' : 'tension';
+    const interRows = inter ? (inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${toned(figTone(f), i.cap1(R(f.tone)))}</td><td colspan="2">${interSentence(f)}</td></tr><tr class="sub"><td></td><td colspan="2">${toned(SD.engine.aspectTone(f.x.aspect, f.t, f.a, f.x.orb), `${P(f.t)} ${A(f.x.aspect)} ${P(f.a)}`)} ${f.x.orb.toFixed(1)}° · ${toned(SD.engine.aspectTone(f.y.aspect, f.t, f.b, f.y.orb), `${P(f.t)} ${A(f.y.aspect)} ${P(f.b)}`)} ${f.y.orb.toFixed(1)}° · ${f.power.toFixed(2)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`) : '';
     const verdict = inter ? `<p class="verdict state-${inter.grade}">${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
     const tz = st.loc.tz || 'UTC';
     const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
@@ -732,7 +751,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const hours = st.hour.table ? st.hour.table.map(h => `<span${h.index === st.hour.index ? ' class="now"' : ''}>${h.index + 1} ${P(h.ruler)} ${hm(h.start)}</span>`).join(' · ') : i.cap1(i.t('ui.polar'));
     const MAJ = /^(conjunction|sextile|square|trine|opposition)$/, acard = a => st.tikkun && MAJ.test(a.aspect) ? ` · ${SD.tikkun.cardOf(SD.tikkun.aspectCard(a.a, a.b))}` : '';
     const top = st.aspects.slice(0, 12).map(a =>
-      `<tr><td>${figName(a)}${acard(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>`).join('');
+      `<tr><td>${fig(a)}${acard(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>`).join('');
     const ev = st.events.map(e => i.event(e.type) + (e.planet ? ' ' + P(e.planet) : '') + (e.kind ? ' ' + evName(e.kind) : '') + (e.direction ? ' ' + i.event(e.direction) : '')).join(' · ') || '—';
     if (st.pair && st.natal) { $('readout').innerHTML = pairReadout(st); linkTerms($('readout')); return; }
     $('readout').innerHTML = `
@@ -742,17 +761,17 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <h3>${H('figure')}</h3><table>${figs || `<tr><td>${i.cap1(i.t('ui.quietSky'))}</td></tr>`}</table>
       <h3>${H('sound')}</h3><p>${i.chordLong(st.chord)}${st.chord.interval ? ' · ' + i.interval(st.chord.interval) : ''}${st.chord.notes.length ? ` · ${R('notes')} ` + st.chord.notes.map(n => i.note(n)).join(' ') : ''}${st.chord.planets ? ` · ${R('from')} ` + st.chord.planets.map(P).join(', ') : ''}${st.chord.moonNote ? ` · ${R('moonNote')} ${i.note(st.chord.moonNote)}` : ''}${st.chord.ground && st.chord.ground.length ? ` · ${R('ground')} ` + st.chord.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(' ') : ''}${st.nextChord ? ` · ${R('next')} ${i.chordName(st.nextChord.to)} ${R('at')} ${hm(st.nextChord.at)}` : ''}</p>
       <h3>${H('tarot')}</h3>${tarot}
-      ${st.stone ? `<h3>${H('stone')}</h3><p>${i.cap1(i.stone(st.stone.stone))} · ${P(st.stone.planet)} · ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` · ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${i.t('cap.natalOf')} ${C.PLANETS[st.stone.why.b] ? P(st.stone.why.b) : st.stone.why.b === 'ascendant' ? 'ASC' : 'MC'}` : ''} · ${R('alternatives')} ${st.stone.alternatives.map(x => i.stone(x)).join(', ')} · ${R('flavour')} ${i.t('elements.' + st.stone.flavour) === 'elements.' + st.stone.flavour ? st.stone.flavour : i.t('elements.' + st.stone.flavour)}</p>` : ''}
-      ${st.transits ? `<h3>${H('transits')}</h3>${verdict}<table>${interRows}</table><table>${st.transits.slice(0, 8).map(a => `<tr><td>${figName(a)}</td><td>${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td>${a.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`}</table>` : ''}
-      <h3>${H('moon')}</h3>${st.moon.verdict === 'void' ? `<p class="dim">${i.cap1(R('voidNote'))}</p>` : ''}<p>${i.cap1(i.verdict(st.moon.verdict))} · ${st.moon.next ? `${R('nextMoon')} ${A(st.moon.next.aspect)} ${P(st.moon.next.planet)} ${R('in')} ${(st.moon.next.days * 24).toFixed(1)}h` : i.flag('void of course')}${st.moon.flags.filter(f => f !== 'void of course').map(f => ' · ' + i.flag(f === 'under the beams' ? 'beams' : f)).join('')}</p>
+      ${st.stone ? `<h3>${H('stone')}</h3><p>${i.cap1(i.stone(st.stone.stone))} ${i.t('cap.or')} ${i.stone(st.stone.alternative)} · ${i.t('cap.stonesOf')(st.stone.planet, P(st.stone.planet))} · ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${i.t('cap.natalOf')} ${C.PLANETS[st.stone.why.b] ? P(st.stone.why.b) : st.stone.why.b === 'ascendant' ? 'ASC' : 'MC'}` : ''}</p><p class="dim">${i.cap1(R('stoneNote'))}</p>` : ''}
+      ${st.transits ? `<h3>${H('transits')}</h3>${verdict}<table>${interRows}</table><table>${st.transits.slice(0, 8).map(a => `<tr><td>${fig(a)}</td><td>${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td>${a.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`}</table>` : ''}
+      <h3>${H('moon')}</h3>${st.moon.verdict === 'void' ? `<p class="dim">${i.cap1(R('voidNote'))}</p>` : ''}<p>${i.cap1(i.verdict(st.moon.verdict))} · ${st.moon.next ? `${R('nextMoon')} ${toned(SD.engine.aspectTone(st.moon.next.aspect, 'moon', st.moon.next.planet), `${A(st.moon.next.aspect)} ${P(st.moon.next.planet)}`)} ${R('in')} ${(st.moon.next.days * 24).toFixed(1)}h` : i.flag('void of course')}${st.moon.flags.filter(f => f !== 'void of course').map(f => ' · ' + i.flag(f === 'under the beams' ? 'beams' : f)).join('')}</p>
       <p>${i.cap1(guardians)}</p>
       <p>${i.cap1(i.t('ui.veil'))} ${st.veil.v.toFixed(2)}${st.veil.factors.length ? ' · ' + st.veil.factors.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}</p>
       <p>${i.ordinal(st.bodies.moon.mansion.index)} ${R('mansion')} · ${i.name(st.bodies.moon.mansion.name)} (Agrippa II.33)</p>
       <h3>${H('hours')}</h3><p class="hours">${hours}</p>
       <h3>${H('events')}</h3><p>${i.cap1(ev)}</p>
       ${st.wheel ? `<p>${i.cap1(R('wheel'))}: ${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')} · ` : ''}${R('wheelNext')} ${i.t('ui.wheel.' + st.wheel.next)} · ${new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(st.wheel.nextDate)} · ${R('inDays')(st.wheel.days)}</p>` : ''}
-      <h3>${H('hierarchy')}</h3><table>${top}</table>
-      <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>
+      <h3>${H('hierarchy')}</h3>${aspKey}<table>${top}</table>
+      <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${toned(SD.engine.aspectTone('conjunction', x.planet, x.angle), `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)}`)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>
       ${st.tikkun ? tikkunCards(st) : ''}
       <p class="dim nolink">${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart'))} · ${i.cap1(R('ascendant'))} ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · ${R('midheaven')} ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))}<br>${i.cap1(R('dayOfIs')(st.hour.dayRuler, P(st.hour.dayRuler), i.name(st.hour.dayAngel)))} · ${R('hourIs')(i.ordinal(st.hour.index + 1), st.hour.hourRuler, P(st.hour.hourRuler), i.name(st.hour.angel))}</p>`;
     linkTerms($('readout'));
@@ -779,11 +798,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const types = ['partner', 'friend', 'colleague', 'parent', 'sibling', 'other'], cur = pairTypeOf(pr.ids[0], pr.ids[1]);
     const relSel = Y ? `<p class="rel nolink"><label>${i.cap1(i.t('ui.rel.label'))} <select id="pair-type">${types.map(t => `<option value="${t}"${t === cur ? ' selected' : ''}>${i.t('ui.rel.' + t)}</option>`).join('')}</select></label>${Y.age.forced ? ` <span class="dim">${i.t('ui.rel.forced')}</span>` : ''}</p>` : '';
     const flags = c => `${c.discounted ? ' · ' + R('discounted') : ''}${c.uncertain ? ' · ' + i.t('cap.syn.uncertain') : ''}`;
-    const contacts = Y ? Y.contacts.slice(0, 15).map(c => `<tr><td>${contactWords(c, pr)}${flags(c)}</td><td class="nw">${c.orb.toFixed(2)}°</td><td class="nw">${c.w.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>` : '';
+    const cTone = c => { const t = c.h + c.s; if (c.x > 0 || !t) return c.x > 0 ? 'tension' : ''; const r = c.h / t; return r >= 0.6 ? 'flow' : r > 0.4 ? 'tension' : ['mars', 'saturn', 'pluto'].some(m => m === c.a || m === c.b) ? 'afflict' : 'tension'; };
+    const contacts = Y ? Y.contacts.slice(0, 15).map(c => `<tr><td>${(tn => tn ? `<span class="asp asp-${tn}">${contactWords(c, pr)}</span>` : contactWords(c, pr))(cTone(c))}${flags(c)}</td><td class="nw">${c.orb.toFixed(2)}°</td><td class="nw">${c.w.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>` : '';
     const ovl = Y && Y.overlays ? Y.overlays.map(o => `<tr><td>${i.t('cap.own')(o.who === 'a' ? pr.a : pr.b, P(o.planet))}</td><td colspan="2">${i.t('cap.inHouseOf')(o.who === 'a' ? pr.b : pr.a, i.roman(o.house))}${o.unseen ? ` · <span class="dim">${R('unseen')}</span>` : ''}</td></tr>`).join('') : '';
     const act = (st.synActive || []).map(x => activeLine(x, st)).join('');
     const sentence = f => f.name === 'setOff' ? `${own(pr.a, P(f.t))} ${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${own(pr.a, P(f.t))} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`;
-    const figures = inter && inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${i.cap1(R(f.tone))}</td><td colspan="2">${sentence(f)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`;
+    const figures = inter && inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${(tn => `<span class="asp asp-${tn}">${i.cap1(R(f.tone))}</span>`)(f.tone === 'harmony' ? 'flow' : ['mars', 'saturn', 'pluto'].some(m => m === f.t || m === f.a || m === f.b) ? 'afflict' : 'tension')}</td><td colspan="2">${sentence(f)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`;
     return `
       ${verdict}
       <h3>${H('bodies')}</h3><table class="pair">${head}
@@ -935,7 +955,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const t2 = [head('', T.sign, T.card), ...order.map(x => { const s = Math.floor(lonOf(x) / 30); return r2(nm(x), i.sign(s), cell(SD.tikkun.SIGN[s][1])); })].join('');
     const recur = k.placements.filter(p => p.count > 1).map(p => T.recurs(M(p.card), p.count, p.keys.map(nm).join(', ')));
     // 3 · the aspect cards
-    const t3 = [head(T.aspect, T.card, T.quality), ...k.aspects.map(a => `<tr><td class="nolink">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} · ${a.orb.toFixed(1)}°</td><td class="card">${SD.tikkun.cardOf(a)}</td><td class="nolink">${T[a.quality]}${a.weak ? `, ${T.weak}` : ''}</td></tr>${a.path ? `<tr class="sub nolink"><td></td><td colspan="2">${T.pathOf} ${lt(a.letter)}</td></tr>` : ''}`)].join('');
+    const t3 = [head(T.aspect, T.card, T.quality), ...k.aspects.map(a => `<tr><td class="nolink">${(tn => tn ? `<span class="asp asp-${tn}">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)}</span>` : `${nm(a.a)} ${A(a.aspect)} ${nm(a.b)}`)(SD.engine.aspectTone(a.aspect, a.a, a.b, a.orb))} · ${a.orb.toFixed(1)}°</td><td class="card">${SD.tikkun.cardOf(a)}</td><td class="nolink">${T[a.quality]}${a.weak ? `, ${T.weak}` : ''}</td></tr>${a.path ? `<tr class="sub nolink"><td></td><td colspan="2">${T.pathOf} ${lt(a.letter)}</td></tr>` : ''}`)].join('');
     return `<h3>${T.cards}</h3>
       <table class="cards">${t1}</table>
       <h4>${T.road}</h4><table class="cards">${t2}</table>

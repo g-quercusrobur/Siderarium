@@ -393,3 +393,13 @@ body.natal .corner-chart { display: inline-flex; }
 .cv-text .meaning { margin: 0; font: 400 15px/1.6 var(--sans); color: var(--ink-2); white-space: pre-line; }
 .cv-close { position: absolute; top: 12px; right: 12px; border: 1px solid var(--ink-3); border-radius: 2px; min-height: 40px; padding: 0 14px; background: #0c0c0c; font: 400 14px var(--sans); }
 @media (max-width: 720px) { .card-view { place-items: start center; } .cv-card { grid-template-columns: 1fr; padding-top: 64px; } .cv-card img { width: min(260px, 72vw); } .cv-text h2 { padding-right: 0; } }
+
+/* ---------- aspects in the reading: three colours, chosen to read on black ----------
+   pure red on black is dim (5.3:1, and 4.2:1 to a protanope), so the red is a coral at 7.5:1; the orange sits a step
+   lighter and the green leans to teal, which keeps the three apart for red-green colour blindness as well */
+:root { --asp-flow: #5fd3a1; --asp-tension: #ffb454; --asp-afflict: #ff6b61; }
+.asp-flow { color: var(--asp-flow); } .asp-tension { color: var(--asp-tension); } .asp-afflict { color: var(--asp-afflict); }
+.asp a.g { text-decoration-color: currentColor; text-decoration-color: color-mix(in srgb, currentColor 55%, transparent); }
+.asp a.g:hover { color: inherit; }
+#readout .asp-key { margin: 0 0 8px; font-size: 13px; color: var(--ink-3); }
+#readout .asp-key .asp::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 0; }

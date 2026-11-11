@@ -54,6 +54,21 @@
     jupiter: [['sapphire', 'air'], ['hyacinth', 'air'], ['emerald', 'water'], ['beryl', 'water'], ['greenJasper', 'earth']],
     saturn: [['onyx', 'earth'], ['jet', 'earth'], ['sapphire', 'air'], ['chalcedony', 'water'], ['brownJasper', 'earth'], ['lodestone', 'earth']]
   };
+  /* the stone of the day draws on the stones most people know. Agrippa's own attributions (Occult Philosophy I.23-29)
+     wherever his stone is still a common one: carbuncle and ruby for the Sun, crystal and selenite for the Moon, agate,
+     emerald and topaz for Mercury, lapis lazuli and carnelian for Venus, jasper, bloodstone and diamond for Mars,
+     sapphire and beryl (aquamarine) for Jupiter, onyx for Saturn. the rest are the common modern attributions, by
+     colour and by the planet's metal: the trade's own lore, not the old books'. each stone leans to an element by its
+     colour and matter, so the chart's own elements choose among them [SD]. listed by renown. */
+  const STONES_KNOWN = {
+    sun: [['ruby', 'fire'], ['citrine', 'air'], ['tigerEye', 'earth'], ['amber', 'water']],
+    moon: [['moonstone', 'water'], ['pearl', 'water'], ['crystal', 'air'], ['selenite', 'earth'], ['opal', 'fire']],
+    mercury: [['agate', 'earth'], ['emerald', 'water'], ['topaz', 'fire'], ['fluorite', 'air']],
+    venus: [['roseQuartz', 'water'], ['jade', 'earth'], ['lapis', 'air'], ['carnelian', 'fire']],
+    mars: [['garnet', 'fire'], ['redJasper', 'fire'], ['hematite', 'earth'], ['bloodstone', 'water'], ['diamond', 'air']],
+    jupiter: [['amethyst', 'water'], ['sapphire', 'air'], ['turquoise', 'air'], ['aquamarine', 'water'], ['aventurine', 'earth']],
+    saturn: [['onyx', 'earth'], ['obsidian', 'fire'], ['blackTourmaline', 'earth'], ['smokyQuartz', 'air']]
+  };
   const ELEMENTS = { air: '#f2e8a0', water: '#4a7ef0', fire: '#ff5a2a', earth: '#1c1410' };
   const CHALDEAN = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon'];
   const WEEKDAY_RULER = ['sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn']; // Sunday..Saturday
@@ -156,7 +171,7 @@
   SD.corr = {
     STONES,
     SIGNS, PLANETS, ORDER, CHALDEAN, WEEKDAY_RULER, SYNODIC_OVERRIDE,
-    DOMICILE, EXALTATION, TRIPLICITY, TERMS, faceRuler, ASPECTS, ASPECT_GLYPH, BENEFIC, MALEFIC, NOTES, INTERVALS, MOTHERS,
+    DOMICILE, EXALTATION, TRIPLICITY, TERMS, faceRuler, ASPECTS, ASPECT_GLYPH, BENEFIC, MALEFIC, STONES_KNOWN, NOTES, INTERVALS, MOTHERS,
     DECANS, decanOf, TRUMP_SIGN, TRUMP_PLANET, TRUMP_ELEMENT, MANSIONS, mansionOf, ELEMENTS
   };
 })(window.SD = window.SD || {});

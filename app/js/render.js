@@ -352,6 +352,7 @@
     for (const p of [cfg.a, cfg.b]) { h -= 0.18 * (C.BENEFIC[p] || 0); h += 0.12 * (C.MALEFIC[p] || 0); }
     return clamp(h, 0, 1);
   }
+  const numOf = k => (C.PLANETS[k] && C.PLANETS[k].number) || 0;   // a planet's number; an angle of a chart (a transit to the Ascendant or Midheaven) has none
   function figureColor(state, cfg) {
     const a = presence(state, cfg.a), b = presence(state, cfg.b);
     if (cfg.a === 'pluto') return b;             // pluto lends no pigment
@@ -468,7 +469,7 @@
     // rose-engine band: planet A's passes twist clockwise, planet B's counter-clockwise
     if (primary && !PURE_SIMPLE) {
       const passes = clamp(Math.round(4 + 3 * Math.min(1, cfg.power)), 4, 7);
-      const nP = n === 1 ? ((C.PLANETS[cfg.a].number || 0) + (C.PLANETS[cfg.b].number || 0) || 12) : n;
+      const nP = n === 1 ? (numOf(cfg.a) + numOf(cfg.b) || 12) : n;
       const bandA = roseBand(nP, passes, h, R, rot, cx, cy, 1);
       const bandB = roseBand(nP, passes, h, R, rot, cx, cy, -1);
       withBlur(ctx, blur.curves, () => {
@@ -490,7 +491,7 @@
     };
 
     if (n === 1) {                                        // conjunction: two interlaced roses of the summed number
-      const P = (C.PLANETS[cfg.a].number || 0) + (C.PLANETS[cfg.b].number || 0) || 12;
+      const P = numOf(cfg.a) + numOf(cfg.b) || 12;
       const roseAt = off => {
         const rose = new Path2D();
         for (let s2 = 0; s2 <= 1440; s2++) {
@@ -1555,9 +1556,10 @@
       title: pr ? `${i.t('cap.overall')}: ${i.t('ui.grade.' + grade)}` : tr[0] ? x.c1(`${line(tr[0])}${when(tr[0])}`) : x.c1(i.t('cap.noTransit')),
       reason: pr ? x.c1(tieRow) : tr.slice(1, 3).map(a => x.c1(short(a))).join(' · '),
       l1: x.c1(`${x.T.day} · ${x.T.date} · ${x.T.time} ${x.T.zone} · ${i.placeName(state.loc.name)}`),
-      detail1: state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}, ${i.t('cap.or')} ${state.stone.alternatives.map(s => i.stone(s)).join(', ')} · ${P(state.stone.planet)}, ${i.t('cap.stoneRule.' + state.stone.rule)}`) : x.cs(housesTxt),
-      detail2: state.stone ? x.cs(housesTxt) : x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
-      detail3: state.stone ? x.cs(`${figTxt ? figTxt + ' · ' : ''}${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`) : x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
+      detail1: x.cs(housesTxt),
+      detail2: x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
+      detail3: x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
+      stone: !pr && state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)} ${i.t('cap.or')} ${i.stone(state.stone.alternative)}`) : '',   // the stone of the day, read just before the chord
       detail4: pr ? x.c1(tr[0] ? line(tr[0]) : i.t('cap.noTransit')) : x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),   // the pair has no chord of its own: its strongest contact instead
       pairLine: pr ? x.cs(`${harmonyTxt} · ${strifeTxt}`) : '',
       pairLine2: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}${state.attraction && state.attraction.grade ? ' · ' + i.t('ui.desire.' + state.attraction.grade) : ''}`) : '',
@@ -1718,7 +1720,7 @@
       Lt.copyHit = { x: x0 - 6 * k, y: y0 - 6 * k, w: iw + 12 * k, h: iw + 12 * k };
     } else { f = fit(c.l1, right); put(c.l1, Lt.S - m, row(1)); ctx.font = f; Lt.copyHit = null; }
     ctx.fillStyle = K.rgba(INK, 0.72);
-    for (const [txt, r] of [[c.detail1, 2], [c.detail2, 3], [c.detail3, 4]]) { f = fit(txt, right); put(txt, Lt.S - m, row(r)); ctx.font = f; }
+    for (const [txt, r] of (c.stone ? [[c.detail1, 2], [`${c.detail2} · ${c.detail3}`, 3], [c.stone, 4]] : [[c.detail1, 2], [c.detail2, 3], [c.detail3, 4]])) { f = fit(txt, right, c.stone ? 0.6 : 0.72); put(txt, Lt.S - m, row(r)); ctx.font = f; }
     }
     // every print carries the notice
     ctx.textAlign = 'left'; ctx.fillStyle = K.rgba(INK, 0.45); ctx.font = `400 ${Math.round(14 * k)}px ${SANS}`;
