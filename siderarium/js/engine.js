@@ -1034,5 +1034,5 @@
     const out = { lon, alt, eclipse: Math.exp(-0.5 * (off / 2.2) * (off / 2.2)), nextMin: new Date(date.getTime() + (ALGOL.P - ph) * 864e5) };
     algolCache.k = k; algolCache.v = out; return out;
   }
-  SD.engine = { algol, stoneOfDay, aspectTone, compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, lonOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
+  SD.engine = { algol, stoneOfDay, aspectTone, angles, weekdayAt, compute, computeTransits, computeInteractions, desireOf, tiesOf, compositeOf, fortuneOf, meanNode, trueNode, lonOf, tieSteps: TIE_T, transitSpan, stoneOf, elements, nextChordShift, norm360, norm180, sep, houseOf, houseIn, mundane, semiArc, dignity, placidus, regiomontanus, equalHouses, synodic, rarity };
 })(window.SD = window.SD || {});
