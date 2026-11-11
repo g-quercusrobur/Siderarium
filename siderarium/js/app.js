@@ -773,8 +773,10 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       <h3>${H('hierarchy')}</h3>${aspKey}<table>${top}</table>
       <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${toned(SD.engine.aspectTone('conjunction', x.planet, x.angle), `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)}`)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>
       ${st.tikkun ? tikkunCards(st) : ''}
+      ${!st.natalView && !st.transits ? `<section id="talismans">${talismansHtml()}</section>` : ''}
       <p class="dim nolink">${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart'))} · ${i.cap1(R('ascendant'))} ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · ${R('midheaven')} ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))}<br>${i.cap1(R('dayOfIs')(st.hour.dayRuler, P(st.hour.dayRuler), i.name(st.hour.dayAngel)))} · ${R('hourIs')(i.ordinal(st.hour.index + 1), st.hour.hourRuler, P(st.hour.hourRuler), i.name(st.hour.angel))}</p>`;
     linkTerms($('readout'));
+    if (!st.natalView && !st.transits) talismansKick();
   }
 
   /* the reading of a pair: two columns, one per chart, the same rows for each; then what passes between them.
@@ -1044,6 +1046,79 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (!standalone()) setTimeout(openInstall, 400);    // the clock first, then the card over it
     }
   }
+  /* ---------- planetary talismans timing ----------
+     the next moments to make each planet's talisman at the clock's place (SD.talismans), counted from the real now. the
+     search runs in the page's idle time, a few milliseconds at a slice, and is kept in this browser for the day and the
+     place; a moment already past drops from the list. each date opens the clock at that moment, with its sound. */
+  const tal = { key: null, out: null, partial: null, token: 0, from: 0 };
+  const talKey = () => [SD.talismans.RULES.version, S.place.lat.toFixed(3), S.place.lon.toFixed(3), S.houses, Math.floor(Date.now() / 864e5)].join('|');
+  const talSpent = out => Object.values(out).some(r => r.best.concat(r.lesser).some(e => e.end <= Date.now()));   // a listed moment has gone by: count again from now
+  function talismansKick() {
+    if (!SD.talismans) return;
+    const key = talKey();
+    if (tal.key === key && !(tal.out && talSpent(tal.out))) return;
+    tal.key = key; tal.out = null; tal.partial = null;
+    const cached = store.get('talismans', null);
+    if (cached && cached.key === key && cached.out && !talSpent(cached.out)) { tal.out = cached.out; tal.from = cached.from; renderTalismans(); return; }
+    const token = ++tal.token, from = Math.floor(Date.now() / 6e4) * 6e4, place = { ...S.place };
+    const s = SD.talismans.searcher(place, from, { houses: S.houses });
+    tal.from = from;
+    const later = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 600 }) : setTimeout(f, 40));
+    (function chunk() {
+      if (token !== tal.token) return;
+      const until = performance.now() + 8;                 // at most 8 ms at a time: a tap is never kept waiting
+      let done = false, broke = false;
+      try { done = s.step(() => performance.now() < until); } catch (e) { done = broke = true; }
+      tal.partial = s.planets;
+      if (!done) { renderTalismans(); return later(chunk); }
+      tal.out = s.planets;
+      if (!broke && !s.failed) store.set('talismans', { key, from, out: s.planets });   // a search that failed anywhere is tried again on the next visit
+      renderTalismans();
+    })();
+  }
+  function renderTalismans() { const el = $('talismans'); if (!el) return; el.innerHTML = talismansHtml(); linkTerms(el); }
+  function talismansHtml() {
+    const i = SD.i18n, T = k => i.t('ui.tal.' + k), P = k => i.cap1(i.planet(k)), tz = S.place.tz || 'UTC', loc = i.locale();
+    const day = new Intl.DateTimeFormat(loc, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: tz });
+    const hm = new Intl.DateTimeFormat(loc, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz });
+    const cap = t => t.replace(/^./, c => c.toUpperCase());
+    const res = tal.out || tal.partial, now = Date.now();
+    const head = `<h3>${i.cap1(T('h'))}</h3><p class="dim nolink">${T('intro')(i.placeName(S.place.name))}</p>`;
+    if (!res) return head + `<p class="dim nolink">${i.cap1(T('reading'))}</p>`;
+    const dig = e => e.dignity.includes('exaltation') ? T('exalted') : e.dignity.includes('domicile') ? T('ownSign') : e.dignity.includes('triplicity') ? T('triplicity') : T('term');
+    const line = (e, k) => {
+      const where = T(e.angle === 'asc' ? 'rising' : 'culminating')(k, P(k), i.sign(e.sign));
+      const moon = T('moonLine')(i.sign(e.moon.sign), i.aspect(e.moon.aspect), e.moon.to === k ? '' : e.moon.to, e.moon.to === k ? T('itself') : P(e.moon.to));
+      const by = e.cautionBy || {}, cBy = T('cBy');         // name the infortune, and say fall or detriment for the Moon
+      const said = c => c === 'moonFall' ? cBy.moonFall(i.sign(e.moon.sign), e.moon.sign === 7) : by[c] && cBy[c] ? cBy[c](by[c].by.map(P), by[c].then) : T('c')[c] || c;
+      const caut = e.cautions.length ? ` · <span class="asp asp-tension">${e.cautions.map(said).join(', ')}</span>` : '';
+      const a = Math.ceil(e.start / 6e4) * 6e4, z = Math.floor(e.end / 6e4) * 6e4, at = Math.min(Math.max(e.at, a), z);   // whole minutes inside the window, never past its edges
+      return `<li><a href="#" class="tal-at" data-tal="${new Date(at).toISOString()}">${cap(day.format(a))} · ${hm.format(a)}–${hm.format(z)}</a> · ${T('minutes')(Math.round((z - a) / 6e4))}<br><span class="tal-why nolink">${where}, ${dig(e)} · ${e.day ? T('dayHour')(k, P(k)) : T('hourOf')(k, P(k))} · ${moon}${caut}</span></li>`;
+    };
+    const rows = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'].map(k => {
+      const r = res[k]; if (!r) return '';
+      if (!r.done) return `<div class="tal-planet nolink"><h4>${P(k)}</h4><p class="dim">${i.cap1(T('reading'))}</p></div>`;   // a list half searched is not yet the best three
+      if (r.error) return `<div class="tal-planet nolink"><h4>${P(k)}</h4><p class="dim">${T('failed')(k, P(k))}</p></div>`;
+      const best = r.best.filter(e => e.end > now), lesser = r.lesser.filter(e => e.end > now);
+      let body = '';
+      if (best.length) body += `${lesser.length ? `<p class="tal-sub">${T('firstRate')}</p>` : ''}<ul class="tal">${best.map(e => line(e, k)).join('')}</ul>`;
+      if (lesser.length) body += `<p class="tal-sub">${T('lesserHead')}</p><ul class="tal">${lesser.map(e => line(e, k)).join('')}</ul>`;
+      if (!best.length && !lesser.length) body = `<p class="dim">${T('none')(k, P(k), Math.round(SD.talismans.RULES.horizon[k] / 365))}</p>`;
+      const first = [...best, ...lesser].reduce((a, e) => Math.min(a, e.start), Infinity);
+      if (r.wait && r.wait.until > now && (!isFinite(first) || first - now > 60 * 864e5)) body += `<p class="dim">${T('wait')(k, P(k), cap(day.format(r.wait.until)))}</p>`;
+      if (k === 'mars' || k === 'saturn') body += `<p class="dim">${T(k === 'mars' ? 'cautionMars' : 'cautionSaturn')}</p>`;
+      return `<div class="tal-planet nolink"><h4>${P(k)}</h4>${body}</div>`;
+    }).join('');
+    return head + rows + `<p class="dim nolink">${T('note')}</p>`;
+  }
+  /* a date of the list: the clock at that moment, the dial in view, and its chord (the tap lets the sound start) */
+  function openMoment(d) {
+    S.playing = false; S.fixed = d; S.offsetMs = 0;
+    if (S.mode !== 'clock') { S.mode = 'clock'; store.set('mode', S.mode); }
+    updateControls(); recompute();
+    try { listen(true); } catch (e) { /* the clock opens all the same */ }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
   /* a tarot card named anywhere in the reading: a lightbox over the page, at once, with the plate, its Golden Dawn line and
      its meaning; the plate taps through to the full scan; a tap outside, Close or Escape shuts it */
   function openCard(key) {
@@ -1283,6 +1358,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });
     $('save').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(2048)));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
+    $('readout').addEventListener('click', e => { const a = e.target.closest('[data-tal]'); if (!a) return; e.preventDefault(); openMoment(new Date(a.dataset.tal)); });
     $('readout').addEventListener('click', e => { if (!e.target.closest('[data-act="algol"]')) return; S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateReadout(); });   // the Demon Star on the art, kept between visits
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
     $('save-hd').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(4096)));

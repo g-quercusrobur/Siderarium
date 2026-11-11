@@ -53,7 +53,7 @@
 
   /* the numbers, in one place */
   const RULES = {
-    version: 1,
+    version: 2,
     // the planet on the angle: from `short` degrees before the cusp (still to rise or to culminate, in the 1st or 10th
     // house) to `past` degrees beyond it (the five degrees a planet past a cusp still belongs to that house, Lilly)
     angle: { short: 7, past: 3 },
@@ -82,21 +82,26 @@
     const obs = new A.Observer(place.lat, place.lon, 0), SUN = A.Body.Sun, cache = new Map();
     const T = ms => A.MakeTime(new Date(ms)), M = t => t.date.getTime();
     let last = null;
+    const dayFrom = rise => {                               // the planetary day that opens at this sunrise
+      const key = Math.round(M(rise) / MIN);
+      if (cache.has(key)) return cache.get(key);
+      const set = A.SearchRiseSet(SUN, obs, -1, rise, 1.2), next = set && A.SearchRiseSet(SUN, obs, +1, set, 1.2);
+      if (!set || !next) return null;                       // the Sun does not set or does not rise: no unequal hours here today
+      const pd = { rise: M(rise), set: M(set), next: M(next), ruler: C.WEEKDAY_RULER[E.weekdayAt(rise.date, place)], _next: next };
+      if (cache.size > 64) cache.clear();
+      cache.set(key, pd);
+      return pd;
+    };
+    const holds = (pd, ms) => pd && ms >= pd.rise && ms < pd.next;
     return {
       of(ms) {
-        if (last && ms >= last.rise && ms < last.next) return last;
-        let rise = null;
-        if (last && ms >= last.next && ms < last.next + 30 * HOUR) rise = last._next;        // the days follow one another: the last dawn found opens the next day
-        if (!rise) { rise = A.SearchRiseSet(SUN, obs, +1, T(ms).AddDays(-1.1), 1.2); if (!rise) return null;
-          for (;;) { const r2 = A.SearchRiseSet(SUN, obs, +1, rise.AddDays(0.01), 1.2); if (r2 && M(r2) <= ms) rise = r2; else break; } }
-        const key = Math.round(M(rise) / MIN);
-        if (cache.has(key)) return (last = cache.get(key));
-        const set = A.SearchRiseSet(SUN, obs, -1, rise, 1.2), next = set && A.SearchRiseSet(SUN, obs, +1, set, 1.2);
-        if (!set || !next) return null;                     // the Sun does not set or does not rise: no unequal hours here today
-        const pd = { rise: M(rise), set: M(set), next: M(next), ruler: C.WEEKDAY_RULER[E.weekdayAt(rise.date, place)], _next: next };
-        if (cache.size > 64) cache.clear();
-        cache.set(key, pd);
-        return (last = pd);
+        if (holds(last, ms)) return last;
+        if (last && ms >= last.next) { const pd = dayFrom(last._next); if (holds(pd, ms)) return (last = pd); }   // the day after the last one found, when it holds the instant
+        let rise = A.SearchRiseSet(SUN, obs, +1, T(ms).AddDays(-1.1), 1.2);
+        if (!rise) return null;
+        for (;;) { const r2 = A.SearchRiseSet(SUN, obs, +1, rise.AddDays(0.01), 1.2); if (r2 && M(r2) <= ms) rise = r2; else break; }
+        const pd = dayFrom(rise);
+        return holds(pd, ms) ? (last = pd) : null;          // never a day that does not hold the instant
       }
     };
   }
@@ -137,7 +142,7 @@
         let t = ms + dist / rel * DAY;
         if (t > leave + 6 * HOUR) continue;
         for (let i = 0; i < 4; i++) t += n180(lon(k, t) + sgn * ang - lon('moon', t)) / rel * DAY;
-        if (t > ms + 30000 && t < leave) out.push({ planet: k, aspect: name, at: t });
+        if (t > ms + 1000 && t < leave) out.push({ planet: k, aspect: name, at: t });   // an aspect a second from exact is still to come
       }
     }
     return { leave, speed: vM, list: out.sort((a, b) => a.at - b.at) };
@@ -152,12 +157,12 @@
     try {
       for (let e = A.SearchLunarEclipse(A.MakeTime(new Date(from))), n = 0; e && n < 4; e = A.NextLunarEclipse(e.peak), n++) { const t = e.peak.date.getTime(); if (t > to) break; if (e.kind !== 'penumbral') peaks.push({ kind: 'lunar', at: t }); }
       for (let e = A.SearchGlobalSolarEclipse(A.MakeTime(new Date(from))), n = 0; e && n < 4; e = A.NextGlobalSolarEclipse(e.peak), n++) { const t = e.peak.date.getTime(); if (t > to) break; peaks.push({ kind: 'solar', at: t }); }
-    } catch (err) { /* the search is best effort */ }
+    } catch (err) { peaks.push({ kind: 'unknown', at: ms, all: true }); }   // an eclipse search that fails leaves these days unlisted, never cleared
     if (eclCache.size > 400) eclCache.clear();
     eclCache.set(key, peaks);
     return peaks;
   }
-  const inEclipse = ms => eclipseNear(ms).find(e => ms > e.at - RULES.eclipse.before * DAY && ms < e.at + RULES.eclipse.after * DAY) || null;
+  const inEclipse = ms => eclipseNear(ms).find(e => e.all || (ms > e.at - RULES.eclipse.before * DAY && ms < e.at + RULES.eclipse.after * DAY)) || null;
 
   /* ---------- the judgment of one instant for one planet. every hard rule first, each with its reason; then the
      weighing. returns { ok: false, why } or the record of the election. ---------- */
@@ -166,6 +171,18 @@
   const SEVEN = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'];
   const lordOf = signIdx => SEVEN.find(k => (C.DOMICILE[k] || []).includes(C.SIGNS[signIdx].key));   // the traditional ruler of a sign
   const cadent = h => h === 3 || h === 6 || h === 9 || h === 12;
+  /* the orbs of the planets, Lilly's larger set (Christian Astrology p. 107): two planets are joined while they stand within
+     half of each one's orb, added together, of the exact aspect. the clock's own aspect orbs are for display and narrower */
+  const ORBS = { sun: 17, moon: 12.5, mercury: 7, venus: 8, mars: 7.5, jupiter: 12, saturn: 10 };
+  function hardContact(B, x, y) {                          // a conjunction, square or opposition of x and y within the moieties
+    const lim = (ORBS[x] + ORBS[y]) / 2, d = sep(B[x].lon, B[y].lon), d1 = sep(B[x].lon + B[x].speed / 24, B[y].lon + B[y].speed / 24);   // and an hour on
+    for (const [aspect, ang] of [['conjunction', 0], ['square', 90], ['opposition', 180]]) {
+      const orb = Math.abs(d - ang);
+      if (orb <= lim) return { aspect, orb, lim, applying: Math.abs(d1 - ang) < orb };
+    }
+    return null;
+  }
+  const struck = (B, x, y) => { const h = hardContact(B, x, y); return !!h && (h.applying || h.orb <= h.lim * RULES.separatingShare); };
   /* the lesser impediments: what the sources say to avoid if one can. each lowers the rank and is named on the line;
      with opts.strict they exclude, like the core rules */
   const CAUTION = {
@@ -185,8 +202,8 @@
     const st = E.compute(new Date(ms), place, { light: true, houses: opts.houses || 'regiomontanus' });
     const fail = why => ({ ok: false, why, at: ms });
     const B = st.bodies, b = B[P], lab = b.dignity.labels, has = x => lab.includes(x);
-    const cautions = [];
-    const caution = key => { if (opts.strict) return true; cautions.push(key); return false; };
+    const cautions = [], cautionBy = {};                                               // cautionBy: the infortune behind a caution, to name it
+    const caution = (key, by, then) => { if (opts.strict) return true; cautions.push(key); if (by) cautionBy[key] = then ? { by, then } : { by }; return false; };
     const houseOf = lon => { const h = E.houseIn(st.cusps, lon), nx = h % 12 + 1; return n360(st.cusps[nx] - lon) < 5 ? nx : h; };   // Lilly: within five degrees of the next cusp, the body is in that house
     const H = { moon: houseOf(B.moon.lon), mars: houseOf(B.mars.lon), saturn: houseOf(B.saturn.lon), venus: houseOf(B.venus.lon), jupiter: houseOf(B.jupiter.lon) };
     if (!st.hour || st.hour.polar) return fail('polar');
@@ -198,6 +215,9 @@
     if (has('detriment') || has('fall')) return fail(has('fall') ? 'fall' : 'detriment');
     const major = has('domicile') || has('exaltation'), lesser = has('term') || has('triplicity');
     if (!major && !lesser) return fail('peregrine');
+    // a triplicity alone, in the minutes when the Sun's rim is up and its centre is not (or the reverse): the sect is in
+    // doubt, and with it the dignity [SD]
+    if (!major && !has('term') && (st.sect === 'day') !== !!st.hour.isDay) return fail('sect in doubt');
     // 3 · direct, out of combustion (Agrippa II.30; Picatrix II.3, III.7: retrograde, 'like a man full of anger')
     if (b.retro) return fail('retrograde');
     if (b.combust) return fail('combust');
@@ -207,12 +227,9 @@
     const onA = dA >= -R.past && dA <= R.short, onM = dM >= -R.past && dM <= R.short;
     if (!onA && !onM) return fail('angle');
     const angle = onA && (!onM || Math.abs(dA) <= Math.abs(dM)) ? 'asc' : 'mc', off = angle === 'asc' ? dA : dM;
-    // 5 · free of Mars and Saturn: no conjunction, square or opposition, applying or still close (Agrippa II.29)
-    for (const a of st.aspects) {
-      const other = a.a === P ? a.b : a.b === P ? a.a : null;
-      if (!other || !INFORTUNE[other] || !HARD[a.aspect]) continue;
-      if (a.applying || a.orb <= a.orbMax * RULES.separatingShare) return fail('struck by ' + other);
-    }
+    // 5 · free of Mars and Saturn: no conjunction, square or opposition, applying or still close (Agrippa II.29), by
+    //     Lilly's moieties: applying anywhere within them, separating within half of them
+    for (const k of ['mars', 'saturn']) if (k !== P && struck(B, P, k)) return fail('struck by ' + k);
     // 6 · no infortune (other than the planet) in the Ascendant or on an angle (Picatrix II.3; Bonatti; Ramesey III.1)
     for (const k of ['mars', 'saturn']) {
       if (k === P) continue;
@@ -232,18 +249,15 @@
     const road = moonRoad(ms), next = road.list[0] || null;
     if (!next) return fail('moon void of course');
     if (!m.next || m.next.planet !== next.planet || m.next.aspect !== next.aspect) return fail('moon uncertain');   // the clock's own reading must agree
-    for (const a of st.aspects) {                                                      // Mars or Saturn on her by conjunction, square or opposition
-      if (!a.moon || !HARD[a.aspect]) continue;
-      const other = a.a === 'moon' ? a.b : a.a;
-      if (INFORTUNE[other] && other !== P && (a.applying || a.orb <= a.orbMax * RULES.separatingShare)) return fail('moon impeded by ' + other);
-    }
+    for (const k of ['mars', 'saturn']) if (k !== P && struck(B, 'moon', k)) return fail('moon impeded by ' + k);   // Mars or Saturn on her by conjunction, square or opposition
     if (!FRIENDLY[next.aspect]) return fail('moon applying by ' + next.aspect);     // her next aspect: a trine, a sextile or a conjunction
     if (next.aspect === 'conjunction' && (next.planet === 'sun' || (INFORTUNE[next.planet] && next.planet !== P))) return fail('moon applying to the body of ' + next.planet);
     if (inEclipse(ms)) return fail('eclipse');                                         // three days before to one day after (Bonatti Tr. VII)
 
     // ---------- the lesser impediments ----------
     const node = E.trueNode(new Date(ms)), tail = n360(node + 180);
-    for (const k of ['mars', 'saturn']) if (k !== P && (H[k] === 7 || H[k] === 10)) { if (caution('infortuneInAngle')) return fail('infortune in an angle'); break; }
+    { const inAngle = ['mars', 'saturn'].filter(k => k !== P && (H[k] === 7 || H[k] === 10));
+      if (inAngle.length && caution('infortuneInAngle', inAngle)) return fail('infortune in an angle'); }
     if (!INFORTUNE[P] && sep(b.lon, B.mars.lon) < 12 && sep(b.lon, B.saturn.lon) < 12 && n180(B.mars.lon - b.lon) * n180(B.saturn.lon - b.lon) < 0) { if (caution('besieged')) return fail('besieged'); }
     if (sep(tail, st.asc) < 5 || sep(tail, st.mc) < 5) { if (caution('tailOnAngle')) return fail('tail on an angle'); }
     if (mb.sign === 7 || mb.sign === 9) { if (caution('moonFall')) return fail('moon in scorpio or capricorn'); }
@@ -252,8 +266,11 @@
     if (Math.min(sep(mb.lon, node), sep(mb.lon, tail)) < 12) { if (caution('moonNode')) return fail('moon near a node'); }
     if (road.speed < RULES.moonSlow) { if (caution('moonSlow')) return fail('moon slow'); }
     if (180 - dSun < RULES.moonRays) { if (caution('moonOppositeSun')) return fail('moon opposite the sun'); }
-    if (INFORTUNE[next.planet] && next.planet !== P) { if (caution('moonToInfortune')) return fail('moon applying to ' + next.planet); }
-    else if (st.aspects.some(a => a.moon && a.applying && INFORTUNE[a.a === 'moon' ? a.b : a.a] && (a.a === 'moon' ? a.b : a.a) !== P)) { if (caution('moonToInfortune')) return fail('moon applying to an infortune'); }
+    if (INFORTUNE[next.planet] && next.planet !== P) { if (caution('moonToInfortune', [next.planet])) return fail('moon applying to ' + next.planet); }
+    else {
+      const hit = st.aspects.find(a => a.moon && a.applying && INFORTUNE[a.a === 'moon' ? a.b : a.a] && (a.a === 'moon' ? a.b : a.a) !== P);
+      if (hit && caution('moonToInfortune', [hit.a === 'moon' ? hit.b : hit.a], true)) return fail('moon applying to an infortune');   // after her next aspect, she goes on to it
+    }
     if (mb.deg >= C.TERMS[C.SIGNS[mb.sign].key][3][1]) { if (caution('moonLastTerm')) return fail('moon in the last term'); }
     const moonTo = next.planet === P ? 'planet' : FORTUNE[next.planet] ? 'fortune' : INFORTUNE[next.planet] ? 'infortune' : next.planet === lordA ? 'lord' : 'other';
 
@@ -312,7 +329,7 @@
     }
     return {
       ok: true, planet: P, at: ms, tier: major ? 1 : 2, angle, off, sign: b.sign, deg: b.deg, dignity: lab.filter(l => /^(domicile|exaltation|triplicity|term|face)$/.test(l)),
-      day: dayOf, dayRuler: st.hour.dayRuler, sect: st.sect, lordOfAsc: lordA, cautions,
+      day: dayOf, dayRuler: st.hour.dayRuler, sect: st.sect, lordOfAsc: lordA, cautions, cautionBy,
       moon: { sign: mb.sign, waxing: m.waxing, illum: m.illum, aspect: next.aspect, to: next.planet, perfects: next.at, toward: moonTo, speed: road.speed },
       score: Math.round(score * 10) / 10, plus, minus
     };
@@ -350,8 +367,16 @@
     const rec = judge(P, w.best, place, opts);
     if (!rec.ok) return rec;
     const holds = ms => { const r = judge(P, ms, place, opts); return r.ok && r.angle === rec.angle && r.tier === rec.tier; };
-    const bound = (inner, outer) => { if (holds(outer)) return outer; let t0 = inner, t1 = outer; for (let i = 0; i < 6; i++) { const tm = (t0 + t1) / 2; if (holds(tm)) t0 = tm; else t1 = tm; } return t0; };
-    rec.start = bound(w.best, w.start + 1000); rec.end = bound(w.best, w.end - 1000);
+    const close = (good, bad) => { for (let i = 0; i < 7; i++) { const tm = (good + bad) / 2; if (holds(tm)) good = tm; else bad = tm; } return good; };
+    const edge = (dir, limit) => {                          // two minutes at a time out from the best instant, so a condition that fails and
+      for (let good = w.best; ;) {                          // recovers inside the window is never stepped over; then the edge to a second or two
+        const next = good + dir * 2 * MIN;
+        if (dir * (next - limit) >= 0) return holds(limit) ? limit : close(good, limit);
+        if (!holds(next)) return close(good, next);
+        good = next;
+      }
+    };
+    rec.start = edge(-1, w.start + 1000); rec.end = edge(+1, w.end - 1000);
     rec.minutes = Math.round((rec.end - rec.start) / MIN);
     if (rec.minutes < RULES.minWindow) return { ok: false, why: 'short', at: w.best };
     return rec;
@@ -410,16 +435,25 @@
     if (res.best.length && res.best[0].start - env.from <= RULES.near * DAY) res.lesser = [];   // the lesser are shown only while the first-rate are far off
     res.done = true;
   }
-  /* a searcher: step(deadline) works until the clock passes the deadline, and says when all seven are done */
+  /* a searcher: step(deadline) works until the clock passes the deadline, and says when all seven are done. a planet's
+     lists are final only once its own search is done; a planet whose search fails is marked so, with nothing listed,
+     and the next planet goes on */
   function searcher(place, fromMs, opts = {}) {
     const env = { place, from: fromMs, opts, sky: Sky(), days: Days(place), out: {} };
     for (const P of PLANETS) env.out[P] = { planet: P, done: false, best: [], lesser: [], wait: null };
-    const order = ['moon', 'sun', 'venus', 'mercury', 'mars', 'jupiter', 'saturn'].map(P => hunt(P, env));
+    const order = ['moon', 'sun', 'venus', 'mercury', 'mars', 'jupiter', 'saturn'].map(P => ({ P, g: hunt(P, env) }));
     let i = 0;
     return {
       place, from: fromMs, planets: env.out,
       get done() { return i >= order.length; },
-      step(until) { while (i < order.length && until()) { if (order[i].next().done) i++; } return i >= order.length; }
+      get failed() { return PLANETS.some(P => env.out[P].error); },
+      step(until) {
+        while (i < order.length && until()) {
+          try { if (order[i].g.next().done) i++; }
+          catch (e) { Object.assign(env.out[order[i].P], { done: true, error: String((e && e.message) || e), best: [], lesser: [], wait: null }); i++; }
+        }
+        return i >= order.length;
+      }
     };
   }
 

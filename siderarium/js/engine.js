@@ -943,7 +943,9 @@
         decan: C.decanOf(lon), mansion: C.mansionOf(lon)
       };
     }
-    const isDay = B.sun.alt > -0.833;
+    // sect: the Sun's centre above the true horizon, the Sun in houses 7 to 12 (the chart's own day). B.sun.alt is the
+    // refracted altitude: compared with -0.833 it called day some four minutes before sunrise and after sunset
+    const isDay = A.Horizon(t, obs, B.sun.ra / 15, B.sun.dec).altitude > 0;
     for (const key of C.ORDER) B[key].dignity = dignity(key, B[key].sign, B[key].deg, isDay);
     // mutual reception by domicile or by exaltation (Lilly): each planet stands in the other's dignity.
     // Lilly counts it as strengthening; here it lifts the peregrine penalty [SD scoring].

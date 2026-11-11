@@ -403,3 +403,13 @@ body.natal .corner-chart { display: inline-flex; }
 .asp a.g:hover { color: inherit; }
 #readout .asp-key { margin: 0 0 8px; font-size: 13px; color: var(--ink-3); }
 #readout .asp-key .asp::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 0; }
+
+/* ---------- planetary talismans timing (clock reading) ---------- */
+#readout .tal-planet { margin: 0 0 14px; }
+#readout .tal-planet h4 { margin: 16px 0 6px; }
+#readout ul.tal { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 8px; }
+#readout ul.tal li { line-height: 1.45; }
+#readout a.tal-at { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(235, 231, 220, 0.5); }
+#readout a.tal-at:hover, #readout a.tal-at:focus-visible { text-decoration-color: var(--ink); }
+#readout .tal-why { color: var(--ink-2); font-size: 0.93em; }
+#readout .tal-sub { margin: 8px 0 4px; font-size: 0.86em; letter-spacing: 0.04em; color: var(--ink-3); }
