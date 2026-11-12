@@ -266,7 +266,7 @@
       verdict: {
         pure: f => f[0], mixed: (f, s) => `${f[0]}, inclining to ${list(s)}`, near: (f, s) => s.length > 1 ? `${f[0]}, ${list(s)}, almost equally` : `${f[0]} and ${s[0]}, almost equally`,
         equal: f => `${f[0]} and ${f[1]} in equal measure`, balanced: f => f.length === 4 ? 'the four humours in equal measure' : `${f[0]}, ${f[1]} and ${f[2]} in equal measure`,
-        intemperance: (g, p) => `, with ${g === 'strong' ? 'a' : 'some'} ${p} intemperance`, saturn: 'Saturnine', mars: 'Martial', both: 'Saturnine and Martial',
+        excess: (g, ps) => `, with ${g === 'strong' ? '' : 'a touch of '}${ps.length > 1 ? 'Saturn’s gravity and Mars’s ardour' : ps[0] === 'saturn' ? 'Saturn’s gravity' : 'Mars’s ardour'}`,
         partial: v => `Partial, without the Ascendant: ${v}` },
       dayRuns: 'Without the birth time the Moon decides, and she changes the verdict during the day:',
       until: t => `until ${t}`, after: t => `from ${t}`,
@@ -288,9 +288,9 @@
       },
       mixed: 'No native is of one humour alone. The leading humour gives the ground of the complexion; another bends it when the two are neighbours, as Garcaeus’s sanguine prince leans to choleric dryness (Astrologiae methodus, 1576, p. 51), and tempers it when they are contraries. The reading of the leading humour stands, and the other’s virtues and remedies are taken in measure; humours in equal measure are read together. Of a planet nearly as strong as the Lord of the Geniture, Lilly says “a kind of mixture must be framed” (Christian Astrology III, ch. CV); the humours mix in the same way.', mixedIs: 'How the humours mix',
       melancholyMix: 'Ficino’s best temper of the learned is black bile mixed with blood and with yellow bile, eight parts of blood to two of each bile, so that black bile is kindled and may “shine, but not burn” (De vita I.5). The danger is adustion: any humour burnt by too much heat turns to black bile, which brings frenzy and then stupor. Mixed only with phlegm, black bile brings torpor and fear (I.5).',
-      intemperanceIs: 'Intemperance', grade: { strong: 'strong', slight: 'slight' },
+      intemperanceIs: 'Saturn’s gravity, Mars’s ardour', excessOf: ps => ps.length > 1 ? 'Saturn’s gravity, Mars’s ardour' : ps[0] === 'saturn' ? 'Saturn’s gravity' : 'Mars’s ardour', grade: { strong: 'strong', slight: 'slight' },
       contact: { body: (p, o) => `${p} in the Ascendant, ${o} from its degree`, ascendant: (p, a, o, k) => k === 'conjunction' ? `${p} conjunct the ascending degree, ${o}` : `${p} in ${a} to the ascending degree, ${o}`, moon: (p, a, o, k) => k === 'conjunction' ? `${p} conjunct the Moon, ${o}` : `${p} in ${a} to the Moon, ${o}` },
-      intemperanceNote: 'Saturn or Mars in the Ascendant (Garcaeus), or beholding the Ascendant or the Moon with a malevolent aspect: “they intermix their intemperate qualities to the temperature of the body, yea, though all other testimonies concur very well” (Lilly, Christian Astrology p. 533). Saturn adds cold and dryness, Mars heat and dryness. Ficino turns to Jupiter against black bile and to Venus against bile and drying-out (De vita III.6); Jupiter defends from Saturn (III.22), and “the nature of Venus dissolves what is closed up by Mars, and repairs what he damages” (Picatrix III.7).'
+      intemperanceNote: 'Saturn or Mars on the Ascendant or on the Moon lends the whole temperament its own nature, whatever the tally says: what the old physicians called a distemper (Latin intemperies). Saturn’s gravity is depth, seriousness, endurance and solitude, and in excess weight, fear and gloom; Mars’s ardour is courage, drive and the power of acting, and in excess haste, anger and fever.\n\nSaturn or Mars in the Ascendant (Garcaeus), or beholding the Ascendant or the Moon with a malevolent aspect: “they intermix their intemperate qualities to the temperature of the body, yea, though all other testimonies concur very well” (Lilly, Christian Astrology p. 533). Saturn adds cold and dryness, Mars heat and dryness. Ficino turns to Jupiter against black bile and to Venus against bile and drying-out (De vita III.6); Jupiter defends from Saturn (III.22), and “the nature of Venus dissolves what is closed up by Mars, and repairs what he damages” (Picatrix III.7).'
     },
     es: {
       heading: 'temperamento',
@@ -310,7 +310,7 @@
       verdict: {
         pure: f => f[0], mixed: (f, s) => `${f[0]}, que declina a ${list(s)}`, near: (f, s) => s.length > 1 ? `${f[0]}, ${list(s)}, casi por igual` : `${f[0]} y ${s[0]}, casi por igual`,
         equal: f => `${f[0]} y ${f[1]} por igual`, balanced: f => f.length === 4 ? 'los cuatro humores por igual' : `${f[0]}, ${f[1]} y ${f[2]} por igual`,
-        intemperance: (g, p) => `, con ${g === 'strong' ? 'una' : 'alguna'} destemplanza ${p}`, saturn: 'saturnina', mars: 'marcial', both: 'saturnina y marcial',
+        excess: (g, ps) => { const one = g === 'strong'; return `, con ${ps.length > 1 ? (one ? 'la gravedad de Saturno y el ardor de Marte' : 'algo de la gravedad de Saturno y del ardor de Marte') : ps[0] === 'saturn' ? (one ? 'la gravedad de Saturno' : 'algo de la gravedad de Saturno') : (one ? 'el ardor de Marte' : 'algo del ardor de Marte')}`; },
         partial: v => `Parcial, sin el Ascendente: ${v}` },
       dayRuns: 'Sin la hora de nacimiento decide la Luna, y cambia el veredicto durante el día:',
       until: t => `hasta las ${t}`, after: t => `desde las ${t}`,
@@ -332,9 +332,9 @@
       },
       mixed: 'Ningún nativo es de un solo humor. El humor que predomina da el fondo de la complexión; otro la inclina cuando son vecinos, como el príncipe sanguíneo de Garcaeus declina a la sequedad colérica (Astrologiae methodus, 1576, p. 51), y la templa cuando son contrarios. La lectura del que predomina se mantiene, y las virtudes y los remedios del otro se toman con medida; los humores que están por igual se leen juntos. De un planeta casi tan fuerte como el Señor de la Genitura dice Lilly que «ha de formarse una suerte de mezcla» (Christian Astrology III, cap. CV); los humores se mezclan del mismo modo.', mixedIs: 'Cómo se mezclan los humores',
       melancholyMix: 'El mejor temple de los doctos, para Ficino, es la bilis negra mezclada con la sangre y con la bilis amarilla, ocho partes de sangre por dos de cada bilis, para que la bilis negra se encienda y «resplandezca, pero no arda» (De vita I.5). El peligro es la adustión: cualquier humor quemado por un calor excesivo se vuelve bilis negra, que trae el frenesí y después el estupor. Mezclada solo con la flema, la bilis negra trae entorpecimiento y miedo (I.5).',
-      intemperanceIs: 'Destemplanza', grade: { strong: 'fuerte', slight: 'leve' },
+      intemperanceIs: 'Gravedad de Saturno, ardor de Marte', excessOf: ps => ps.length > 1 ? 'Gravedad de Saturno, ardor de Marte' : ps[0] === 'saturn' ? 'Gravedad de Saturno' : 'Ardor de Marte', grade: { strong: 'fuerte', slight: 'leve' },
       contact: { body: (p, o) => `${p} en el Ascendente, a ${o} de su grado`, ascendant: (p, a, o, k) => k === 'conjunction' ? `${p} en conjunción con el grado ascendente, ${o}` : `${p} en ${a} al grado ascendente, ${o}`, moon: (p, a, o, k) => k === 'conjunction' ? `${p} en conjunción con la Luna, ${o}` : `${p} en ${a} a la Luna, ${o}` },
-      intemperanceNote: 'Saturno o Marte en el Ascendente (Garcaeus), o mirando al Ascendente o a la Luna con un aspecto maléfico: «mezclan sus cualidades destempladas en la complexión del cuerpo, aunque todos los demás testimonios concuerden muy bien» (Lilly, Christian Astrology p. 533). Saturno añade frío y sequedad; Marte, calor y sequedad. Ficino acude a Júpiter contra la bilis negra y a Venus contra la bilis y la desecación (De vita III.6); Júpiter defiende de Saturno (III.22), y «la naturaleza de Venus disuelve lo que Marte cierra y repara lo que él daña» (Picatrix III.7).'
+      intemperanceNote: 'Saturno o Marte sobre el Ascendente o sobre la Luna prestan a todo el temperamento su propia naturaleza, diga lo que diga la cuenta: lo que los antiguos médicos llamaban destemplanza (en latín intemperies). La gravedad de Saturno es hondura, seriedad, aguante y soledad, y en exceso peso, temor y tristeza; el ardor de Marte es valor, empuje y poder de obrar, y en exceso prisa, ira y fiebre.\n\nSaturno o Marte en el Ascendente (Garcaeus), o mirando al Ascendente o a la Luna con un aspecto maléfico: «mezclan sus cualidades destempladas en la complexión del cuerpo, aunque todos los demás testimonios concuerden muy bien» (Lilly, Christian Astrology p. 533). Saturno añade frío y sequedad; Marte, calor y sequedad. Ficino acude a Júpiter contra la bilis negra y a Venus contra la bilis y la desecación (De vita III.6); Júpiter defiende de Saturno (III.22), y «la naturaleza de Venus disuelve lo que Marte cierra y repara lo que él daña» (Picatrix III.7).'
     }
   };
   const lang = () => (I() && I().locale && (I().locale() || 'en').startsWith('es')) ? 'es' : 'en';
@@ -345,7 +345,7 @@
   function line(j, partial) {
     const t = T(), nm = x => t.temp[x], V = t.verdict;
     let s = V[j.kind](j.firsts.map(nm), j.seconds.map(nm));
-    if (j.intemperate) { const p = j.intemperate.planets; s += V.intemperance(j.intemperate.grade, p.length > 1 ? V.both : V[p[0]]); }
+    if (j.intemperate) s += V.excess(j.intemperate.grade, j.intemperate.planets);   // the old physicians' distemper, said as what it does
     return partial ? V.partial(s) : s;
   }
 

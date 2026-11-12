@@ -582,7 +582,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       L.push(`- ${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(' · ')}`);
       L.push(`- ${TT.columns(tempNum(tp.columns.hot), tempNum(tp.columns.cold), tempNum(tp.columns.moist), tempNum(tp.columns.dry), SD.temperament.TEMPS.includes(tp.columns.verdict) ? nm(tp.columns.verdict) : TT.q[tp.columns.verdict])}`);
       if (tp.lordOfGeniture) { const lg = tp.lordOfGeniture; L.push(`- ${TT.lord(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}`); }
-      for (const c of tp.intemperance) L.push(`- ${TT.intemperanceIs}: ${c.aspect === 'body' ? TT.contact.body(P(c.planet), c.orb.toFixed(1) + '°') : TT.contact[c.to](P(c.planet), A(c.aspect), c.orb.toFixed(1) + '°', c.aspect)} (${TT.grade[c.grade]})`);
+      for (const c of tp.intemperance) L.push(`- ${TT.excessOf([c.planet])}: ${c.aspect === 'body' ? TT.contact.body(P(c.planet), c.orb.toFixed(1) + '°') : TT.contact[c.to](P(c.planet), A(c.aspect), c.orb.toFixed(1) + '°', c.aspect)} (${TT.grade[c.grade]})`);
       if (tp.relocated) L.push(`- ${TT.relocated}`);
       L.push('');
     }
@@ -1134,7 +1134,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       tp.day ? `${TT.dayRuns} ${tp.day.map((x, n) => `${SD.temperament.line(x.judgement)} ${n + 1 < tp.day.length ? TT.until(hm(x.to)) : TT.after(hm(x.from))}`).join('; ')}.` : ''].filter(Boolean).map(x => `<p class="note">${x}</p>`).join('');
     const contact = c => c.aspect === 'body' ? TT.contact.body(P(c.planet), `${c.orb.toFixed(1)}°`) : TT.contact[c.to](P(c.planet), i.aspect(c.aspect), `${c.orb.toFixed(1)}°`, c.aspect);
     const lg = tp.lordOfGeniture;
-    const facts = kvTable([[TT.intemperanceIs, tp.intemperate ? `${tp.intemperance.map(contact).join('; ')} ${popBtn('intemperance', R('lillyRule'))}` : ''],
+    const facts = kvTable([[tp.intemperate ? TT.excessOf(tp.intemperate.planets) : TT.intemperanceIs, tp.intemperate ? `${tp.intemperance.map(contact).join('; ')} ${popBtn('intemperance', R('lillyRule'))}` : ''],
       [TT.lordIs, lg ? `${TT.lordVal(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}` : '']]);
     const rows = tp.rows.map(r => `<tr><td>${TT.row[r.step]}<span class="det">${tempDetail(st, r)}</span></td><td class="v">${nm(r.temperament)}</td><td class="n">${(r.w / 12).toFixed(2)}</td></tr>`).join('');
     const c = tp.columns, cv = SD.temperament.TEMPS.includes(c.verdict) ? nm(c.verdict) : TT.q[c.verdict];
