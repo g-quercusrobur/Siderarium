@@ -101,6 +101,10 @@
       st.natalView = true; st.nextChord = null; st.relocated = S.relocate ? place.name : null;
       st.chartName = S.natal.name || '';                   // the owner's name, after "birth chart" on the dial
       st.tikkun = SD.tikkun.of(st, { noTime: !!S.natal.unknownTime });   // the life mission, from the nodes
+      try {                                                 // the temperament, laid down at the birthplace whatever horizon is shown
+        const at = S.relocate ? SD.engine.compute(new Date(S.natal.date), S.natal.place, { houses: S.houses }) : st;
+        st.temperament = Object.assign(SD.temperament.of(at, { noTime: !!S.natal.unknownTime }), { relocated: !!S.relocate, tz: S.natal.place.tz || null });
+      } catch (e) { st.temperament = null; }
       natalCache.key = key; natalCache.state = st;
     }
     return natalCache.state;
@@ -479,7 +483,8 @@ Sections 1-8 each end with two italic lines:
 *Vibrazione bassa:* how the configuration misfires.
 *Vibrazione alta:* how to raise it; concrete and operational, not inspirational.
 Style: discursive prose, dense and exact. Explain each technical term once, briefly, for a first-time reader. State orbs. No confidence tags, no hedging, no "may suggest": commit to readings. Don't flatter the chart. End flat, no uplifting closer. Reply in the language the user writes in; with no other text, in the language of this report.
-11. TIKKUN, from the Tikkun data below (true node; the cards are a symbolic reading, not prediction): Karma (South Node) → Mission (North Node), with the Engine and any Threshold. For each card three lines: the letter (name and meaning), the card, how it applies to this chart. Then one paragraph on the movement from Karma to Mission. Then the signs on the road, one line each: repeated cards first, then the other placement cards, then the aspect cards (a path card that shares a planet's name has nothing to do with that planet). Then 3-4 sentences of synthesis, reading the road signs as help toward the Mission or friction against it. Then the Psalm 119 stanzas for the Mission and Engine letters as an optional practice.`;
+11. TIKKUN, from the Tikkun data below (true node; the cards are a symbolic reading, not prediction): Karma (South Node) → Mission (North Node), with the Engine and any Threshold. For each card three lines: the letter (name and meaning), the card, how it applies to this chart. Then one paragraph on the movement from Karma to Mission. Then the signs on the road, one line each: repeated cards first, then the other placement cards, then the aspect cards (a path card that shares a planet's name has nothing to do with that planet). Then 3-4 sentences of synthesis, reading the road signs as help toward the Mission or friction against it. Then the Psalm 119 stanzas for the Mission and Engine letters as an optional practice.
+12. TEMPERAMENT, from the Temperament data below (computed after Lilly's significators with Greenbaum's weights; the verdict is given, do not recount it): the complexion and its mixture, the testimonies that carry it, the Lord of the Geniture, any intemperance. Read it as Ficino (De vita), Agrippa (Occult Philosophy) and the Picatrix read the four humours, and end with Ficino's regimen for it: what to call on, colours, music, odours, places, stones.`;
   /* the mean lunar node (Meeus 47.7): the nodes are not among the bodies, and the spec reads them */
   const meanNode = date => SD.engine.trueNode(date);   // the true node, as the tikkun reads it: one node throughout the report
   function chartReportText() {
@@ -566,6 +571,19 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       L.push(`- ${T.aspects}: ${k.aspects.map(a => `${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} ${a.orb.toFixed(1)}° → ${SD.tikkun.cardOf(a)}${a.path ? ` (${Lt(a.letter)})` : ''}, ${T[a.quality]}${a.weak ? ', ' + T.weak : ''}`).join(' · ')}`);
       if (k.noTime) L.push(`- ${i.cap1(T.noTime)}`);
       L.push(`- ★ = ${i.t('ui.rep.reinforces')}`, '');
+    }
+    if (st.temperament) {                                   // the temperament, computed: the reader reads it, never recounts it
+      const tp = st.temperament, TT = SD.temperament.text(), nm = t => TT.temp[t], q = r => SD.temperament.QUAL[r.temperament].split('').map(x => TT.q[{ H: 'hot', C: 'cold', M: 'moist', D: 'dry' }[x]]).join(', ');
+      L.push(`## ${i.cap1(TT.heading)}`);
+      L.push(`- ${R('verdict')}: ${i.cap1(SD.temperament.line(tp, tp.partial))}`);
+      if (tp.day) { const hm = d => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(d); L.push(`- ${TT.dayRuns} ${tp.day.map(x => `${SD.temperament.line(x.judgement)} (${hm(x.from)}–${hm(x.to)})`).join('; ')}`); }
+      for (const r of tp.rows) L.push(`- ${TT.row[r.step]} · ${tempDetail(st, r)}: ${nm(r.temperament)} (${q(r)}) · ${tempNum(r.w)}`);
+      L.push(`- ${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(' · ')}`);
+      L.push(`- ${TT.columns(tempNum(tp.columns.hot), tempNum(tp.columns.cold), tempNum(tp.columns.moist), tempNum(tp.columns.dry), SD.temperament.TEMPS.includes(tp.columns.verdict) ? nm(tp.columns.verdict) : TT.q[tp.columns.verdict])}`);
+      if (tp.lordOfGeniture) { const lg = tp.lordOfGeniture; L.push(`- ${TT.lord(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}`); }
+      for (const c of tp.intemperance) L.push(`- ${TT.intemperanceIs}: ${c.aspect === 'body' ? TT.contact.body(P(c.planet), c.orb.toFixed(1) + '°') : TT.contact[c.to](P(c.planet), A(c.aspect), c.orb.toFixed(1) + '°', c.aspect)} (${TT.grade[c.grade]})`);
+      if (tp.relocated) L.push(`- ${TT.relocated}`);
+      L.push('');
     }
     L.push(`## ${R('layers')}`);
     const pr = st.configs.primary;
@@ -742,13 +760,34 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const el = st.elements ? `${R('element')} ${i.t('ui.el.' + st.elements.dominant)} ${Math.round(st.elements.shares[st.elements.dominant] * 100)}% · ${i.t('ui.el.' + st.elements.order[1])} ${Math.round(st.elements.shares[st.elements.order[1]] * 100)}%` : '';
     const guardians = `${R('guardians')} ${P(st.hour.dayRuler)}${st.hour.dayRuler === st.hour.hourRuler ? ' ' + R('alone') : ' ' + R('and') + ' ' + P(st.hour.hourRuler)}`;
     const lead = st.natalView ? '' : `<p class="verdict state-${st.title.state}"><span class="op">${i.t('cap.operations')}</span> ${i.state(st.title.state).replace(/^./, ch => ch.toLowerCase())} · ${i.house12(st.title.house)} · ${i.cap1(i.window(st.title.mode))} · ${i.t('cap.under')} ${i.name(st.hour.angel)}</p>`;
+    const tz = st.loc.tz || 'UTC';
+    const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
     const inter = st.interaction;
     const interSentence = f => f.name === 'setOff' ? `${P(f.t)} ${R('setsOff')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}` : `${P(f.t)} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}`;
     const figTone = f => f.tone === 'harmony' ? 'flow' : ['mars', 'saturn', 'pluto'].some(m => m === f.t || m === f.a || m === f.b) ? 'afflict' : 'tension';
-    const interRows = inter ? (inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${toned(figTone(f), i.cap1(R(f.tone)))}</td><td colspan="2">${interSentence(f)}</td></tr><tr class="sub"><td></td><td colspan="2">${toned(SD.engine.aspectTone(f.x.aspect, f.t, f.a, f.x.orb), `${P(f.t)} ${A(f.x.aspect)} ${P(f.a)}`)} ${f.x.orb.toFixed(1)}° · ${toned(SD.engine.aspectTone(f.y.aspect, f.t, f.b, f.y.orb), `${P(f.t)} ${A(f.y.aspect)} ${P(f.b)}`)} ${f.y.orb.toFixed(1)}° · ${f.power.toFixed(2)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`) : '';
+    // the transits in one table, ranked by weight; a contact that sets off or closes a figure in the chart carries it on the line
+    // beneath, under the stronger of its two contacts. The dial's own figure (the first) always finds its row
+    const trRows = (() => {
+      if (!st.transits) return '';
+      const shown = st.transits.slice(0, 8), tags = new Map(), same = (x, t, n, asp) => x.a === t && x.b === n && x.aspect === asp;
+      for (const [n, f] of (inter ? inter.figures.slice(0, 6) : []).entries()) {
+        const both = [st.transits.find(x => same(x, f.t, f.a, f.x.aspect)), st.transits.find(x => same(x, f.t, f.b, f.y.aspect))].filter(Boolean).sort((p, q) => q.power - p.power);
+        const c = both.find(x => shown.includes(x)) || (n === 0 ? both[0] : null);
+        if (!c) continue;
+        if (!shown.includes(c)) shown.push(c);
+        tags.set(c, (tags.get(c) || []).concat(f));
+      }
+      shown.sort((p, q) => q.power - p.power);
+      // the leading transits' timing: when exact (or when it was), and until when in orb (SD.engine.transitSpan, searched once a day)
+      const spans = (st.transitInfo && st.transitInfo.spans) || {}, tz = st.loc.tz || 'UTC';
+      const day = d => new Intl.DateTimeFormat(i.locale(), { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz }).format(d);
+      const timing = a => { const sp = spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return '';
+        const ex = sp.exact ? `${i.t(sp.exact.getTime() < st.date.getTime() - 3600e3 ? 'cap.wasExact' : 'cap.exact')} ${day(sp.exact)} ${hm(sp.exact)}` : '';
+        return [ex, sp.leave ? `${i.t('cap.untilOrb')} ${day(sp.leave)}` : ''].filter(Boolean).join(' · '); };
+      return shown.map(a => { const tm = timing(a);
+        return `<tr><td>${fig(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>${tm ? `<tr class="sub"><td colspan="3">${i.cap1(tm)}</td></tr>` : ''}${(tags.get(a) || []).map(f => `<tr class="sub"><td colspan="3">${toned(figTone(f), i.cap1(R(f.tone)))} · ${interSentence(f)} · ${f.power.toFixed(2)}</td></tr>`).join('')}`; }).join('');
+    })();
     const verdict = inter ? `<p class="verdict state-${inter.grade}">${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
-    const tz = st.loc.tz || 'UTC';
-    const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
     const dec = b => `${i.decanOrd(b.decan.decan)} ${i.t('cap.decanOf')} ${i.sign(b.sign)} · ${P(b.decan.ruler)}`;
     const tarot = `<table>
       <tr><td>${i.cap1(R('sun'))}</td><td>${i.cap1(dec(st.bodies.sun))}</td><td>${i.card(st.bodies.sun.decan)} · ${i.title(st.bodies.sun.decan)}</td></tr>
@@ -759,26 +798,52 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const hours = st.hour.table ? st.hour.table.map(h => `<span${h.index === st.hour.index ? ' class="now"' : ''}>${h.index + 1} ${P(h.ruler)} ${hm(h.start)}</span>`).join(' · ') : i.cap1(i.t('ui.polar'));
     const ev = st.events.map(e => i.event(e.type) + (e.planet ? ' ' + P(e.planet) : '') + (e.kind ? ' ' + evName(e.kind) : '') + (e.direction ? ' ' + i.event(e.direction) : '')).join(' · ') || '—';
     if (st.pair && st.natal) { $('readout').innerHTML = pairReadout(st); linkTerms($('readout')); return; }
-    $('readout').innerHTML = `
-      ${lead}
-      ${st.tikkun ? tikkunHead(st) : ''}
-      <h3>${H('bodies')}</h3><table>${rows}${angleRows}${algolRows}</table>
-      <h3>${H('aspects')}</h3>${aspRows ? `${aspKey}<table>${aspRows}</table>` : `<p>${i.cap1(i.t('ui.quietSky'))}</p>`}
-      <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${toned(SD.engine.aspectTone('conjunction', x.planet, x.angle), `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)}`)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>
-      <h3>${H('sound')}</h3><p>${i.chordLong(st.chord)}${st.chord.interval ? ' · ' + i.interval(st.chord.interval) : ''}${st.chord.notes.length ? ` · ${R('notes')} ` + st.chord.notes.map(n => i.note(n)).join(' ') : ''}${st.chord.planets ? ` · ${R('from')} ` + st.chord.planets.map(P).join(', ') : ''}${st.chord.moonNote ? ` · ${R('moonNote')} ${i.note(st.chord.moonNote)}` : ''}${st.chord.ground && st.chord.ground.length ? ` · ${R('ground')} ` + st.chord.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(' ') : ''}${st.nextChord ? ` · ${R('next')} ${i.chordName(st.nextChord.to)} ${R('at')} ${hm(st.nextChord.at)}` : ''}</p>
-      <h3>${H('tarot')}</h3>${tarot}
-      ${st.stone ? `<h3>${H('stone')}</h3><p>${i.cap1(i.stone(st.stone.stone))}${st.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(st.stone.alternative)}` : ''} · ${i.t('cap.stonesOf')(st.stone.planet, P(st.stone.planet))} · ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${i.t('cap.natalOf')} ${C.PLANETS[st.stone.why.b] ? P(st.stone.why.b) : st.stone.why.b === 'ascendant' ? 'ASC' : 'MC'}` : ''}</p><p class="dim">${i.cap1(R('stoneNote'))}</p>` : ''}
-      ${st.transits ? `<h3>${H('transits')}</h3>${verdict}<table>${interRows}</table><table>${st.transits.slice(0, 8).map(a => `<tr><td>${fig(a)}</td><td>${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td>${a.power.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`}</table>` : ''}
-      <h3>${H('moon')}</h3>${st.moon.verdict === 'void' ? `<p class="dim">${i.cap1(R('voidNote'))}</p>` : ''}<p>${i.cap1(i.verdict(st.moon.verdict))} · ${st.moon.next ? `${R('nextMoon')} ${toned(SD.engine.aspectTone(st.moon.next.aspect, 'moon', st.moon.next.planet), `${A(st.moon.next.aspect)} ${P(st.moon.next.planet)}`)} ${R('in')} ${(st.moon.next.days * 24).toFixed(1)}h` : i.flag('void of course')}${st.moon.flags.filter(f => f !== 'void of course').map(f => ' · ' + i.flag(f === 'under the beams' ? 'beams' : f)).join('')}</p>
-      <p>${i.cap1(guardians)}</p>
-      <p>${i.cap1(i.t('ui.veil'))} ${st.veil.v.toFixed(2)}${st.veil.factors.length ? ' · ' + st.veil.factors.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}</p>
-      <p>${i.ordinal(st.bodies.moon.mansion.index)} ${R('mansion')} · ${i.name(st.bodies.moon.mansion.name)} (Agrippa II.33)</p>
-      <h3>${H('hours')}</h3><p class="hours">${hours}</p>
-      <h3>${H('events')}</h3><p>${i.cap1(ev)}</p>
-      ${st.wheel ? `<p>${i.cap1(R('wheel'))}: ${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')} · ` : ''}${R('wheelNext')} ${i.t('ui.wheel.' + st.wheel.next)} · ${new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(st.wheel.nextDate)} · ${R('inDays')(st.wheel.days)}</p>` : ''}
-      ${st.tikkun ? tikkunCards(st) : ''}
-      ${!st.natalView && !st.transits ? `<section id="talismans">${talismansHtml()}</section>` : ''}
-      <p class="dim nolink">${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart')(st.natalView))} · ${i.cap1(R('ascendant'))} ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · ${R('midheaven')} ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))}<br>${i.cap1(R('dayOfIs')(st.hour.dayRuler, P(st.hour.dayRuler), i.name(st.hour.dayAngel), st.natalView))} · ${R('hourIs')(i.ordinal(st.hour.index + 1), st.hour.hourRuler, P(st.hour.hourRuler), i.name(st.hour.angel))}</p>`;
+    /* the views, each its own reading (DESIGN.md, "The readout, redesigned"):
+       the clock and the chart: the moment, its sky, its sound, its Moon and hours, the talismans;
+       the birth chart: the birth moment and its chord, the bodies, the aspects, the temperament, the rest of the tradition,
+       then the tarot and the Kabbalistic reading; the transits: only the transits to the chart, and the stone of the day */
+    const noteBtn = (k, label) => popBtn(k, label);
+    const chord = `${i.chordLong(st.chord)}${st.chord.interval ? ' · ' + i.interval(st.chord.interval) : ''}${st.chord.notes.length ? ` · ${R('notes')} ` + st.chord.notes.map(n => i.note(n)).join(' ') : ''}${st.chord.planets ? ` · ${R('from')} ` + st.chord.planets.map(P).join(', ') : ''}${st.chord.moonNote ? ` · ${R('moonNote')} ${i.note(st.chord.moonNote)}` : ''}${st.chord.ground && st.chord.ground.length ? ` · ${R('ground')} ` + st.chord.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(' ') : ''}`;
+    const angles = `${i.cap1(R('ascendant'))} ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · ${R('midheaven')} ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))}`;
+    const dayHour = `${i.cap1(R('dayOfIs')(st.hour.dayRuler, P(st.hour.dayRuler), i.name(st.hour.dayAngel), st.natalView))}${noTime ? '' : ` · ${R('hourIs')(i.ordinal(st.hour.index + 1), st.hour.hourRuler, P(st.hour.hourRuler), i.name(st.hour.angel))}`}`;
+    const moonLine = `${st.moon.verdict === 'void' ? noteBtn('void', i.cap1(i.verdict(st.moon.verdict))) : i.cap1(i.verdict(st.moon.verdict))} · ${st.moon.next ? `${R('nextMoon')} ${toned(SD.engine.aspectTone(st.moon.next.aspect, 'moon', st.moon.next.planet), `${A(st.moon.next.aspect)} ${P(st.moon.next.planet)}`)} ${R('in')} ${(st.moon.next.days * 24).toFixed(1)}h` : i.flag('void of course')}${st.moon.flags.filter(f => f !== 'void of course').map(f => ' · ' + i.flag(f === 'under the beams' ? 'beams' : f)).join('')}`;
+    const mansion = `${i.ordinal(st.bodies.moon.mansion.index)} ${R('mansion')} · ${i.name(st.bodies.moon.mansion.name)} (Agrippa II.33)`;
+    const stoneTxt = st.stone ? `${i.cap1(i.stone(st.stone.stone))}${st.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(st.stone.alternative)}` : ''} · ${i.t('cap.stonesOf')(st.stone.planet, P(st.stone.planet))} · ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${i.t('cap.natalOf')} ${C.PLANETS[st.stone.why.b] ? P(st.stone.why.b) : st.stone.why.b === 'ascendant' ? 'ASC' : 'MC'}` : ''}` : '';
+    const birthWhen = () => {
+      const n = S.natal, tz = n.place.tz || 'UTC', d = new Date(n.date);
+      const day = new Intl.DateTimeFormat(i.locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: tz }).format(d);
+      const time = n.unknownTime ? i.t('ui.rep.noon') : new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
+      return `${i.cap1(day)} · ${time} · ${esc(n.place.label || i.placeName(n.place.name))}`;
+    };
+    const blocks = {
+      lead: () => lead,
+      birth: () => `<h3>${H('birth')}</h3><p class="verdict">${birthWhen()}</p>
+        <p>${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart')(true))}${noTime ? '' : ' · ' + angles}</p><p>${dayHour}</p>
+        <p>${i.cap1(i.t('ui.rep.chord'))}: ${chord}</p>${el ? `<p>${i.cap1(el)}</p>` : ''}`,
+      bodies: () => `<h3>${H('bodies')}</h3><table>${rows}${angleRows}${algolRows}</table>`,
+      aspects: () => `<h3>${H('aspects')}</h3>${aspRows ? `${aspKey}<table>${aspRows}</table>` : `<p>${i.cap1(i.t('ui.quietSky'))}</p>`}
+        <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${toned(SD.engine.aspectTone('conjunction', x.planet, x.angle), `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)}`)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>`,
+      temperament: () => st.temperament ? temperamentHtml(st) : '',
+      sound: () => `<h3>${H('sound')}</h3><p>${chord}${st.nextChord ? ` · ${R('next')} ${i.chordName(st.nextChord.to)} ${R('at')} ${hm(st.nextChord.at)}` : ''}</p>`,
+      tarot: () => `<h3>${H('tarot')}</h3>${tarot}`,
+      howto: () => `<p class="howto">${R('roseTransitsLine')} ${noteBtn('roseTransits', R('howToRead'))}</p>`,
+      transits: () => `<h3>${H('transits')}</h3>${verdict}<table>${trRows || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`}</table>${inter && !inter.figures.length && trRows ? `<p class="dim">${i.cap1(R('noFigure'))}</p>` : ''}`,
+      stone: () => st.stone ? `<h3>${H('stone')}</h3><p>${stoneTxt}</p><p class="more">${noteBtn('stone', R('howChosen'))}</p>` : '',
+      moon: () => `<h3>${H(st.natalView ? 'moonBirth' : 'moon')}</h3><p>${moonLine}</p>${st.natalView ? '' : `<p>${i.cap1(guardians)}</p><p>${i.cap1(i.t('ui.veil'))} ${st.veil.v.toFixed(2)}${st.veil.factors.length ? ' · ' + st.veil.factors.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}</p>`}<p>${mansion}</p>`,
+      hours: () => `<h3>${H('hours')}</h3><p class="hours">${hours}</p>`,
+      events: () => `<h3>${H(st.natalView ? 'eventsBirth' : 'events')}</h3><p>${i.cap1(ev)}</p>${!st.natalView && st.wheel ? `<p>${i.cap1(R('wheel'))}: ${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')} · ` : ''}${R('wheelNext')} ${i.t('ui.wheel.' + st.wheel.next)} · ${new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(st.wheel.nextDate)} · ${R('inDays')(st.wheel.days)}</p>` : ''}`,
+      kabbalah: () => st.tikkun ? `${tikkunHead(st)}${tikkunCards(st)}` : '',
+      talismans: () => `<section id="talismans">${talismansHtml()}</section>`,
+      footer: () => `<p class="dim nolink">${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart')(false))} · ${angles}<br>${dayHour}</p>`,
+    };
+    const view = st.transits ? 'transits' : st.natalView ? 'natal' : 'clock';
+    const ORDER = {
+      clock: ['lead', 'bodies', 'aspects', 'sound', 'tarot', 'moon', 'hours', 'events', 'talismans', 'footer'],
+      natal: ['birth', 'bodies', 'aspects', 'temperament', 'moon', 'events', 'tarot', 'kabbalah'],
+      transits: ['howto', 'transits', 'stone'],
+    };
+    $('readout').innerHTML = ORDER[view].map(k => blocks[k]()).join('\n');
+    $('readout').dataset.view = view;
     linkTerms($('readout'));
     if (!st.natalView && !st.transits) talismansKick();
   }
@@ -822,14 +887,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       ${relSel}
       ${roseHtml(st)}
       <h3>${H('ties')}</h3>${tiesHtml(st)}
-      <p class="dim">${i.cap1(R(Y && !Y.age.sexual ? 'tiesNoteFamily' : 'tiesNote'))}</p>
+      <p class="more">${popBtn('ties', R('howRead'))}</p>
       ${act ? `<h3>${H('active')}</h3>${act}` : ''}
       ${ovl ? `<h3>${H('overlays')}</h3><table class="nolink">${ovl}</table>` : ''}
       <h3>${H('composite')}</h3>${compositeHtml(st)}
-      <p class="dim">${i.cap1(R('compositeNote'))}</p>
+      <p class="more">${popBtn('composite', R('howRead'))}</p>
       <h3>${H('contacts')}</h3><table>${contacts}</table>
       <h3>${H('between')}</h3><table>${figures}</table>
-      <p class="dim">${i.cap1(R('pairNote'))}</p>`;
+      <p class="more">${popBtn('pair', R('howRead'))}</p>`;
   }
   /* the rose in words: its leading symmetries and their share of the weight */
   function roseLine(st) {
@@ -839,7 +904,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
   function roseHtml(st) {
     const i = SD.i18n, line = roseLine(st); if (!line) return '';
-    return `<h3>${i.cap1(i.t('ui.h.rose'))}</h3><p>${i.cap1(line)}.</p><p class="dim">${i.cap1(i.t('ui.r.roseNote'))}</p>`;
+    return `<h3>${i.cap1(i.t('ui.h.rose'))}</h3><p>${i.cap1(line)}.</p><p class="more">${popBtn('rose', i.t('ui.r.howToRead'))}</p>`;
   }
   /* a contact between the two charts in words, whichever way it runs */
   function contactWords(x, pr) {
@@ -937,6 +1002,55 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const realm = k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : '';
     return `<h3>${T.label}</h3><p class="verdict">${i.cap1(T.short[k.north.sign])} · ${M(k.north.card)}</p><p>${T.long[k.north.sign]}${realm}</p>`;
   }
+  /* the long notes live in pop-ups: a short trigger in the reading, the text on tap (DESIGN.md, "The readout, redesigned") */
+  function noteText(k) {
+    const i = SD.i18n, R = x => i.t('ui.r.' + x), TT = () => SD.temperament.text(), Y = S.state && S.state.syn;
+    const N = { roseTransits: () => R('roseTransitsNote'), rose: () => R('roseNote'), stone: () => R('stoneNote'), void: () => R('voidNote'),
+      ties: () => R(Y && !Y.age.sexual ? 'tiesNoteFamily' : 'tiesNote'), composite: () => R('compositeNote'), pair: () => R('pairNote'),
+      temperament: () => TT().intro, intemperance: () => TT().intemperanceNote, symbolic: () => SD.tikkun.text().symbolic };
+    return N[k] ? N[k]() : null;
+  }
+  const popBtn = (k, label) => `<button type="button" class="deflink note nolink" data-def="note:${k}" aria-expanded="false">${label}</button>`;
+  /* the temperament (SD.temperament): what each testimony is, in words */
+  function tempDetail(st, r) {
+    const i = SD.i18n, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), B = st.bodies;
+    const phase = k => k === 'mercury' ? `, ${SD.engine.norm360(B.mercury.lon - B.sun.lon) > 180 ? TT.oriental : TT.occidental}` : '';   // Mercury's heat goes by his phase
+    const placed = k => k === 'sun' ? `${P('sun')}, ${TT.season[Math.floor(B.sun.lon / 90)]}` : k === 'moon' ? `${P('moon')}, ${TT.quarter[Math.floor(st.moon.phaseAngle / 90)]}` : `${P(k)} ${TT.in} ${i.sign(B[k].sign)}`;
+    switch (r.step) {
+      case 'S1': return TT.season[r.season];
+      case 'S2': case 'S5': return i.sign(r.sign);
+      case 'S3': return P(r.planet) + phase(r.planet);
+      case 'S4': return P(r.planet) + phase(r.planet) + (r.shared > 1 ? ` (${TT.shared(r.shared)})` : '');
+      case 'S6': return TT.quarter[r.quarter];
+      case 'S7': case 'S8': case 'S12': return placed(r.planet);
+      case 'S9': return r.again ? TT.again[r.again] : r.planet === 'northNode' ? TT.north : r.planet === 'southNode' ? TT.south : P(r.planet) + phase(r.planet);
+      default: return `${r.aspect === 'conjunction' ? P(r.planet) + phase(r.planet) : placed(r.planet)} · ${i.aspect(r.aspect)} ${r.orb.toFixed(1)}°`;
+    }
+  }
+  const tempNum = x => String(+(x / 12).toFixed(2));                 // the tallies are kept in twelfths
+  /* the reading of the native's temperament: the verdict; the leading humour read after Ficino, Agrippa and the Picatrix, with
+     Ficino's regimen; the mixture; the intemperance; then the testimonies, the tally, Lilly's columns and the Lord of the Geniture */
+  function temperamentHtml(st) {
+    const i = SD.i18n, tp = st.temperament, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), nm = t => TT.temp[t];
+    const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(d);
+    const many = tp.firsts.length > 1, mixedIn = tp.firsts.concat(tp.seconds);
+    const regimen = t => `<table class="regimen"><tr class="head nolink"><td colspan="2">${TT.regimen}${many ? ' · ' + nm(t) : ''}</td></tr>${['call', 'colours', 'music', 'odours', 'places', 'stones'].map(k => `<tr><td class="nolink">${TT.reg[k]}</td><td>${TT.regimens[t][k]}</td></tr>`).join('')}</table>`;
+    const runs = tp.day ? `<p class="dim">${TT.dayRuns} ${tp.day.map((x, n) => `${SD.temperament.line(x.judgement)} ${n + 1 < tp.day.length ? TT.until(hm(x.to)) : TT.after(hm(x.from))}`).join('; ')}.</p>` : '';
+    const contact = c => c.aspect === 'body' ? TT.contact.body(P(c.planet), `${c.orb.toFixed(1)}°`) : TT.contact[c.to](P(c.planet), i.aspect(c.aspect), `${c.orb.toFixed(1)}°`, c.aspect);
+    const rows = tp.rows.map(r => `<tr><td>${TT.row[r.step]}<span class="dim nolink"> · ${tempDetail(st, r)}</span></td><td class="nolink">${nm(r.temperament)}</td><td class="nw nolink">${tempNum(r.w)}</td></tr>`).join('');
+    const c = tp.columns, cv = SD.temperament.TEMPS.includes(c.verdict) ? nm(c.verdict) : TT.q[c.verdict];
+    const lg = tp.lordOfGeniture;
+    return `<h3>${i.cap1(i.t('ui.h.temperament'))}</h3>
+      <p class="verdict">${i.cap1(SD.temperament.line(tp, tp.partial))}</p>${runs}
+      ${tp.firsts.map(t => `<p>${TT.reading[t]}</p>${regimen(t)}`).join('')}
+      ${mixedIn.length > 1 ? `<p>${TT.mixed}</p>${mixedIn.includes('melancholic') ? `<p>${TT.melancholyMix}</p>` : ''}` : ''}
+      ${tp.intemperate ? `<p>${popBtn('intemperance', TT.intemperanceIs)}: ${tp.intemperance.map(contact).join('; ')}.</p>` : ''}
+      <h4>${TT.testimonies}</h4><table class="temper">${rows}</table>
+      <p class="nolink">${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(' · ')}</p>
+      <p class="dim nolink">${TT.columns(tempNum(c.hot), tempNum(c.cold), tempNum(c.moist), tempNum(c.dry), cv)}.${tp.columnsThird ? ' ' + TT.columnsThird(nm(tp.columnsThird)) : ''}</p>
+      ${lg ? `<p>${TT.lord(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}.</p>` : ''}
+      <p class="more">${popBtn('temperament', i.t('ui.r.aboutMethod'))}${tp.relocated ? ` <span class="dim">${TT.relocated}</span>` : ''}</p>`;
+  }
   /* the cards, after the whole chart: three tables with the same columns, the letter on a muted second line,
      recurring cards said in words, the tikkun's own cards marked */
   function tikkunCards(st) {
@@ -969,7 +1083,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       ${recur.length ? `<p class="recur nolink">${recur.join('<br>')}</p>` : ''}
       <h4>${T.aspects}</h4><table class="cards">${t3}</table>
       <p class="dim nolink"><span class="tkmark"></span> ${T.tikkunMark}.</p>
-      <p class="dim nolink">${T.symbolic}${k.noTime ? ' ' + i.cap1(T.noTime) + '.' : ''}</p>`;
+      <p class="more">${popBtn('symbolic', i.t('ui.r.howRead'))}${k.noTime ? ` <span class="dim">${i.cap1(T.noTime)}.</span>` : ''}</p>`;
   }
 
   /* the update button: ask the server for a newer service worker, let it install (it takes over at once), then reload.
@@ -1371,8 +1485,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const closeDef = () => { if (!defOpen) return; defOpen.box.remove(); defOpen.btn.setAttribute('aria-expanded', 'false'); defOpen = null; };
     const openDef = btn => {
       const same = defOpen && defOpen.btn === btn; closeDef(); if (same) return;
-      const txt = (SD.tikkun.text().defs || {})[btn.dataset.def]; if (!txt) return;
-      const box = document.createElement('div'); box.className = 'popdef'; box.id = 'popdef'; box.setAttribute('role', 'note'); box.textContent = txt;
+      const key = btn.dataset.def, txt = key.startsWith('note:') ? noteText(key.slice(5)) : (SD.tikkun.text().defs || {})[key]; if (!txt) return;
+      const box = document.createElement('div'); box.className = 'popdef'; box.id = 'popdef'; box.setAttribute('role', 'note');
+      for (const para of String(txt).split(/\n\n+/)) { const p = document.createElement('p'); p.textContent = SD.i18n.cap1(para); box.appendChild(p); }
       document.body.appendChild(box);
       const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight, w = box.offsetWidth, h = box.offsetHeight;
       const left = Math.max(16, Math.min(vw - 16 - w, r.left)), below = r.bottom + 8 + h <= vh - 8 || r.top - 8 - h < 8;
@@ -1704,6 +1819,6 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (!store.works()) { const w = document.createElement('p'); w.className = 'meta storage-warn'; w.textContent = SD.i18n.cap1(SD.i18n.t('ui.noStorage')); const ns = $('natal-summary'); if (ns) ns.after(w); }
     if ('serviceWorker' in navigator && /^https?:/.test(location.protocol) && !/claude\.ai$/.test(location.hostname)) navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
-  SD.app = { start, exportPNG, exportWallpaper, setLang, S, viewState, view, voicing, audio };
+  SD.app = { start, exportPNG, exportWallpaper, setLang, S, viewState, view, voicing, audio, reportText };
   start();
 })(window.SD = window.SD || {});

@@ -845,13 +845,31 @@
   const ROSE_H = '#7fa4e0', ROSE_S = '#ff5a2a';
   const rosePetal = (n, th, a) => Math.pow((1 + Math.cos(n * (a - th))) / 2, 1.5 + n * 0.75);   // a raised cosine, sharper as the harmonic rises
   const roseCache = new WeakMap();
+  /* the rose of the transits: the same flower from the sky of now to the birth chart. every transit is a petal curve of its
+     aspect's harmonic turned to the transiting planet, so its petals also reach the natal point it touches, sized by its
+     weight; the ten heaviest, the Moon's passing contacts left out. trines and sextiles feed the cool layer, squares and
+     oppositions the warm; a conjunction by its planets: with a malefic warm, with a benefic cool, otherwise half to each. [SD] */
+  const MALEFIC = new Set(['mars', 'saturn', 'pluto']), BENEFIC = new Set(['venus', 'jupiter']);
+  function transitPetals(state, sCol) {
+    return state.transits.filter(x => x.a !== 'moon' && ROSE_N[x.aspect] && state.bodies[x.a] && Number.isFinite(x.nlon)).slice(0, 10).map(x => {   // the Moon's passing contacts and the faint tail left out: the flower of the period
+      const la = state.bodies[x.a].lon, w = x.power;
+      let h = 0, s = 0;
+      if (x.aspect === 'trine' || x.aspect === 'sextile') h = w;
+      else if (x.aspect !== 'conjunction') s = w;
+      else if (MALEFIC.has(x.a) || MALEFIC.has(x.b)) s = w;
+      else if (BENEFIC.has(x.a) || BENEFIC.has(x.b)) h = w;
+      else { h = w / 2; s = w / 2; }
+      return { n: ROSE_N[x.aspect], th: la * Math.PI / 180, w, h, s, col: K.mixLight(sCol(la), sCol(x.nlon), 0.5, 0) };
+    });
+  }
+  const roseKey = state => state.pair ? state.syn : state.transits && state.natal ? state.transits : null;
   function roseOf(state) {
-    const syn = state.syn; if (!syn) return null;
+    const syn = roseKey(state); if (!syn) return null;
     if (roseCache.has(syn)) return roseCache.get(syn);
     const B = state.natal, node = k => k === 'node' ? E_.trueNode : null;
     const lonOf = (st, k) => k === 'ascendant' ? st.asc : k === 'midheaven' ? st.mc : node(k) ? node(k)(st.date) : st.bodies[k] && st.bodies[k].lon;
     const sCol = lon => Number.isFinite(lon) ? C.SIGNS[Math.floor(E_.norm360(lon) / 30)].color : INK;
-    const cs = syn.contacts.filter(c => ROSE_N[c.aspect] && Number.isFinite(lonOf(state, c.a))).map(c => {
+    const cs = !state.pair ? transitPetals(state, sCol) : state.syn.contacts.filter(c => ROSE_N[c.aspect] && Number.isFinite(lonOf(state, c.a))).map(c => {
       const la = lonOf(state, c.a), lb = B ? lonOf(B, c.b) : la;
       return { n: ROSE_N[c.aspect], th: la * Math.PI / 180, w: c.w, h: c.h, s: c.s, col: K.mixLight(sCol(la), sCol(lb), 0.5, 0) };
     });
@@ -1854,7 +1872,7 @@
     const clusters = conjunctionClusters(state);
     const pos = placeBodies(state, Lt, clusters);
     // spokes from the planets feeding the primary figure to the pole — mercury owns rays
-    const ROSE = !!(state.pair && state.syn);            // a pair: the harmonic rose, and no planets
+    const ROSE = !!(state.pair ? state.syn : state.transits && state.natal);   // a pair, or the transits to a chart: the harmonic rose, and no planets
     const npos = ROSE ? {} : drawNatal(ctx, state, Lt, lw);
     if (cf.primary && !ROSE) {
       withBlur(ctx, 5 * Lt.u * B.mercury.slow, () => {
@@ -1873,7 +1891,7 @@
     else if (state.pair && state.composite) { const g = drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t); if (g) geos.push(g); }
     else if (state.pair && state.ownFigures) drawPairFigure(ctx, state, Lt, Rp, lw, E);
     else cf.secondary.slice().reverse().forEach(c => geos.push(drawFigure(ctx, state, Lt, c, Rp, 'secondary', lw * 0.7, E, t)));
-    if (cf.primary && !(state.pair && (ROSE || state.composite || state.ownFigures))) {
+    if (cf.primary && !ROSE && !(state.pair && (state.composite || state.ownFigures))) {
       // the cut: a wedge removed toward the planet that afflicts the figure
       let wedge = null;
       if (cf.cut) {

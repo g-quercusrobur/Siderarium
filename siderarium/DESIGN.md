@@ -702,3 +702,49 @@ Slow planets step over the days or months without dignity. The full search takes
 **Not computed:** the fitness of the Moon's mansion to the work (the mansion is shown), the dark and pitted degrees, the Part of Fortune, the lord of the preceding lunation, and the maker's nativity.
 
 **Verification.** Three independent checks ran on the module: a recomputation of the listed elections from the astronomy library alone, an audit of every rule against the primary texts, and a line-by-line code review. Their findings shaped the rules above: Lilly's orbs, the sect, the Moon's own-planet exemption removed, the lord of the Ascendant, the Picatrix's gates, the polar Ascendant, the first day west of Greenwich.
+
+## The temperament of the native (birth chart)
+
+The Renaissance temperament, or complexion: the native's mixture of the four qualities (hot, cold, moist, dry) and of the four humours they make, laid down at birth. Computed from the significators Ptolemy names (Tetrabiblos III.11) and Lilly lists (Christian Astrology III, ch. CVI, after Garcaeus, Astrologiae methodus, 1576), weighed as in Greenbaum's reconstruction (Temperament, 2005), judged by the rows (Ribeiro, The Tradition 1-2, 2008-9), read after Ficino (De vita), Agrippa (Occult Philosophy) and the Picatrix. Code: `js/temperament.js` (`SD.temperament.of`). [SD] marks the instrument's choice where the sources part.
+
+**Qualities.** A pair: heat (hot H or cold C), then moisture (moist M or dry D). HM sanguine, HD choleric, CD melancholic, CM phlegmatic (Lilly p. 532).
+- *Sign*: by triplicity: fire HD, earth CD, air HM, water CM.
+- *Quarter of the year*: the Sun's quadrant of the zodiac, the same in both hemispheres: Aries to Gemini HM, Cancer to Virgo HD, Libra to Sagittarius CD, Capricorn to Pisces CM.
+- *The Moon's quarter*: elongation 0-90° HM, 90-180° HD, 180-270° CD, 270-360° CM (Lilly p. 533; Garcaeus p. 49; Agrippa II.32).
+- *By nature*: Saturn CD, Jupiter HM, Mars HD, the Sun HD (Lilly I: "naturally Hot, Dry"), the Moon CM, Venus HM (Ptolemy I.4: she "warms moderately ... but chiefly humidifies"; Ribeiro; Lilly's own merchant counts her hot and moist), Mercury HD when oriental and CD when occidental [SD] (his heat by phase after Ptolemy III.11, his dryness after Lilly I).
+- *By place*: the triplicity of the planet's sign; the Sun by the quarter of the year and the Moon by her quarter (Lilly's table p. 533: "The Sunne is considered according to the Quarter of the Yeare"; Ribeiro: "season if Sun; phase if Moon").
+
+**The testimonies** (weights in twelfths in the code, so every comparison is exact):
+| | testimony | quality | weight |
+|---|---|---|---|
+| S1 | quarter of the year | season | 2 |
+| S2 | sign ascending | sign | 2 |
+| S3 | lord of the Ascendant (domicile, the seven only) | nature | 1 |
+| S4 | almuten of the ascending degree (domicile 5, exaltation 4, triplicity 3 by sect, term 2, face 1) | nature | 1, shared when planets tie |
+| S5 | the Moon's sign | sign | 2 |
+| S6 | the Moon's quarter | phase | 1 |
+| S7 | lord of the Moon | place | 1 |
+| S8 | lord of the Ascendant | place | 1 |
+| S9 | each planet in the first house (Lilly's five degrees before a cusp); the North Node HM, the South Node CD; the Moon there "twice exhibited": her sign and her quarter once more | nature | 1 each |
+| S10 | each planet outside the first house beholding the ascending degree by a Ptolemaic aspect within 3° | place; a conjunction by nature | ½ |
+| S11 | each planet beholding the Moon within the mediety of their orbs (Lilly's moieties, CA I p. 107: Sun 17, Moon 12½, Mercury 7, Venus 8, Mars 7½, Jupiter 12, Saturn 10) | place; a conjunction by nature | ½ |
+| S12 | the Lord of the Geniture | place | 1 |
+
+S1, S2, S3, S4, S5, S6 and S7 are Greenbaum's seven factors with her weights; S8 to S12 restore the significators Lilly lists and she drops. S10's limit [SD]: Lilly says "partilly aspecting the ascendant"; his own merchant counts aspects at 2°25′ and 2°43′. S12 by place: Lilly's merchant counts the Lady of the Geniture, Venus in Libra, "hot moist". A planet that is lord of the Ascendant, Lord of the Geniture and in the Ascendant counts once in each role, three in all (Garcaeus p. 49: "ter est adhibendus"; Lilly p. 534: "a three-fold vertue").
+
+**The Lord of the Geniture** (Lilly CA III ch. CV: "most essentiall and accidentall dignities in the Figure, and is posited best, and elevated most"). For each of the seven, the sum of Lilly's fortitudes and debilities (CA I p. 115): essential dignity (the engine's score, mutual reception counted as Lilly scores it, 5 by house and 4 by exaltation); house (I and X +5; IV, VII, XI +4; II, V +3; IX +2; III +1; VI, VIII −2; XII −5; Lilly's five degrees); direct +4 or retrograde −5 (not the lights); swift +2 or slow −2 against Lilly's mean motions; Saturn, Jupiter, Mars oriental +2, occidental −2; Venus and Mercury occidental +2, oriental −2; the Moon increasing +2, decreasing −2; cazimi +5, combust −5, under the beams −4, free +5 (not the Sun); partile (1°) conjunction, trine, sextile of Jupiter or Venus +5, +4, +3; partile conjunction, opposition, square of Saturn or Mars −5, −4, −3; within 1° of the North Node +4, the South Node −4; besieged between Saturn and Mars in one sign −5; Regulus within 1° +6, Spica within 1° +5, Algol within 5° −5. Ties: essential dignity, then height above the horizon, then the Chaldean order [SD]. A planet within two points of the lord participates; it is named, not counted.
+
+**The judgement.** The tally of each temperament is the sum of its rows. The rows decide (Ribeiro; Lilly's own merchant: his columns say sanguine-choleric, his verdict "Sanguine, Melancholly"); Lilly's four columns (hot = sanguine + choleric, and so on) are shown as his check, and when they name a third temperament the reading says so. Ties are broken by the qualities the columns decide, then by the weight in S1, S2 and S5 (Greenbaum: "the ASC sign, Moon sign and season of birth often indicated a correct primary or secondary temperament"), then sanguine, choleric, melancholic, phlegmatic [SD].
+- *Pure*: no second temperament reaches a third of the first.
+- *Mixed*: "D, inclining to X" (two tied seconds are both named).
+- *Almost equal*: within half a point.
+- *Equal*: two at the top; *balanced*: three or four.
+- *Intemperance* qualifies the verdict and never changes the tally: Saturn or Mars in the first house (Garcaeus), or by conjunction, square or opposition on the ascending degree within 3° or on the Moon within the mediety of the orbs (Lilly p. 533: "they intermix their intemperate qualities to the temperature of the body"). "A" intemperance when any contact is within 3° (in the first house, within the malefic's half-orb of the degree), "some" otherwise [SD]. Garcaeus also names the Sun and the South Node; the instrument keeps Lilly's two malefics [SD].
+
+**Without a birth time** only S1, S5, S6, S7 and S11 count, and the intemperance through the Moon only; the verdict reads "Partial, without the Ascendant". The Moon changes sign during the birth day in about half of all births, so the day is searched hour by hour and the minute where the leading temperament changes is found; the reading names each verdict with its hours.
+
+**Left out** [SD]: co-rising fixed stars (Ptolemy, Garcaeus, Cardano); aspects to the lord of the Ascendant (Coley, Gadbury); Garcaeus's participant as a testimony; the cancelling of contrary qualities within one significator (Lilly p. 534, Garcaeus p. 49), since nature and place stay separate testimonies as in Coley, Gadbury and Lilly's own verdict.
+
+**Verification.** Eighteen published nativities with stated temperaments (Lilly's merchant, Garcaeus's prince, Coley, Gadbury, Ficino, Junctinus ×5, Rensberger, Greenbaum's Bush, Frank and Astaire, Gryphon's Newman, Ribeiro ×3; scratch fixtures in the session): the leading temperament matches the published one in 16. The two misses are Coley (his columns say choleric; his own rows tie sanguine and melancholic, and here sanguine leads with a Saturnine intemperance) and Gadbury (no verdict of his own; Ribeiro's reconstruction is melancholic, here phlegmatic). The second temperament now matches Junctinus A (sanguine), Ribeiro 1 (phlegmatic, from his rows) and Ribeiro 2 (choleric). The computed Lord of the Geniture agrees with the published lord in 6 of the 10 cases that name one; Lilly's merchant needs Venus pinned (his tables make her cazimi, a modern ephemeris combust). Several published charts sit within minutes of a change of Ascendant (Anne Frank's is 0°07′ Leo), so a few minutes of birth time can move a verdict.
+
+**Reading.** The verdict line; the reading of the leading temperament (its nature, its virtues after Agrippa and the Picatrix, its danger after Ficino); Ficino's regimen for it (what to call on, colours, music, odours, places, stones, each with its chapter); the mixture when a second temperament is named, with Ficino's three melancholy mixtures (De vita I.5) when black bile is in it; the intemperance with Lilly's rule and Ficino's remedies; then the testimonies, the tally, Lilly's columns and the Lord of the Geniture. Every quotation was checked against the local texts (Kaske & Clark's De vita, the 1651 Agrippa with the 1533 Latin for III.38, Greer & Warnock's Picatrix with Pingree's Latin, Lilly 1647, Garcaeus 1576). No second person.
