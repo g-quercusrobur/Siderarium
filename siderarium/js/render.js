@@ -1499,10 +1499,13 @@
     const nextTxt = state.nextChord ? `${i.t('cap.nextChord')} ${i.chordName(state.nextChord.to)} · ${fmtShort(state.nextChord.at, state.loc)}` : '';
     if (state.transits) return transitCaption(state, { T, chordTxt, nextTxt, c1, cs });
     /* a birth chart on screen: only its answers, for the reading below lists the rest in order (the birth moment, its sound,
-       the bodies...): the operations, the temperament, the life mission. An export keeps the whole caption on the art */
+       the bodies...): the elements, the temperament, the life mission. The elements stand where the clock puts the
+       operations, heaviest first, all in the light of the leading one (earth's sable would not show on the black: its
+       umber, as on the dial). An export keeps the whole caption on the art */
     if (brief && state.natalView && !state.pair) {
-      const tp = state.temperament, k = state.tikkun, TK = k && SD.tikkun.text();
-      return { label: c1(`${i.t('cap.nativity')}${state.chartName ? ' · ' + state.chartName : ''}`), stateKey: T2.state, opLabel: i.t('cap.operations'), state: i.state(T2.state).replace(/^./, ch => ch.toLowerCase()),
+      const tp = state.temperament, k = state.tikkun, TK = k && SD.tikkun.text(), E = state.elements;
+      return { label: c1(`${i.t('cap.nativity')}${state.chartName ? ' · ' + state.chartName : ''}`), stateKey: T2.state, opLabel: '', state: '',
+        els: E ? E.order.map(e => `${c1(i.t('ui.el.' + e))}\u00a0${E.pct[e]}%`).join(' · ') : '', elInk: E ? ELEMENT_LIGHT[E.dominant] : INK,
         title: tp && SD.temperament ? c1(SD.temperament.line(tp, tp.partial)) : '', reason: k ? c1(`${TK.label}: ${TK.short[k.north.sign]} · ${SD.tikkun.major(k.north.card)}`) : '',
         copy: true, brief: true, l1: '', detail1: '', detail2: '', detail3: '', detail4: '' };
     }
@@ -1697,14 +1700,17 @@
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     // 2 · the state: do I work now. the one line in colour
     let sx = m;                                           // where the verdict starts: after 'Magickal operations:', set smaller in the ink
-    if (c.opLabel) { ctx.fillStyle = K.rgba(INK, 0.85); ctx.font = `400 ${Math.round(19 * k)}px ${SANS}`; put(c.opLabel, m, row(1)); sx = m + ctx.measureText(c.opLabel).width + 9 * k; }
-    ctx.fillStyle = STATE_INK[c.stateKey] || INK; ctx.font = `500 ${Math.round(31 * k)}px ${SANS}`;
-    f = fit(c.state, left - (sx - m)); put(c.state, sx, row(1));
-    if (c.note) {                                         // the pull between the two, in the ink, after the grade
-      const sw = ctx.measureText(c.state).width; ctx.font = f; ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(17 * k)}px ${SANS}`;
-      const g = fit(c.note, Math.max(40 * k, left - (sx - m) - sw - 12 * k), 0.6); put(c.note, sx + sw + 12 * k, row(1)); ctx.font = g;
+    if (c.els) { ctx.fillStyle = c.elInk; ctx.font = `500 ${Math.round(31 * k)}px ${SANS}`; f = fit(c.els, W - 40 * k, 0.6); put(c.els, m, row(1)); ctx.font = f; }   // a birth chart on screen: its elements, heaviest first, across the empty right column
+    else {
+      if (c.opLabel) { ctx.fillStyle = K.rgba(INK, 0.85); ctx.font = `400 ${Math.round(19 * k)}px ${SANS}`; put(c.opLabel, m, row(1)); sx = m + ctx.measureText(c.opLabel).width + 9 * k; }
+      ctx.fillStyle = STATE_INK[c.stateKey] || INK; ctx.font = `500 ${Math.round(31 * k)}px ${SANS}`;
+      f = fit(c.state, left - (sx - m)); put(c.state, sx, row(1));
+      if (c.note) {                                       // the pull between the two, in the ink, after the grade
+        const sw = ctx.measureText(c.state).width; ctx.font = f; ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(17 * k)}px ${SANS}`;
+        const g = fit(c.note, Math.max(40 * k, left - (sx - m) - sw - 12 * k), 0.6); put(c.note, sx + sw + 12 * k, row(1)); ctx.font = g;
+      }
+      ctx.font = f;
     }
-    ctx.font = f;
     // 3 · the title of the moment: the stage of life, the mother letter, the angel of the hour
     ctx.fillStyle = K.rgba(INK, 0.95); ctx.font = `500 ${Math.round(23 * k)}px ${SANS}`;
     f = fit(c.title, left); put(c.title, m, row(2)); ctx.font = f;

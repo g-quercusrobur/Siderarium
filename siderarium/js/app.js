@@ -95,11 +95,12 @@
   function natalState() {
     if (!S.natal) return null;
     const place = S.relocate ? S.place : S.natal.place;     // relocated: the same instant, the houses of another horizon
-    const key = JSON.stringify([S.natal.date, place, S.houses, S.natal.name]);
+    const key = JSON.stringify([S.natal.date, place, S.houses, S.natal.name, !!S.natal.unknownTime]);
     if (natalCache.key !== key) {
       const st = SD.engine.compute(new Date(S.natal.date), place, { houses: S.houses });
       st.natalView = true; st.nextChord = null; st.relocated = S.relocate ? place.name : null;
       st.chartName = S.natal.name || '';                   // the owner's name, after "birth chart" on the dial
+      if (S.natal.unknownTime) st.elements = SD.engine.elements(st, { noTime: true });   // no birth time: the angles are unknown, the elements go by the bodies alone
       st.tikkun = SD.tikkun.of(st, { noTime: !!S.natal.unknownTime });   // the life mission, from the nodes
       try {                                                 // the temperament, laid down at the birthplace whatever horizon is shown
         const at = S.relocate ? SD.engine.compute(new Date(S.natal.date), S.natal.place, { houses: S.houses }) : st;
@@ -145,8 +146,8 @@
     if (S.mode === 'pair' && S.natal) {                     // two charts: the second laid over the first, the figure their strongest contact
       const A = natalState(), Bc = S.charts.find(c => c.id === S.pair && c.id !== S.natal.id);
       if (Bc) {
-        const key = JSON.stringify([Bc.date, Bc.place, S.houses]);
-        if (pairCache.key !== key) { pairCache.key = key; pairCache.state = SD.engine.compute(new Date(Bc.date), Bc.place, { houses: S.houses }); }
+        const key = JSON.stringify([Bc.date, Bc.place, S.houses, !!Bc.unknownTime]);
+        if (pairCache.key !== key) { pairCache.key = key; pairCache.state = SD.engine.compute(new Date(Bc.date), Bc.place, { houses: S.houses }); if (Bc.unknownTime) pairCache.state.elements = SD.engine.elements(pairCache.state, { noTime: true }); }
         // the first chart is the dial, the second is the ring laid over it; the contacts run from the first's planets to the second's points
         const Bs = pairCache.state, type = pairTypeOf(S.natal.id, Bc.id), noA = !!S.natal.unknownTime, noB = !!Bc.unknownTime;
         // synastry rules v2.1: one source of truth for every word of the pair (js/synastry.js)
@@ -180,9 +181,9 @@
     const c = SD.render.captionLines(viewState(), true);
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
-    for (const k of ['label', 'state', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
+    for (const k of ['label', 'state', 'els', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
     const copyBtn = `<button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>`;
-    const capHtml = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.opLabel ? `<span class="op">${c.opLabel}</span> ` : ''}${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}${c.brief && c.copy ? ' ' + copyBtn : ''}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : c.brief ? '' : `<p class="moment">${c.l1}${c.copy ? ' ' + copyBtn : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p>${c.stone ? `<p class="detail stone-line">${c.stone}</p>` : ''}<p class="detail">${c.detail4}</p>`}`;
+    const capHtml = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p>${c.els ? `<h2 class="h1 els" style="color:${c.elInk}">${c.els}</h2>` : `<h2 class="h1 state-${c.stateKey}">${c.opLabel ? `<span class="op">${c.opLabel}</span> ` : ''}${c.state}</h2>`}<p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}${c.brief && c.copy ? ' ' + copyBtn : ''}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : c.brief ? '' : `<p class="moment">${c.l1}${c.copy ? ' ' + copyBtn : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p>${c.stone ? `<p class="detail stone-line">${c.stone}</p>` : ''}<p class="detail">${c.detail4}</p>`}`;
     if (capHtml !== S.capHtml) { const back = focusOf($('caption')); S.capHtml = capHtml; $('caption').innerHTML = capHtml; linkTerms($('caption')); if (back) back($('caption')); if (SD.app_pop) SD.app_pop.repoint(); }
     if (!busy) scanIfNeeded();
     drawStrip();
@@ -357,6 +358,7 @@
      each doubled with a slight detune so it breathes. A = 440. The root also sounds an octave below.
      Swells in over 3 s, glides to the next chord when the sky shifts, fades over 3 s on stop. */
   const audio = { ctx: null, bus: null, voices: [], key: null, on: false };
+  const SPEAKER = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 9.5v5h3.2l4.3 3.3V6.2L7.2 9.5H4z"/><path class="w1" d="M15 9.6a3.4 3.4 0 0 1 0 4.8"/><path class="w2" d="M17.6 7a7 7 0 0 1 0 10"/><line class="x" x1="4" y1="20" x2="20" y2="4" stroke-width="1.8"/></svg>';
   function reverb(ac) {
     const len = ac.sampleRate * 3.2, buf = ac.createBuffer(2, len, ac.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
@@ -412,6 +414,7 @@
     if (on) { audio.ctx.resume(); soundChord(viewState().chord); }   // the chord of the view: the birth chart's in the natal tab, the sky's elsewhere
     else soundChord(null);
     $('listen-corner').classList.toggle('on', on); $('listen-corner').title = SD.i18n.t(on ? 'ui.listening' : 'ui.listen');
+    for (const b of document.querySelectorAll('#readout [data-act="listen"]')) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.title = SD.i18n.t(on ? 'ui.listening' : 'ui.listen'); }   // the chord's speaker in the reading: one sound, two switches
   }
   function followChord() { if (!audio.on || !S.state) return; const ch = viewState().chord; if (ch && voiceKey(ch) !== audio.key) soundChord(ch, 2.5); }   // a new note, or a voice changing register as the sky turns
 
@@ -541,10 +544,10 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     L.push(`- ${R('dayRuler')}: ${P(h.dayRuler)} · ${R('angel')} ${i.name(h.dayAngel)}`);
     L.push(`- ${R('hourRuler')}: ${P(h.hourRuler)} · ${R('angel')} ${i.name(h.angel)} · ${R('hourIndex')} ${h.index + 1} ${h.isDay ? R('ofDay') : R('ofNight')}${h.polar ? ' · ' + R('polar') : ''}`, '');
     L.push(`## ${R('elements')}`);
-    L.push(Object.entries(st.elements.shares).map(([k, v]) => `${i.t('ui.el.' + k)} ${Math.round(v * 100)}%`).join(' · '));
+    L.push(st.elements.order.map(k => `${i.t('ui.el.' + k)} ${st.elements.pct[k]}%`).join(' · '));   // heaviest first, whole numbers that add up to 100: as the caption and the reading show them
     { const W = { sun: 3, moon: 3, mercury: 1.5, venus: 1.5, mars: 1.5, jupiter: 1, saturn: 1, uranus: 0.4, neptune: 0.4, pluto: 0.4 }, m = { cardinal: 0, fixed: 0, mutable: 0 };   // the same weights as the elements
       for (const k in W) m[C.SIGNS[st.bodies[k].sign].mode] += W[k];
-      m[C.SIGNS[Math.floor(st.asc / 30)].mode] += 2.5; m[C.SIGNS[Math.floor(st.mc / 30)].mode] += 1;
+      if (!(st.natalView && S.natal && S.natal.unknownTime)) { m[C.SIGNS[Math.floor(st.asc / 30)].mode] += 2.5; m[C.SIGNS[Math.floor(st.mc / 30)].mode] += 1; }   // no birth time, no angles: as the elements
       const tot = m.cardinal + m.fixed + m.mutable;
       L.push(`${R('modalities')}: ${['cardinal', 'fixed', 'mutable'].map(k => `${R(k)} ${Math.round(m[k] / tot * 100)}%`).join(' · ')} (${R('weights')})`, ''); }
     /* the Golden Dawn's cards for the points the spec reads: the sign's Major, the planet's Major, the decan's Minor with its title */
@@ -808,8 +811,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       [K('realm'), noTime ? '' : `${i.house12(st.title.house)} (${R('house')}\u00a0${i.roman(st.title.house)})`],   // without a birth time the noon's house, hour and sect are not the native's
       [K('angelHour'), noTime ? '' : i.name(st.hour.angel)],
       [K('sect2'), noTime ? '' : K('sect')[st.sect]]]);
+    const speak = () => `<button type="button" class="speak${audio.on ? ' on' : ''}" data-act="listen" aria-pressed="${audio.on}" aria-label="${esc(i.cap1(i.t('ui.listenChord')))}" title="${esc(i.t(audio.on ? 'ui.listening' : 'ui.listen'))}">${SPEAKER}</button>`;   // the chord of this view: the birth chart's here, the sky's in the Clock
     const ch = st.chord, soundRows = () => kvTable([
-      [K('chord'), ch && ch.name && ch.name !== 'none' ? `${i.chordLong(ch)}${ch.interval ? ', ' + i.interval(ch.interval) : ''}` : ''],
+      [K('chord'), ch && ch.name && ch.name !== 'none' ? `${i.chordLong(ch)}${ch.interval ? ', ' + i.interval(ch.interval) : ''}\u00a0${speak()}` : ''],
       [K('notes'), ch.notes.length ? `${ch.notes.map(n => i.note(n)).join(' ')}${ch.planets ? `, ${R('from')} ${ch.planets.map(P).join(', ')}` : ''}` : ''],
       [K('moonNote'), ch.moonNote ? i.note(ch.moonNote) : ''],
       [K('ground'), ch.ground && ch.ground.length ? ch.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(', ') : ''],
@@ -837,7 +841,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const rows = C.ORDER.map(k => bRow(P(k), st.bodies[k].lon, st.bodies[k].house, condition(k, st.bodies[k]))).join('');
       const angles = noTime ? '' : `<tr class="grp"><td colspan="${span}">${K('angles')}</td></tr>` + [['asc', st.asc, 1], ['ic', st.mc + 180, 4], ['dsc', st.asc + 180, 7], ['mc', st.mc, 10]].map(([k, lon, h]) => bRow(i.t('ui.r.angleName.' + k), lon, h)).join('');
       const algol = `<tr class="grp"><td colspan="${span}">${K('fixedStar')}</td></tr>` + bRow('Algol', al.lon, noTime ? 0 : E.houseIn(st.cusps, al.lon), alNote);
-      const el = st.elements ? `${i.cap1(K('element'))}: ${i.t('ui.el.' + st.elements.dominant)} ${Math.round(st.elements.shares[st.elements.dominant] * 100)}%, ${i.t('ui.el.' + st.elements.order[1])} ${Math.round(st.elements.shares[st.elements.order[1]] * 100)}%` : '';
+      const el = st.elements ? `${i.cap1(K('elements'))}: ${st.elements.order.map(k => `${i.t('ui.el.' + k)}\u00a0${st.elements.pct[k]}%`).join(', ')}` : '';   // all four, heaviest first: a weak element is part of the chart too
       return sec('bodies', `<h3>${H('bodies')}</h3>${el ? `<p class="verdict">${el}</p>` : ''}<table class="bodies">${head}${rows}${angles}${algol}</table>
         <p class="ctl"><button class="toggle algol-toggle" data-act="algol" aria-pressed="${S.algol ? 'true' : 'false'}"><span class="sw" aria-hidden="true"></span><span>${i.cap1(R(S.algol ? 'algolShown' : 'algolShow'))}</span></button></p>`);
     };
@@ -986,7 +990,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (c) {
         const deg = lon => `${Math.floor(SD.engine.norm360(lon) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(lon) / 30))}`, f = c.configs.primary;
         const std = f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}, ${R('orb')} ${f.orb.toFixed(2)}°` : i.cap1(i.t('ui.quietSky'));
-        const kv = kvTable([[K('ascendant'), blind ? '' : deg(c.asc)], [K('midheaven'), blind ? '' : deg(c.mc)], [K('fortune'), blind ? '' : deg(c.fortune)], [K('element'), c.elements ? `${i.t('ui.el.' + c.elements.dominant)} ${Math.round(c.elements.shares[c.elements.dominant] * 100)}%` : '']]);
+        const kv = kvTable([[K('ascendant'), blind ? '' : deg(c.asc)], [K('midheaven'), blind ? '' : deg(c.mc)], [K('fortune'), blind ? '' : deg(c.fortune)], [K('element'), c.elements ? `${i.t('ui.el.' + c.elements.dominant)}\u00a0${c.elements.pct[c.elements.dominant]}%` : '']]);
         const pos = C.ORDER.map(k => { const x = c.bodies[k], d = x.deg % 30; return `<tr><th class="k" scope="row">${P(k)}</th><td class="n">${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′</td><td class="v">${i.sign(x.sign)}</td><td class="n">${i.roman(x.house)}</td></tr>`; }).join('');
         add('composite', sec('composite', `<h3>${H('composite')}</h3><p class="verdict">${std}</p>${kv}${pillRow(popBtn('composite', R('howComposite')))}<details class="more" data-sec="pair.positions"><summary>${K('positions')}</summary><table class="bodies">${pos}</table></details>`));
       } }
@@ -999,7 +1003,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     { const when = (x, no) => `${fmtIn(x.date, x.loc.tz, no ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}<br>${esc(i.placeName(x.loc.name))}`;   // no birth time: the date alone
       const pos = (x, no) => `${Math.floor(x.deg % 30)}°${String(Math.floor(((x.deg % 30) % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign).slice(0, 3)}${no ? '' : ' · ' + i.roman(x.house)}`;
       const angle = (l, no) => no ? '—' : `${Math.floor(SD.engine.norm360(l) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(l) / 30))}`;
-      const elem = x => x.elements ? `${i.t('ui.el.' + x.elements.dominant)} ${Math.round(x.elements.shares[x.elements.dominant] * 100)}%` : '—';
+      const elem = x => x.elements ? `${i.t('ui.el.' + x.elements.dominant)}\u00a0${x.elements.pct[x.elements.dominant]}%` : '—';
       const of = st.ownFigures || {}, figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
       const sect = x => x.sect === 'day' ? R('dayChartShort') : R('nightChartShort');
       const rows = [[K('born'), when(a, nt[0]), when(b, nt[1])], [K('ascendant'), angle(a.asc, nt[0]), angle(b.asc, nt[1])], [K('midheaven'), angle(a.mc, nt[0]), angle(b.mc, nt[1])], ...C.ORDER.map(k => [P(k), pos(a.bodies[k], nt[0]), pos(b.bodies[k], nt[1])]), [K('element'), elem(a), elem(b)], [K('figure'), figOf(of.a), figOf(of.b)], [K('sect2'), i.cap1(sect(a)), i.cap1(sect(b))]];
@@ -1640,6 +1644,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDef(true); });
     window.addEventListener('resize', () => { if (defOpen && defOpen.w !== window.innerWidth) closeDef(); });   // a phone's toolbar changes the height while scrolling: only a new width closes it
+    $('readout').addEventListener('click', e => { if (e.target.closest('[data-act="listen"]')) listen(!audio.on); });
     $('readout').addEventListener('click', e => { if (!e.target.closest('[data-act="algol"]')) return; S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateReadout(); });   // the Demon Star on the art, kept between visits
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
     $('save-hd').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(4096)));
