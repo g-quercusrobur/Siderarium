@@ -550,7 +550,7 @@
     // order weighs the draw, so the stones the tradition names come up most often and every stone comes up in time; an
     // element with fewer than three of the planet's stones is topped up from the chart's next element, its own stones
     // still drawn first, so one lone stone never owns a chart. the same chart and day always draw the same stones. the
-    // alternative is drawn the same way from the chart's other elements
+    // alternative is a second stone from the same pool, so the two do the same work for the day
     const el = (natal && natal.elements ? natal.elements.order : (day.elements ? day.elements.order : ['earth', 'water'])).slice();
     for (const e of ['fire', 'earth', 'air', 'water']) if (!el.includes(e)) el.push(e);
     const list = C.STONES_KNOWN[planet].map((s, n) => ({ key: s[0], el: s[1], n }));
@@ -560,8 +560,9 @@
     const draw = (pool, salt) => { const n = pool.length; let u = unit(seed + salt) * n * (n + 1) / 2; for (let i = 0; i < n; i++) { u -= n - i; if (u < 0) return pool[i]; } return pool[n - 1]; };   // weights n, n-1 ... 1
     const poolOf = (els, skip) => { const pool = []; for (const e of els) { const own = of(e).filter(s => s !== skip);   // the element's own stones whole, then
       for (const s of (pool.length ? own.slice(0, 3 - pool.length) : own)) pool.push(s); if (pool.length >= 3) break; } return pool; };   // the next element's first ones
-    const first = draw(poolOf(el), '|1');
-    const pool2 = poolOf(el.filter(e => e !== first.el), first);
+    const pool1 = poolOf(el), first = draw(pool1, '|1');
+    let pool2 = pool1.filter(s => s !== first);
+    if (!pool2.length) pool2 = poolOf(el.filter(e => e !== first.el), first);   // a planet with a single stone in reach: the next element's
     const alt = pool2.length ? draw(pool2, '|2') : null;
     return { planet, rule, stone: first.key, alternative: alt ? alt.key : null, why, dayRuler, element: first.el };
   }
