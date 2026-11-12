@@ -278,6 +278,7 @@ One line under the dial, in tiers: the instrument's name alone; the state, the o
 - **Stage of life.** The house the Moon stands in, as one word: Body, Wealth, Communication, Roots, Creativity, Work, Union, Death, Vision, Honour, Society, Occult (Castilian: Cuerpo, Riqueza, Comunicación, Raíces, Creación, Trabajo, Unión, Muerte, Visión, Honor, Sociedad, Oculto). Houses as stages of life: Manilius, Lilly. The Moon's house as the matter of the election: Agrippa.
 - **Mode, the three mothers.** Aleph air ideation while the ruling aspect applies; Mem water manifestation once exact and separating (the passage smoothed over ±0.3 day); Shin fire destruction when the aspect is hard, a conjunction with a malefic, the portal cut by a malefic, or the Moon void and waning. The three windows take the mode's weight (1 for the mode, 0.3 for the others), so ideation and manifestation no longer peak together. The reading of the mothers is `[SD]`.
 - **Sound.** Notes as letters in English and as solfège in Spanish (Do, Re, Mi…); chord names spelled out: C major, Do mayor.
+- **The label.** The state answers a label: "Magickal operations: time to work / time to watch / time to shelter" ("Operaciones de Magick: …"), the state in lower case after it, on the clock and on a birth chart alike (November 2026: the birth chart first kept the bare verdict; the owner asked for the label there too).
 
 ## The container is the house wheel
 

@@ -1498,8 +1498,8 @@
       // the tiers: the instrument, the state, the title, the reason, the moment, the day's colour, the sound
       label: i.t('cap.clockLabel'),
       stateKey: T2.state,
-      opLabel: state.natalView ? '' : i.t('cap.operations'),   // the clock answers 'Magickal operations:' with its verdict; a birth chart keeps the bare verdict
-      state: state.natalView ? i.state(T2.state) : i.state(T2.state).replace(/^./, ch => ch.toLowerCase()),
+      opLabel: i.t('cap.operations'),                      // 'Magickal operations:' answered by the verdict, on the clock and on a birth chart alike
+      state: i.state(T2.state).replace(/^./, ch => ch.toLowerCase()),
       title: `${i.t('cap.modeOf')} ${c1(i.window(T2.mode))} · ${i.realm(T2.house)} · ${i.t('cap.under')}\u00a0${i.name(H.angel)}`,   // 'under' and the angel never part across a line; the mode first, named as a mode; the house as a realm; the angel
       reason: `${c1(figLine)} · ${c1(mv)}${mn}`,
       copy: !!(state.natalView && !state.transits && !state.pair),   // a birth chart: a copy icon after the city
