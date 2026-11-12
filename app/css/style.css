@@ -266,6 +266,9 @@ body.small #caption .eyebrow a.what { color: var(--ink-2); text-decoration: unde
 /* the glossary: linked words everywhere, the panel with its index and entries */
 a.g { color: inherit; text-decoration: underline dotted; text-decoration-color: rgba(235, 231, 220, 0.45); text-underline-offset: 3px; cursor: pointer; }
 /* the tikkun's words and their definitions: the word looks like the glossary's links; a tap opens a small square under it */
+/* 'Magickal operations:' before the clock's verdict: the question in the ink, the answer in its colour */
+.h1 .op, .verdict .op { color: var(--ink); font-weight: 400; font-size: 0.6em; letter-spacing: 0; margin-right: 0.12em; vertical-align: 0.08em; }
+.verdict .op { font-size: 1em; }
 button.deflink { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; min-height: 0; text-align: left; letter-spacing: inherit;
   text-decoration: underline dotted; text-decoration-color: rgba(235, 231, 220, 0.45); text-underline-offset: 3px; cursor: pointer; }
 button.deflink[aria-expanded="true"] { text-decoration-color: var(--ink); }
