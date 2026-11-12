@@ -1480,7 +1480,7 @@
     const p = Object.fromEntries(f.formatToParts(date).map(x => [x.type, x.value]));
     return `${p.day} ${p.month.replace(/\.$/, '')}, ${p.hour}:${p.minute}`;
   }
-  function captionLines(state) {
+  function captionLines(state, brief) {
     const i = I(), T = fmtTime(state.date, state.loc), B = state.bodies, H = state.hour;
     const fig = state.configs.primary, ev = fig && fig.event ? (i.event(fig.event) === fig.event && fig.event.includes(' ') ? fig.event.split(' ').map(w => i.event(w)).join(' ') : i.event(fig.event)) : '';
     const inter = state.interaction && state.interaction.figures[0];
@@ -1498,6 +1498,14 @@
     const chordTxt = ch.name === 'none' ? i.t('cap.quiet') : `${i.t('cap.chord')} ${i.chordLong(ch)}${ch.interval ? ' · ' + i.interval(ch.interval) : ch.notes.length > 1 ? ' · ' + ch.notes.map(n => i.note(n)).join(' ') : ''}`;
     const nextTxt = state.nextChord ? `${i.t('cap.nextChord')} ${i.chordName(state.nextChord.to)} · ${fmtShort(state.nextChord.at, state.loc)}` : '';
     if (state.transits) return transitCaption(state, { T, chordTxt, nextTxt, c1, cs });
+    /* a birth chart on screen: only its answers, for the reading below lists the rest in order (the birth moment, its sound,
+       the bodies...): the operations, the temperament, the life mission. An export keeps the whole caption on the art */
+    if (brief && state.natalView && !state.pair) {
+      const tp = state.temperament, k = state.tikkun, TK = k && SD.tikkun.text();
+      return { label: c1(`${i.t('cap.nativity')}${state.chartName ? ' · ' + state.chartName : ''}`), stateKey: T2.state, opLabel: i.t('cap.operations'), state: i.state(T2.state).replace(/^./, ch => ch.toLowerCase()),
+        title: tp && SD.temperament ? c1(SD.temperament.line(tp, tp.partial)) : '', reason: k ? c1(`${TK.label}: ${TK.short[k.north.sign]} · ${SD.tikkun.major(k.north.card)}`) : '',
+        copy: true, brief: true, l1: '', detail1: '', detail2: '', detail3: '', detail4: '' };
+    }
     if (state.pairMissing) return { label: i.t('cap.synastryLabel'), stateKey: 'watch', state: c1(i.t('cap.noPair')), title: '', reason: '', l1: c1(`${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`), detail1: '', detail2: '', detail3: '', detail4: '', l2: '', l3: '', fig: '', moon: '', chord: '', decan: '', mansion: '', next: '' };
     return {
       // the tiers: the instrument, the state, the title, the reason, the moment, the day's colour, the sound
@@ -1656,9 +1664,9 @@
   const STATE_INK = { work: '#6fcf8e', watch: '#e3b341', shelter: '#ff5a2a',   // the one coloured text on the instrument
     // the grades of two skies: hot red through yellow to green, and cold blue for deep harmony, the hue of the harmony lines
     polar: '#c58bf0', deepStrife: '#ff3b1a', strife: '#ff5a2a', tension: '#e8894a', balanced: '#e3b341', ease: '#b9cf6e', harmony: '#6fcf8e', deepHarmony: '#7fa4e0', quiet: '#b8b2a4' };
-  function drawCaption(ctx, state, Lt) {
+  function drawCaption(ctx, state, Lt, brief) {
     const u = Lt.u, m = Lt.S * 0.0625, k = u * Lt.tc;     // type scales up on small screens; the 2048 export is unchanged
-    const c = captionLines(state);
+    const c = captionLines(state, brief);
     const pitch = Math.min(34 * k, (Lt.S - Lt.capY - 14 * k - 8 * u) / 6.6);   // six rows and the notice must fit the band
     const row = i => Lt.capY + 8 * k + pitch * i + (i >= 1 ? 6 * k : 0);        // the headline gets air under the eyebrow
     const mrx = state.bodies.mercury.slow;                // mercury slow or retrograde: the print misregisters, a ghost beside each line
@@ -2036,7 +2044,7 @@
       drawRete(ctx, state, Lt, lw);
       drawFrame(ctx, state, Lt, lw);
       if (!GROUND_EL) { drawAura(ctx, state, Lt); if (!opts.plate) drawAuraLive(ctx, state, Lt, t); }
-      if (opts.caption !== false) drawCaption(ctx, state, Lt);
+      if (opts.caption !== false) drawCaption(ctx, state, Lt, opts.brief);
     }
     if (bare) { drawCornerGlows(ctx, W, H, state); drawNotice(ctx, W, H); }
     return { mode: 'clock', sigil: !!opts.sigil, bare: !!bare, groundEl: GROUND_EL, layout: Lt, positions: pos, stars, rippleCol, Rp, E, lw, weave, state };
@@ -2177,7 +2185,7 @@
       ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 30 * u, ly); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = K.rgba(LIGHT, 0.6); ctx.fillText(l, lx + 38 * u, ly + 1); lx += 38 * u + ctx.measureText(l).width + 30 * u;
     }
-    if (opts.caption !== false) drawCaption(ctx, state, Lt);
+    if (opts.caption !== false) drawCaption(ctx, state, Lt, opts.brief);
     return { mode: 'chart', layout: Lt, state };
   }
 
