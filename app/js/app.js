@@ -132,7 +132,7 @@
       const key = [S.natal.id || S.natal.date, a.a, a.b, a.aspect, day].join('|');
       if (!spanCache.has(key)) { if (spanCache.size > 200) spanCache.clear(); spanCache.set(key, SD.engine.transitSpan(a.a, a.nlon, a.angle, a.orbMax, now())); }
       spans[a.a + '|' + a.b + '|' + a.aspect] = spanCache.get(key);
-      houses[a.a] = SD.engine.houseIn(ns.cusps, S.state.bodies[a.a].lon);
+      if (!S.natal.unknownTime) houses[a.a] = SD.engine.houseIn(ns.cusps, S.state.bodies[a.a].lon);
     }
     return { name: S.natal.name || '', spans, houses };
   }
@@ -156,7 +156,7 @@
           .map(c => ({ a: c.a, b: c.b, natal: true, nlon: c.b === 'ascendant' ? Bs.asc : c.b === 'midheaven' ? Bs.mc : Bs.bodies[c.b].lon, aspect: c.aspect, n: (ASP[c.aspect] || {}).n, k: (ASP[c.aspect] || {}).k, nature: (ASP[c.aspect] || {}).nature, angle: c.angle, orb: c.orb, power: c.w / 10, exact: 1 - c.orb / c.max, applying: false }));
         const dayKey = JSON.stringify([S.natal.id, Bc.id, new Date().toISOString().slice(0, 10)]);
         if (activeCache.key !== dayKey) { activeCache.key = dayKey; activeCache.v = SD.synastry.activeNow(A, Bs, syn, new Date(), noA, noB); }
-        S.state = { ...A, natalView: true, natal: Bs, transits: tr, syn, synActive: activeCache.v, pair: { a: S.natal.name || '', b: Bc.name || '', ids: [S.natal.id, Bc.id] } };
+        S.state = { ...A, natalView: true, natal: Bs, transits: tr, syn, synActive: activeCache.v, pair: { a: S.natal.name || '', b: Bc.name || '', ids: [S.natal.id, Bc.id], noTime: [noA, noB] } };
         S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
         S.state.attraction = syn.age.sexual ? SD.engine.desireOf(tr, A, Bs) : null;   // the pull between two bodies: adults only (rule 0)
         S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
@@ -166,7 +166,7 @@
       } else { S.state = { ...A, natalView: true, pairMissing: true }; }
     }
     if (S.mode === 'synastry' && S.natal) {                 // the sky of now against the nativity: the figure is the strongest transit
-      const ns = natalState(), tr = SD.engine.computeTransits(S.state, ns).filter(x => x.power > 0.04);
+      const ns = natalState(), tr = SD.engine.computeTransits(S.state, ns).filter(x => x.power > 0.04 && !(S.natal.unknownTime && (x.b === 'ascendant' || x.b === 'midheaven')));
       S.state.natal = ns; S.state.transits = tr;
       S.state.interaction = SD.engine.computeInteractions(S.state, ns, tr);   // what the two skies make together
       S.state.transitInfo = transitInfo(ns, tr);                                 // when each leading transit is exact, and where it stands in the natal houses
@@ -181,8 +181,8 @@
     const low = s => s.replace(/^./, ch => ch.toLowerCase());
     for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
     for (const k of ['label', 'state', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
-    $('caption').innerHTML = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.opLabel ? `<span class="op">${c.opLabel}</span> ` : ''}${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p>${c.stone ? `<p class="detail stone-line">${c.stone}</p>` : ''}<p class="detail">${c.detail4}</p>`}`;
-    linkTerms($('caption'));
+    const capHtml = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p><h2 class="h1 state-${c.stateKey}">${c.opLabel ? `<span class="op">${c.opLabel}</span> ` : ''}${c.state}</h2><p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : `<p class="moment">${c.l1}${c.copy ? ` <button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p>${c.stone ? `<p class="detail stone-line">${c.stone}</p>` : ''}<p class="detail">${c.detail4}</p>`}`;
+    if (capHtml !== S.capHtml) { const back = focusOf($('caption')); S.capHtml = capHtml; $('caption').innerHTML = capHtml; linkTerms($('caption')); if (back) back($('caption')); if (SD.app_pop) SD.app_pop.repoint(); }
     if (!busy) scanIfNeeded();
     drawStrip();
     if (!busy) updateReadout();                            // the heavy parts wait until the clock rests
@@ -748,8 +748,16 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const restoreOpen = el => { const all = [...el.querySelectorAll('details[data-sec]')]; if (el.matches && el.matches('details[data-sec]')) all.push(el); for (const d of all) if (openSecs.has(d.dataset.sec)) d.open = true; };
   const linkSection = el => { glossaryTerms(); try { SD.glossary.link(el, SD.i18n.locale().startsWith('es') ? 'es' : 'en', { marks: true }); } catch (e) { /* the glossary is a nicety */ } };
   let toggleBound = false;
+  const focusOf = host => {                                 // the focused control inside host, found again after a repaint
+    const a = document.activeElement; if (!a || a === document.body || !host.contains(a)) return null;
+    const sel = a.id ? '#' + a.id : a.dataset.act ? `[data-act="${a.dataset.act}"]` : a.dataset.def ? `[data-def="${a.dataset.def}"]` : a.dataset.tal ? `[data-tal="${a.dataset.tal}"]` : a.dataset.go ? `[data-go="${a.dataset.go}"]`
+      : a.tagName === 'SUMMARY' && a.parentElement.dataset.sec ? `details[data-sec="${a.parentElement.dataset.sec}"] > summary` : a.dataset.g ? `a.g[data-g="${a.dataset.g}"]` : null;
+    if (!sel) return null; const nth = [...host.querySelectorAll(sel)].indexOf(a);
+    return el => { const n = [...el.querySelectorAll(sel)][nth] || el.querySelector(sel); if (n) n.focus({ preventScroll: true }); };
+  };
   function paintReadout(view, parts) {
-    const ro = $('readout'), keys = parts.map(p => p[0]).join('|'), pop = SD.app_pop && SD.app_pop.open();
+    parts = parts.map(([k, h]) => [k, h.replace(/ · /g, '\u00a0· ')]);   // a separator ends its line, never starts the next
+    const ro = $('readout'), keys = parts.map(p => p[0]).join('|');
     if (!toggleBound) {                                      // 'toggle' does not bubble: caught on the way down, kept for the next visit
       toggleBound = true;
       ro.addEventListener('toggle', e => { const d = e.target; if (!d.dataset || !d.dataset.sec) return; if (d.open) openSecs.add(d.dataset.sec); else openSecs.delete(d.dataset.sec); store.set('openSecs', [...openSecs]); }, true);
@@ -759,24 +767,24 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (painted.html.get(k) === html) continue;
       const old = ro.querySelector(`:scope > [data-sec="${view}.${k}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
       const el = t.content.firstElementChild; if (!old || !el) { full = true; break; }
-      old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(k, html);
+      const back = focusOf(old); old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(k, html); if (back) back(el);
     }
     if (full) {
+      if (view !== painted.view) ro.scrollTop = 0;            // a new view starts at its top (the desktop column scrolls on its own)
       ro.innerHTML = parts.map(p => p[1]).join('\n');
       Object.assign(painted, { view, keys, html: new Map(parts) }); ro.dataset.view = view;
       for (const el of ro.children) { linkSection(el); restoreOpen(el); }
     }
-    if (pop && !pop.btn.isConnected) {
-      const nb = ro.querySelector(pop.key.startsWith('g:') ? `a.g[data-g="${pop.key.slice(2)}"]` : `[data-def="${pop.key}"]`);
-      if (nb) { pop.btn = nb; nb.setAttribute('aria-expanded', 'true'); } else SD.app_pop.closeDef();
-    }
+    if (SD.app_pop) SD.app_pop.repoint();
   }
   /* one section painted alone, the same way (the talismans' search repaints its section as it goes) */
   function paintSection(view, key, html) {
+    html = html.replace(/ · /g, '\u00a0· ');
     const ro = $('readout'); if (painted.view !== view || !painted.html.has(key) || painted.html.get(key) === html) return;
     const old = ro.querySelector(`:scope > [data-sec="${view}.${key}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
     const el = t.content.firstElementChild; if (!old || !el) return;
-    old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(key, html);
+    const back = focusOf(old); old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(key, html); if (back) back(el);
+    if (SD.app_pop) SD.app_pop.repoint();
   }
 
   function updateReadout() {
@@ -796,9 +804,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const momentRows = () => kvTable([
       [K('operations'), i.state(st.title.state)],
       [K('mode'), `${i.cap1(i.window(st.title.mode))} (${K('mother')[st.title.mode]})`],
-      [K('realm'), `${i.house12(st.title.house)} (${R('house')} ${i.roman(st.title.house)})`],
-      [K('angelHour'), i.name(st.hour.angel)],
-      [K('sect2'), K('sect')[st.sect]]]);
+      [K('realm'), noTime ? '' : `${i.house12(st.title.house)} (${R('house')}\u00a0${i.roman(st.title.house)})`],   // without a birth time the noon's house, hour and sect are not the native's
+      [K('angelHour'), noTime ? '' : i.name(st.hour.angel)],
+      [K('sect2'), noTime ? '' : K('sect')[st.sect]]]);
     const ch = st.chord, soundRows = () => kvTable([
       [K('chord'), ch && ch.name && ch.name !== 'none' ? `${i.chordLong(ch)}${ch.interval ? ', ' + i.interval(ch.interval) : ''}` : ''],
       [K('notes'), ch.notes.length ? `${ch.notes.map(n => i.note(n)).join(' ')}${ch.planets ? `, ${R('from')} ${ch.planets.map(P).join(', ')}` : ''}` : ''],
@@ -809,7 +817,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const n = S.natal, ntz = n.place.tz || 'UTC', d = new Date(n.date);
       const day = fmtIn(d, ntz, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const time = n.unknownTime ? i.t('ui.rep.noon') : fmtIn(d, ntz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' });
-      return `${i.cap1(day)} · ${time} · ${esc(n.place.label || i.placeName(n.place.name))}`;
+      const place = esc(n.place.label || i.placeName(n.place.name));
+      return n.unknownTime ? `${i.cap1(day)} · ${place}` : `${i.cap1(day)} · ${time} · ${place}`;
     };
 
     // ---- the bodies: name | degrees | sign | house, the condition on a second line; the angles; Algol
@@ -848,7 +857,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const conditionTxt = () => {
       const flags = m.flags.filter(f => f !== 'void of course').map(f => i.flag(f === 'under the beams' ? 'beams' : f));
       if (m.verdict === 'void') return `${i.cap1(i.flag('void of course'))}${m.tolerable ? `, ${i.t('cap.tolerable')(i.sign(st.bodies.moon.sign))}` : ''}${st.natalView ? '' : `: ${R('voidFit')}`}${flags.length ? '; ' + flags.join(', ') : ''}`;
-      return `${i.cap1(i.verdict(m.verdict))}${m.next ? `: ${A(m.next.aspect)} ${P(m.next.planet)} ${R('in')} ${(m.next.days * 24).toFixed(1)} h` : ''}${flags.length ? '; ' + flags.join(', ') : ''}`;
+      if (st.natalView) return `${m.next ? i.cap1(K('applyingTo')(A(m.next.aspect), m.next.planet, P(m.next.planet))) : i.cap1(i.verdict(m.verdict))}${flags.length ? '; ' + flags.join(', ') : ''}`;
+      return `${i.cap1(i.verdict(m.verdict))}${m.next ? `: ${A(m.next.aspect)} ${P(m.next.planet)} ${R('in')} ${(m.next.days * 24).toFixed(1)}\u00a0h` : ''}${flags.length ? '; ' + flags.join(', ') : ''}`;
     };
     const veilTxt = () => { const f = st.veil.factors.filter(x => !(m.verdict === 'void' && /void/i.test(x.key))); return `${st.veil.v.toFixed(2)}${f.length ? ': ' + f.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}`; };
     const mansionTxt = `${i.ordinal(st.bodies.moon.mansion.index)}, ${i.name(st.bodies.moon.mansion.name)}`;
@@ -856,12 +866,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const hourTxt = () => { const h = table && table[hourIdx], nx = table && table[hourIdx + 1];
       return `${K('hourOf')(i.ordinal(hourIdx + 1), P(st.hour.hourRuler), st.hour.hourRuler)}, ${K('angelOf')(i.name(st.hour.angel))}${!st.natalView && h ? ` · ${hm(h.start)}–${nx ? hm(nx.start) : ''}` : ''}`; };
     const events = () => {
-      const rows = st.events.map(e => [i.cap1(i.event(e.type)), e.type === 'outer exact' && e.aspect ? `${P(e.aspect.a)} ${A(e.aspect.aspect)} ${P(e.aspect.b)}` : [e.planet ? P(e.planet) : '', e.kind ? evName(e.kind) : '', e.direction ? i.event(e.direction) : ''].filter(Boolean).join(', ')]);
+      const rows = st.events.map(e => [i.cap1(i.event(e.type === 'outer exact' ? 'exact' : e.type)), e.type === 'outer exact' && e.aspect ? `${P(e.aspect.a)} ${A(e.aspect.aspect)} ${P(e.aspect.b)}` : [e.planet ? P(e.planet) : '', e.kind ? evName(e.kind) : '', e.direction ? (K('turning')[e.direction] || i.event(e.direction)) : ''].filter(Boolean).join(', ')]);
       if (!st.natalView && st.wheel) rows.push([K('wheel'), `${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')}, ` : ''}${i.t('ui.wheel.' + st.wheel.next)}, ${fmtIn(st.wheel.nextDate, 'UTC', { day: 'numeric', month: 'long' })}, ${R('inDays')(st.wheel.days)}`]);
       return rows.length ? `<h4>${st.natalView ? H('eventsBirth') : K('events')}</h4>${kvTable(rows)}` : '';
     };
     const dayHtml = () => {
-      const moon = kvTable([[K('condition'), conditionTxt()], [K('guardians'), !st.natalView && m.verdict === 'void' ? `${P(st.hour.dayRuler)}${st.hour.dayRuler === st.hour.hourRuler ? '' : ' ' + R('and') + ' ' + P(st.hour.hourRuler)}` : ''],
+      const moon = kvTable([[K('condition'), conditionTxt()], [K('guardians'), !st.natalView && m.verdict === 'void' ? i.cap1(`${K('the')(st.hour.dayRuler, P(st.hour.dayRuler))}${st.hour.dayRuler === st.hour.hourRuler ? '' : ' ' + R('and') + ' ' + K('the')(st.hour.hourRuler, P(st.hour.hourRuler))}`) : ''],
         [K('veil'), st.natalView ? '' : veilTxt()], [K('mansion'), mansionTxt]]);
       const day = kvTable([[K('day'), `${P(st.hour.dayRuler)}, ${K('angelOf')(i.name(st.hour.dayAngel))}`], [K('hour'), noTime ? '' : hourTxt()],
         [K('nextHour'), !st.natalView && table && table[hourIdx + 1] ? `${P(table[hourIdx + 1].ruler)}, ${K('at')(hm(table[hourIdx + 1].start))}` : '']]);
@@ -878,7 +888,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
 
     // ---- the transits to a chart: one ranked list, the timing and the house beneath, the figure set off beneath that
     const inter = st.interaction, owner = (st.transitInfo && st.transitInfo.name) || '';
-    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : k;
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? i.t('ui.r.angleName.asc') : k === 'midheaven' ? i.t('ui.r.angleName.mc') : k;
     const natalPt = k => owner ? i.t('cap.own')(owner, pt(k)) : `${i.t('cap.natalOf')} ${pt(k)}`;
     const transitsHtml = () => {
       const all = st.transits || [], shown = all.slice(0, 8), tags = new Map(), same = (x, t, n, asp) => x.a === t && x.b === n && x.aspect === asp;
@@ -933,6 +943,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const sec = (key, inner) => secOf('pair', key, inner);
     if (st.pairMissing || !st.natal) return [['empty', `<div class="r-head" data-sec="pair.empty"><p class="lede">${R('pairEmpty')}</p><p><button type="button" class="cta" data-go="pick-second">${R('chooseSecond')}</button></p></div>`]];
     const a = st, b = st.natal, pr = st.pair, own = (who, what) => i.t('cap.own')(who, what), Y = st.syn, inter = st.interaction, parts = [];
+    const nt = pr.noTime || [], blind = !!(nt[0] || nt[1]);   // a chart without a birth time has no houses or angles
     const add = (key, html) => { if (html) parts.push([key, html]); };
     // the rose
     { const line = roseLine(st);
@@ -960,7 +971,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     { const act = st.synActive || [];
       if (act.length) {
         const d = dt => timeTag(dt, fmtIn(dt, st.loc.tz, { day: 'numeric', month: 'short', year: 'numeric' }));
-        const who = h => h.who === 'a' ? pr.a : pr.b, ptOf = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : SD.tikkun.text().north;
+        const who = h => h.who === 'a' ? pr.a : pr.b, ptOf = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? i.t('ui.r.angleName.asc') : k === 'midheaven' ? i.t('ui.r.angleName.mc') : SD.tikkun.text().north;
         const items = act.map(x => { const [h0, ...more] = x.hits;
           const axes = [...new Set(x.hits.flatMap(h => h.axes.filter(c => c.aspect === 'opposition' || c.aspect === 'conjunction' || c.aspect === 'square').slice(0, 1).map(c => contactWords(c, pr))))];
           return { tone: SD.engine.aspectTone(h0.aspect, x.planet, h0.key, h0.orb) || '', name: `${P(x.planet)} ${A(h0.aspect)} ${own(who(h0), ptOf(h0.key))}`, n: `${h0.orb.toFixed(2)}°`,
@@ -974,23 +985,23 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (c) {
         const deg = lon => `${Math.floor(SD.engine.norm360(lon) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(lon) / 30))}`, f = c.configs.primary;
         const std = f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}, ${R('orb')} ${f.orb.toFixed(2)}°` : i.cap1(i.t('ui.quietSky'));
-        const kv = kvTable([[K('ascendant'), deg(c.asc)], [K('midheaven'), deg(c.mc)], [K('fortune'), deg(c.fortune)], [K('element'), c.elements ? `${i.t('ui.el.' + c.elements.dominant)} ${Math.round(c.elements.shares[c.elements.dominant] * 100)}%` : '']]);
+        const kv = kvTable([[K('ascendant'), blind ? '' : deg(c.asc)], [K('midheaven'), blind ? '' : deg(c.mc)], [K('fortune'), blind ? '' : deg(c.fortune)], [K('element'), c.elements ? `${i.t('ui.el.' + c.elements.dominant)} ${Math.round(c.elements.shares[c.elements.dominant] * 100)}%` : '']]);
         const pos = C.ORDER.map(k => { const x = c.bodies[k], d = x.deg % 30; return `<tr><th class="k" scope="row">${P(k)}</th><td class="n">${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′</td><td class="v">${i.sign(x.sign)}</td><td class="n">${i.roman(x.house)}</td></tr>`; }).join('');
         add('composite', sec('composite', `<h3>${H('composite')}</h3><p class="verdict">${std}</p>${kv}${pillRow(popBtn('composite', R('howComposite')))}<details class="more" data-sec="pair.positions"><summary>${K('positions')}</summary><table class="bodies">${pos}</table></details>`));
       } }
     // the house overlays: two rows
     if (Y && Y.overlays && Y.overlays.length) {
-      const row = w => Y.overlays.filter(o => o.who === w).map(o => `${P(o.planet)} ${i.roman(o.house)}${o.unseen ? ` (${R('unseen')})` : ''}`).join(', ');
+      const row = w => Y.overlays.filter(o => o.who === w).map(o => `${P(o.planet)}\u00a0${i.roman(o.house)}${o.unseen ? ` (${R('unseenShort')})` : ''}`).join(', ');
       add('overlays', sec('overlays', `<h3>${H('overlays')}</h3>${kvTable([[R('inHouses')(esc(pr.a), esc(pr.b)), row('a')], [R('inHouses')(esc(pr.b), esc(pr.a)), row('b')]])}`));
     }
     // the two charts, folded
-    { const when = x => `${fmtIn(x.date, x.loc.tz, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}<br>${esc(i.placeName(x.loc.name))}`;
-      const pos = x => `${Math.floor(x.deg % 30)}°${String(Math.floor(((x.deg % 30) % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign).slice(0, 3)} · ${i.roman(x.house)}`;
-      const angle = l => `${Math.floor(SD.engine.norm360(l) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(l) / 30))}`;
+    { const when = (x, no) => `${fmtIn(x.date, x.loc.tz, no ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}<br>${esc(i.placeName(x.loc.name))}`;   // no birth time: the date alone
+      const pos = (x, no) => `${Math.floor(x.deg % 30)}°${String(Math.floor(((x.deg % 30) % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign).slice(0, 3)}${no ? '' : ' · ' + i.roman(x.house)}`;
+      const angle = (l, no) => no ? '—' : `${Math.floor(SD.engine.norm360(l) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(l) / 30))}`;
       const elem = x => x.elements ? `${i.t('ui.el.' + x.elements.dominant)} ${Math.round(x.elements.shares[x.elements.dominant] * 100)}%` : '—';
       const of = st.ownFigures || {}, figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
-      const sect = x => x.sect === 'day' ? R('day') : R('night');
-      const rows = [[K('born'), when(a), when(b)], [K('ascendant'), angle(a.asc), angle(b.asc)], [K('midheaven'), angle(a.mc), angle(b.mc)], ...C.ORDER.map(k => [P(k), pos(a.bodies[k]), pos(b.bodies[k])]), [K('element'), elem(a), elem(b)], [K('figure'), figOf(of.a), figOf(of.b)], [K('sect2'), sect(a), sect(b)]];
+      const sect = x => x.sect === 'day' ? R('dayChartShort') : R('nightChartShort');
+      const rows = [[K('born'), when(a, nt[0]), when(b, nt[1])], [K('ascendant'), angle(a.asc, nt[0]), angle(b.asc, nt[1])], [K('midheaven'), angle(a.mc, nt[0]), angle(b.mc, nt[1])], ...C.ORDER.map(k => [P(k), pos(a.bodies[k], nt[0]), pos(b.bodies[k], nt[1])]), [K('element'), elem(a), elem(b)], [K('figure'), figOf(of.a), figOf(of.b)], [K('sect2'), i.cap1(sect(a)), i.cap1(sect(b))]];
       const summary = `${esc(pr.a)}, ${sect(a)}, ${a.elements ? i.t('ui.el.' + a.elements.dominant) : ''} · ${esc(pr.b)}, ${sect(b)}, ${b.elements ? i.t('ui.el.' + b.elements.dominant) : ''}`;
       add('charts', sec('charts', `<details class="fold" data-sec="pair.chartsFold"><summary><h3>${H('charts')}</h3><span class="s">${summary}</span></summary><table class="pair"><tr class="head"><td></td><td>${esc(pr.a)}</td><td>${esc(pr.b)}</td></tr>${rows.map(([k, x, y]) => `<tr><th scope="row">${k}</th><td>${x}</td><td>${y}</td></tr>`).join('')}</table></details>`)); }
     return parts;
@@ -999,12 +1010,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   function roseLine(st, transits) {
     const i = SD.i18n, R = k => i.t('ui.r.' + k), rs = SD.render.roseSummary(st); if (!rs) return '';
     const top = rs.folds.filter((f, k) => k === 0 || f.share >= 0.15).slice(0, 2).map(f => `${R('fold')[f.n]} (${Math.round(100 * f.share)}%)`);
-    return i.t(transits ? 'ui.r.roseTransitsIs' : 'ui.r.roseIs')(rs.n, top.join(i.locale().startsWith('es') ? ' y ' : ' and '));
+    return i.t(transits ? 'ui.r.roseTransitsIs' : 'ui.r.roseIs')(rs.n, top.join(i.locale().startsWith('es') ? ', y ' : ', and '));
   }
   /* a contact between the two charts in words, whichever way it runs */
   function contactWords(x, pr) {
     const i = SD.i18n, C = SD.corr, P = k => i.planet(k), own = (who, what) => i.t('cap.own')(who, what);
-    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : k === 'node' ? SD.tikkun.text().north : k;
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? i.t('ui.r.angleName.asc') : k === 'midheaven' ? i.t('ui.r.angleName.mc') : k === 'node' ? SD.tikkun.text().north : k;
     if (x.place) return `${i.t('ui.r.byPlace')}: ${i.t('ui.r.place.' + x.place)}`;
     if (x.b === 'house') { const [who, whose] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b]; return `${own(who, P('mars'))} ${i.t('ui.r.inThe')} ${own(whose, i.t('ui.r.house58'))}`; }
     const [first, second] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b];
@@ -1149,7 +1160,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       ...k.conj.map(c => row(dl('conj', T.conj), trumpLink(c.card), `${P(c.planet)}, ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${lt(c.letter)}`)),
       ...k.threshold.map(t => row(dl('threshold', T.threshold), trumpLink(t.card), `${SD.tikkun.near(t)} · ${lt(t.letter)}`))].join('');
     const order = (k.noTime ? [] : ['ascendant']).concat(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']).concat(k.noTime ? [] : ['midheaven']);
-    const lonOf = x => x === 'ascendant' ? st.asc : x === 'midheaven' ? st.mc : st.bodies[x].lon, nm = x => x === 'ascendant' ? i.cap1(R('ascendant')) : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
+    const lonOf = x => x === 'ascendant' ? st.asc : x === 'midheaven' ? st.mc : st.bodies[x].lon, nm = x => x === 'ascendant' ? i.cap1(R('ascendant')) : x === 'midheaven' ? i.cap1(R('midheaven')) : x === 'northNode' ? T.north : P(x);
     const t2 = order.map(x => { const s = Math.floor(SD.engine.norm360(lonOf(x)) / 30); return `<tr><td>${nm(x)}</td><td>${i.sign(s)}</td><td class="card">${trumpLink(SD.tikkun.SIGN[s][1])}</td></tr>`; }).join('');
     const recur = k.placements.filter(p => p.count > 1).map(p => T.recurs(trumpLink(p.card), p.count, p.keys.map(nm).join(', ')));
     const cards = a => a.path ? trumpLink(a.card) : a.cards.map(trumpLink).join(' + ');
@@ -1283,11 +1294,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const cap = t => t.replace(/^./, c => c.toUpperCase());
     const res = tal.out || tal.partial, now = Date.now();
     const edges = e => { const a = Math.ceil(e.start / 6e4) * 6e4, z = Math.floor(e.end / 6e4) * 6e4; return [a, z]; };   // whole minutes inside the window, never past its edges
-    const when = e => { const [a, z] = edges(e); return `${cap(day.format(a))}, ${hm.format(a)}–${hm.format(z)}`; };
+    const dayTxt = d => day.formatToParts(d).map(p => p.type === 'literal' ? p.value.replace(',', '') : p.value).join('');   // 'Wed 29 Mar 2028'
+    const when = e => { const [a, z] = edges(e); return `${cap(dayTxt(a))}, ${hm.format(a)}–${hm.format(z)}`; };
     const dig = e => e.dignity.includes('exaltation') ? T('exalted') : e.dignity.includes('domicile') ? T('ownSign') : e.dignity.includes('triplicity') ? T('triplicity') : T('term');
     const line = (e, k) => {
       const where = T(e.angle === 'asc' ? 'rising' : 'culminating')(k, P(k), i.sign(e.sign));
-      const mn = e.moon.mansion ? `${i.ordinal(e.moon.mansion.index)} ${i.t('cap.mansion')} · ${i.name(e.moon.mansion.name)}` : '';   // her mansion: its use depends on the work (Agrippa II.33)
+      const mn = e.moon.mansion ? `${i.ordinal(e.moon.mansion.index)} ${i.t('cap.mansion')}, ${i.name(e.moon.mansion.name)}` : '';   // her mansion: its use depends on the work (Agrippa II.33)
       const moon = T('moonLine')(i.sign(e.moon.sign), mn, i.aspect(e.moon.aspect), e.moon.to === k ? '' : e.moon.to, e.moon.to === k ? T('itself') : P(e.moon.to));
       const by = e.cautionBy || {}, cBy = T('cBy'), x = { P, asp: a => i.aspect(a), ord: n => i.ordinal(n) };   // name the planet behind a caution, and say fall or detriment for the Moon
       const said = c => c === 'moonFall' ? cBy.moonFall(i.sign(e.moon.sign), e.moon.sign === 7) : by[c] && cBy[c] ? cBy[c](by[c].by, by[c].how, x) : T('c')[c] || c;
@@ -1306,11 +1318,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (best.length) body += `<p class="tal-sub">${T('firstRate')}</p><ul class="tal">${best.map(e => line(e, k)).join('')}</ul>`;
       if (lesser.length) body += `<p class="tal-sub">${T('lesserHead')}</p><ul class="tal">${lesser.map(e => line(e, k)).join('')}</ul>`;
       const first = [...best, ...lesser].reduce((m, e) => Math.min(m, e.start), Infinity);
-      if (r.wait && r.wait.until > now && (!isFinite(first) || first - now > 60 * 864e5)) body += `<p class="note">${T('wait')(k, P(k), cap(day.format(r.wait.until)))}</p>`;
+      if (r.wait && r.wait.until > now && (!isFinite(first) || first - now > 60 * 864e5)) body += `<p class="note">${T('wait')(k, P(k), timeTag(new Date(r.wait.until), dayTxt(r.wait.until)))}</p>`;
+      if (!body) return `<div class="tal-planet"><span class="p">${P(k)}</span><span class="w">${summary}</span></div>`;
       if (k === 'mars' || k === 'saturn') body += pillRow(popBtn(k === 'mars' ? 'cautionMars' : 'cautionSaturn', T('cautionPill')));
       return `<details class="tal-planet" data-sec="tal.${k}"><summary><span class="p">${P(k)}</span><span class="w">${summary}</span></summary>${body}</details>`;
     }).join('');
-    return secOf('clock', 'talismans', `<h3>${i.cap1(T('h'))}</h3><p>${T('lead')(i.placeName(S.place.name))}</p>${pillRow(popBtn('talHow', T('howPill')), popBtn('talSources', T('sourcesPill')))}<div class="tal-list">${rows}</div>`, ' id="talismans"');
+    return secOf('clock', 'talismans', `<h3>${i.cap1(T('h'))}</h3><p>${T('lead')(S.place.name === 'here' ? '' : i.placeName(S.place.name))}</p>${pillRow(popBtn('talHow', T('howPill')), popBtn('talSources', T('sourcesPill')))}<div class="tal-list">${rows}</div>`, ' id="talismans"');
   }
   /* a date of the list: the clock at that moment, the dial in view, and its chord (the tap lets the sound start) */
   function openMoment(d) {
@@ -1329,13 +1342,15 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     let v = document.querySelector('.card-view');
     if (!v) {
       v = document.createElement('div'); v.className = 'card-view'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true');
-      v.addEventListener('click', e => { const im = e.target.closest('img'); if (im) { openPlate(im.dataset.full, im.alt); return; } if (e.target === v || e.target.closest('.cv-close')) v.hidden = true; });
-      document.addEventListener('keydown', e => { if (e.key === 'Escape') v.hidden = true; });
+      v.addEventListener('click', e => { const im = e.target.closest('img'); if (im) { openPlate(im.dataset.full, im.alt); return; } if (e.target === v || e.target.closest('.cv-close')) { v.hidden = true; if (v.opener && v.opener.isConnected) v.opener.focus({ preventScroll: true }); } });
+      v.addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault(); v.querySelector('.cv-close').focus(); } });
+      document.addEventListener('keydown', e => { if (e.key !== 'Escape' || v.hidden) return; const pv = document.querySelector('.plate-view'); if (pv && !pv.hidden) return; v.hidden = true; if (v.opener && v.opener.isConnected) v.opener.focus({ preventScroll: true }); });
       document.body.appendChild(v);
     }
     const m = SD.tarotMeanings && SD.tarotMeanings[lang] && SD.tarotMeanings[lang][key];
     v.innerHTML = `<div class="cv-card"><button class="cv-close">${esc(i.cap1(i.t('ui.close')))}</button><img src="${x.img.replace('img/tarot/', 'img/tarot/sm/')}" data-full="${x.img}" alt="${esc(x[lang][0])}" width="440" height="760"><div class="cv-text"><h2>${esc(x[lang][0])}</h2><p class="gd">${esc(x[lang][1])}</p>${m ? `<p class="meaning">${esc(m)}</p>` : ''}</div></div>`;
-    v.hidden = false; v.scrollTop = 0;
+    if (v.hidden !== false || !v.opener) v.opener = document.activeElement;
+    v.hidden = false; v.scrollTop = 0; v.querySelector('.cv-close').focus({ preventScroll: true });
   }
   /* a tarot plate at full size, over everything; any tap or Escape closes it */
   function openPlate(src, alt) {
@@ -1391,16 +1406,18 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const show = () => {
       pickHeld = performance.now();
       const i = SD.i18n, onId = which === 'first' ? (S.natal && S.natal.id) : S.pair;
-      menu.innerHTML = (S.charts.length ? S.charts.map(c => `<button type="button" data-id="${c.id}"${onId === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`)
-        + (which === 'first' ? `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>` : '');   // and a way to add one
+      const list = which === 'second' && S.natal ? S.charts.filter(c => c.id !== S.natal.id) : S.charts;
+      menu.innerHTML = (list.length ? list.map(c => `<button type="button" data-id="${c.id}"${onId === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`)
+        + `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>`;   // and a way to add one, for either place
       const r = btn.getBoundingClientRect();
       menu.hidden = false;
       const w = menu.offsetWidth, left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left));
-      menu.style.left = `${left}px`; menu.style.top = `${r.bottom + 6}px`;
+      const mh = menu.offsetHeight, top = r.bottom + 6 + mh <= window.innerHeight - 8 ? r.bottom + 6 : Math.max(8, r.top - 6 - mh);
+      menu.style.left = `${left}px`; menu.style.top = `${top}px`;
       try { navigator.vibrate && navigator.vibrate(12); } catch (e) { /* no haptics */ }
     };
     const disarm = () => { clearTimeout(timer); timer = null; };
-    openPick = (w, b) => { which = w; btn = b; show(); pickHeld = 0; };
+    openPick = (w, b) => { which = w; btn = b; show(); pickHeld = 0; const f = menu.querySelector('button:not(.on)') || menu.querySelector('button'); if (f) f.focus({ preventScroll: true }); };
     for (const [b, w] of [[btnA, 'first'], [btnB, 'second']]) {
       if (!b) continue;
       const arm = e => { if (e.button && e.button !== 0) return; which = w; btn = b; clearTimeout(timer); timer = setTimeout(() => { show(); try { window.getSelection && window.getSelection().removeAllRanges(); } catch (x) { /* none */ } }, 480); };
@@ -1408,7 +1425,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       b.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); which = w; btn = b; show(); });
     }
     menu.addEventListener('click', e => {
-      if (e.target.closest('button[data-new]')) { menu.hidden = true; openBirth(true); return; }   // a blank form; the loaded chart stays until the new one is saved
+      if (e.target.closest('button[data-new]')) { menu.hidden = true; S.birthForPair = which === 'second'; openBirth(true); return; }   // a blank form; the loaded chart stays until the new one is saved
       const b = e.target.closest('button[data-id]'); if (!b) return;
       const chart = S.charts.find(c => c.id === b.dataset.id); menu.hidden = true; if (!chart) return;
       if (which === 'second') { S.pair = chart.id; store.set('pair', S.pair); S.mode = 'pair'; }
@@ -1465,7 +1482,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('set-bodies').addEventListener('change', e => { S.luminous = e.target.value === 'lights'; store.set('bodies', e.target.value); S.dirty = true; });
     $('set-relocate').addEventListener('change', e => { S.relocate = e.target.value === '1'; store.set('relocate', S.relocate); natalCache.key = null; recompute(); });
     $('natal-edit').addEventListener('click', () => { openMenu(false); openBirth(); });
-    $('natal-new').addEventListener('click', () => { openMenu(false); openBirth(true); });   // a blank form; the loaded chart stays until the new one is saved
+    $('natal-new').addEventListener('click', () => { openMenu(false); S.birthForPair = false; openBirth(true); });   // a blank form; the loaded chart stays until the new one is saved
     $('natal-report').addEventListener('click', chartReport);
     $('natal-copy').addEventListener('click', copyReport);
     const showKey = e => { e.preventDefault(); openMenu(true); const sec = $('read-title'); if (sec) sec.scrollIntoView({ block: 'start' }); };
@@ -1561,14 +1578,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
     $('readout').addEventListener('click', e => { const a = e.target.closest('[data-tal]'); if (!a) return; e.preventDefault(); openMoment(new Date(a.dataset.tal)); });
     $('readout').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (!g) return; e.preventDefault();   // the links out of the reading: to the Clock, or to choose the second chart
-      if (g.dataset.go === 'clock') { const b = document.querySelector('.seg [data-mode="clock"]') || document.querySelector('[data-mode="clock"]'); if (b) b.click(); }
-      else if (g.dataset.go === 'pick-second' && openPick) openPick('second', document.querySelector('[data-mode="pair"]')); });
+      if (g.dataset.go === 'clock') { const b = document.querySelector('.seg [data-mode="clock"]') || document.querySelector('[data-mode="clock"]'); if (b) { b.click(); window.scrollTo({ top: 0, behavior: 'instant' }); b.focus({ preventScroll: true }); } }
+      else if (g.dataset.go === 'pick-second' && openPick) openPick('second', g); });
     // the pop-up (DESIGN.md, "The readout system"): one at a time, titled with the words that opened it; anchored under its
     // trigger, or above it near the foot of the screen; on a phone a text over sixty words rises as a sheet. It holds a method
     // note ("note:stone"), a tikkun word ("karma") or a glossary entry ("g:void"). The trigger again, ×, a tap outside,
     // Escape or a change of width closes it; a sheet gives the focus back to its trigger
     let defOpen = null;
-    const closeDef = back => { if (!defOpen) return; const d = defOpen; defOpen = null; d.box.remove(); if (d.scrim) d.scrim.remove(); d.btn.setAttribute('aria-expanded', 'false'); if (back && d.btn.isConnected) d.btn.focus({ preventScroll: true }); };
+    const closeDef = back => { if (!defOpen) return; const d = defOpen; defOpen = null; cancelAnimationFrame(d.raf); d.box.remove(); if (d.scrim) d.scrim.remove(); d.btn.setAttribute('aria-expanded', 'false'); if (back && d.btn.isConnected) d.btn.focus({ preventScroll: true }); };
     const popContent = (key, btn) => {
       const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en';
       if (key.startsWith('g:')) { const k = key.slice(2), g = SD.glossary.byKey(k) || SD.glossary.dynamic(lang).find(x => x.key === k); return g ? { title: g[lang][0].replace(/\s*\(.*\)$/, ''), text: g[lang][1], gloss: k } : null; }
@@ -1576,7 +1593,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (key.startsWith('note:')) return { title, text: noteText(key.slice(5)) };
       return { title, text: (SD.tikkun.text().defs || {})[key] };
     };
-    const openDef = (btn, key) => {
+    const openDef = (btn, key, kb) => {
       key = key || btn.dataset.def;
       const same = defOpen && defOpen.key === key && defOpen.btn === btn; closeDef(); if (same) return;
       const c = popContent(key, btn); if (!c || !c.text) return;
@@ -1590,21 +1607,35 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       let scrim = null;
       if (sheet) { scrim = document.createElement('div'); scrim.className = 'pop-scrim'; document.body.appendChild(scrim); }
       document.body.appendChild(box);
-      if (!sheet) {
-        const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight, w = box.offsetWidth, h = box.offsetHeight;
-        const left = Math.max(16, Math.min(vw - 16 - w, r.left)), below = r.bottom + 8 + h <= vh - 8 || r.top - 8 - h < 8;
-        box.style.left = (left + window.scrollX) + 'px'; box.style.top = ((below ? r.bottom + 8 : r.top - 8 - h) + window.scrollY) + 'px';
-      }
       btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', 'popdef');
-      defOpen = { btn, box, scrim, key, w: window.innerWidth };
-      if (sheet) box.focus({ preventScroll: true });
+      const host = btn.closest('#readout > [data-sec], #caption'), sel = key.startsWith('g:') ? `a.g[data-g="${key.slice(2)}"]` : `[data-def="${key}"]`;
+      defOpen = { btn, box, scrim, key, w: window.innerWidth, sel, host: host ? (host.id === 'caption' ? '#caption' : `#readout > [data-sec="${host.dataset.sec}"]`) : null, nth: host ? [...host.querySelectorAll(sel)].indexOf(btn) : 0 };
+      if (!sheet) follow();
+      if (sheet || kb) box.focus({ preventScroll: true });
+      box.addEventListener('keydown', e => { if (e.key !== 'Tab') return; const f = [box, ...box.querySelectorAll('button')], i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus(); });
     };
-    SD.app_pop = { openDef, closeDef, open: () => defOpen };          // the readout's re-render re-points or closes an open pop-up
+    const place = () => {                                   // under the trigger, or above it near the foot; never taller than the room it has
+      const d = defOpen; if (!d || d.scrim) return;
+      const r = d.btn.getBoundingClientRect(); if (d.r && d.r.top === r.top && d.r.left === r.left && d.sy === window.scrollY) return;
+      d.r = r; d.sy = window.scrollY; d.box.style.maxHeight = '';
+      const vw = document.documentElement.clientWidth, vh = window.innerHeight, w = d.box.offsetWidth, h = d.box.offsetHeight;
+      const below = vh - 8 - (r.bottom + 8), above = r.top - 16, down = h <= below || below >= above, room = Math.max(120, down ? below : above), hh = Math.min(h, room);
+      if (h > room) d.box.style.maxHeight = room + 'px';
+      d.box.style.left = (Math.max(16, Math.min(vw - 16 - w, r.left)) + window.scrollX) + 'px'; d.box.style.top = ((down ? r.bottom + 8 : r.top - 8 - hh) + window.scrollY) + 'px';
+    };
+    const follow = () => { if (!defOpen || defOpen.scrim) return; place(); defOpen.raf = requestAnimationFrame(follow); };   // the column scrolls, the page above it grows: the pop-up stays with its word
+    const repoint = () => {                                 // after a repaint: the same word or pill in the same section, else close
+      const d = defOpen; if (!d || d.btn.isConnected) return;
+      const h = d.host && document.querySelector(d.host), list = h ? [...h.querySelectorAll(d.sel)] : [], nb = list[d.nth] || list[0];
+      if (!nb) { closeDef(); return; }
+      d.btn = nb; nb.setAttribute('aria-expanded', 'true'); nb.setAttribute('aria-controls', 'popdef');
+    };
+    SD.app_pop = { openDef, closeDef, repoint, open: () => defOpen };          // the readout's re-render re-points or closes an open pop-up
     document.addEventListener('click', e => {
       if (e.target.closest('.popdef .pclose')) { closeDef(true); return; }
-      const gb = e.target.closest('.popdef [data-gloss]'); if (gb) { const k = gb.dataset.gloss; closeDef(); openGlossary(k); return; }
-      const b = e.target.closest('[data-def]'); if (b) { e.preventDefault(); openDef(b); return; }
-      if (defOpen && !e.target.closest('.popdef')) closeDef();
+      const gb = e.target.closest('.popdef [data-gloss]'); if (gb) { const k = gb.dataset.gloss, back = defOpen && defOpen.btn; closeDef(); openGlossary(k); $('glossary').back = back; $('glossary-close').focus({ preventScroll: true }); return; }
+      const b = e.target.closest('[data-def]'); if (b) { e.preventDefault(); openDef(b, null, e.detail === 0); return; }
+      if (defOpen && !e.target.closest('.popdef') && !defOpen.btn.contains(e.target)) closeDef(!!defOpen.scrim);
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDef(true); });
     window.addEventListener('resize', () => { if (defOpen && defOpen.w !== window.innerWidth) closeDef(); });   // a phone's toolbar changes the height while scrolling: only a new width closes it
@@ -1615,22 +1646,23 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('about-open').addEventListener('click', () => { $('about').hidden = !$('about').hidden; $('about-open').classList.toggle('on', !$('about').hidden); if (!$('about').hidden) openMenu(false); });
     $('about-close').addEventListener('click', () => { $('about').hidden = true; $('about-open').classList.remove('on'); });
     $('glossary-open').addEventListener('click', () => { openGlossary(); openMenu(false); });
-    $('glossary-close').addEventListener('click', () => { $('glossary').hidden = true; });
-    document.addEventListener('click', e => { const a = e.target.closest('a.g, [data-g]'); if (!a) return; e.preventDefault(); if (/^(card_|trump_)/.test(a.dataset.g || '')) openCard(a.dataset.g); else if (a.closest('#readout, #caption') && SD.app_pop) SD.app_pop.openDef(a, 'g:' + a.dataset.g); else openGlossary(a.dataset.g); });   // a tarot card opens as a lightbox, at once
+    $('glossary-close').addEventListener('click', () => { $('glossary').hidden = true; const b = $('glossary').back; $('glossary').back = null; if (b && b.isConnected) b.focus({ preventScroll: true }); });
+    document.addEventListener('click', e => { const a = e.target.closest('a.g, [data-g]'); if (!a) return; e.preventDefault(); if (/^(card_|trump_)/.test(a.dataset.g || '')) openCard(a.dataset.g); else if (a.closest('#readout, #caption') && SD.app_pop) SD.app_pop.openDef(a, 'g:' + a.dataset.g, e.detail === 0); else openGlossary(a.dataset.g); });   // a tarot card opens as a lightbox, at once
     const fullScreen = () => {                              // the f key: the bare dial, full screen where the browser allows it
       document.body.classList.toggle('bare');
       if (document.body.classList.contains('bare') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
       else if (document.fullscreenElement) document.exitFullscreen();
     };
     window.addEventListener('keydown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === ' ' && e.target.closest && e.target.closest('button, a[href], summary, [role="button"], .popdef, .card-view')) return;   // Space activates the focused control
       if (e.key === 'f') fullScreen();
       if (e.key === 's') $('sigil').click();
       if (e.key === 'l') $('listen-corner').click();
       if (e.key === ' ') { e.preventDefault(); $('play').click(); }
       if (e.key === 'ArrowRight') { S.offsetMs += (e.shiftKey ? 24 : 1) * 3600e3; recompute(); }
       if (e.key === 'ArrowLeft') { S.offsetMs -= (e.shiftKey ? 24 : 1) * 3600e3; recompute(); }
-      if (e.key === 'Escape') { document.body.classList.remove('bare'); $('about').hidden = true; $('about-open').classList.remove('on'); $('birth').hidden = true; openMenu(false); }
+      if (e.key === 'Escape') { document.body.classList.remove('bare'); $('about').hidden = true; $('about-open').classList.remove('on'); $('birth').hidden = true; $('glossary').hidden = true; openMenu(false); }
     });
     window.addEventListener('resize', () => { size(); slideSeg(); });
     $('readout').addEventListener('transitionend', e => { if (e.propertyName === 'width') size(); });   // the stage is only final once the panel has opened
@@ -1723,6 +1755,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const d = fromStamp(`${dateTxt} ${timeTxt}`, place.tz);
     if (!d) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.badDate')); return; }
     const name = $('birth-name').value.trim();
+    if (S.birthForPair) {                                   // a new second chart for the pair: kept and chosen as the second; the first chart stays
+      const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };
+      upsertChart(c); S.pair = c.id; store.set('pair', S.pair); S.birthForPair = false; S.birthNew = false;
+      $('birth').hidden = true; S.mode = 'pair'; store.set('mode', S.mode); recompute(); return;
+    }
     S.natal = { date: d.toISOString(), place, unknownTime: unknown, name: name || undefined, id: name ? (!S.birthNew && S.natal && S.natal.id) || uid() : undefined };
     S.birthNew = false;
     if (name) upsertChart(S.natal);                         // a named nativity is kept in the saved charts
