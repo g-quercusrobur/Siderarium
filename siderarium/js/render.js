@@ -1443,7 +1443,7 @@
   function moonLine(state) {
     const m = state.moon, i = I();
     const to = i.t('cap.to');
-    const head = m.next ? `${i.t('cap.moonApplying')} ${i.aspect(m.next.aspect)} ${to ? to + ' ' : ''}${i.planet(m.next.planet)}` : i.t('cap.moonVoid') + (m.tolerable ? ' · ' + i.t('cap.tolerable') : '');
+    const head = m.next ? `${i.t('cap.moonApplying')} ${i.aspect(m.next.aspect)} ${to ? to + ' ' : ''}${i.planet(m.next.planet)}` : i.t('cap.moonVoid') + (m.tolerable ? ' · ' + i.t('cap.tolerable')(i.sign(state.bodies.moon.sign)) : '');   // Lilly's four signs ease the void
     const extra = m.flags.filter(f => f !== 'void of course')[0];
     return extra ? `${head} · ${i.flag(extra === 'under the beams' ? 'beams' : extra)}` : head;
   }
@@ -1470,7 +1470,7 @@
     const d = B.sun.decan, c1 = i.cap1, cs = i.capSegs, to = i.t('cap.to');
     const T2 = state.title || { house: B.moon.house, mode: 'ideation', state: 'watch' };
     const mv = `${i.t('ui.r.moonIs')} ${i.verdict(state.moon.verdict)}`;
-    const mn = state.moon.next ? `, ${i.t('cap.applying')} ${i.aspect(state.moon.next.aspect)} ${to ? to + ' ' : ''}${i.planet(state.moon.next.planet)}` : (state.moon.tolerable ? ` · ${i.t('cap.tolerable')}` : '');
+    const mn = state.moon.next ? `, ${i.t('cap.applying')} ${i.aspect(state.moon.next.aspect)} ${to ? to + ' ' : ''}${i.planet(state.moon.next.planet)}` : (state.moon.tolerable ? ` · ${i.t('cap.tolerable')(i.sign(B.moon.sign))}` : '');
     const ch = state.chord;
     const chordTxt = ch.name === 'none' ? i.t('cap.quiet') : `${i.t('cap.chord')} ${i.chordLong(ch)}${ch.interval ? ' · ' + i.interval(ch.interval) : ch.notes.length > 1 ? ' · ' + ch.notes.map(n => i.note(n)).join(' ') : ''}`;
     const nextTxt = state.nextChord ? `${i.t('cap.nextChord')} ${i.chordName(state.nextChord.to)} · ${fmtShort(state.nextChord.at, state.loc)}` : '';
@@ -1480,7 +1480,8 @@
       // the tiers: the instrument, the state, the title, the reason, the moment, the day's colour, the sound
       label: i.t('cap.clockLabel'),
       stateKey: T2.state,
-      state: i.state(T2.state),
+      opLabel: state.natalView ? '' : i.t('cap.operations'),   // the clock answers 'Magickal operations:' with its verdict; a birth chart keeps the bare verdict
+      state: state.natalView ? i.state(T2.state) : i.state(T2.state).replace(/^./, ch => ch.toLowerCase()),
       title: `${i.t('cap.modeOf')} ${c1(i.window(T2.mode))} · ${i.realm(T2.house)} · ${i.t('cap.under')}\u00a0${i.name(H.angel)}`,   // 'under' and the angel never part across a line; the mode first, named as a mode; the house as a realm; the angel
       reason: `${c1(figLine)} · ${c1(mv)}${mn}`,
       copy: !!(state.natalView && !state.transits && !state.pair),   // a birth chart: a copy icon after the city
@@ -1664,11 +1665,13 @@
     }
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     // 2 · the state: do I work now. the one line in colour
+    let sx = m;                                           // where the verdict starts: after 'Magickal operations:', set smaller in the ink
+    if (c.opLabel) { ctx.fillStyle = K.rgba(INK, 0.85); ctx.font = `400 ${Math.round(19 * k)}px ${SANS}`; put(c.opLabel, m, row(1)); sx = m + ctx.measureText(c.opLabel).width + 9 * k; }
     ctx.fillStyle = STATE_INK[c.stateKey] || INK; ctx.font = `500 ${Math.round(31 * k)}px ${SANS}`;
-    f = fit(c.state, left); put(c.state, m, row(1));
+    f = fit(c.state, left - (sx - m)); put(c.state, sx, row(1));
     if (c.note) {                                         // the pull between the two, in the ink, after the grade
       const sw = ctx.measureText(c.state).width; ctx.font = f; ctx.fillStyle = K.rgba(INK, 0.8); ctx.font = `400 ${Math.round(17 * k)}px ${SANS}`;
-      const g = fit(c.note, Math.max(40 * k, left - sw - 12 * k), 0.6); put(c.note, m + sw + 12 * k, row(1)); ctx.font = g;
+      const g = fit(c.note, Math.max(40 * k, left - (sx - m) - sw - 12 * k), 0.6); put(c.note, sx + sw + 12 * k, row(1)); ctx.font = g;
     }
     ctx.font = f;
     // 3 · the title of the moment: the stage of life, the mother letter, the angel of the hour
