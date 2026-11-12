@@ -199,6 +199,10 @@ body.small #caption .scales { margin: 8px 0 12px; }
 #readout table.cards td { white-space: normal; } #readout table.cards td:first-child { width: 28%; } #readout table.cards td.card { color: var(--ink); width: 38%; }
 #readout table.cards tr.head td { font: 500 11px/1.4 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 4px; }
 #readout table.cards tr.sub td { color: var(--ink-3); font-size: 12px; padding-top: 0; }
+/* the temperament: the testimonies (the label wraps; the humour and the weight do not) and Ficino's regimen, label and value */
+#readout table.temper td:first-child { white-space: normal; } #readout table.temper td:nth-child(2) { color: var(--ink); }
+#readout table.regimen { margin: 4px 0 14px; } #readout table.regimen td:first-child { color: var(--ink-3); width: 24%; }
+#readout table.regimen tr.head td { font: 500 11px/1.4 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 4px; }
 #readout td.card.tk::after, #readout .tkmark::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: #6fcf8e; vertical-align: middle; } #readout .tkmark::before { margin: 0 2px 0 0; }
 #readout .recur { color: var(--ink-2); font-size: 12.5px; margin: 8px 0 0; white-space: normal; }
 #readout .tie { display: grid; gap: 4px; margin: 0 0 12px; } #readout .tie .th { display: flex; justify-content: space-between; font: 500 13px/1.5 var(--sans); color: var(--ink); }
@@ -275,6 +279,10 @@ button.deflink[aria-expanded="true"] { text-decoration-color: var(--ink); }
 .popdef { position: absolute; z-index: 20; box-sizing: border-box; width: min(18rem, calc(100vw - 32px)); padding: 12px 14px;
   background: #111; color: var(--ink); border: 1px solid rgba(235, 231, 220, 0.25); border-radius: 4px;
   font: 400 0.875rem/1.45 var(--sans); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
+.popdef { max-height: min(70vh, 34rem); overflow-y: auto; } .popdef p { margin: 0 0 8px; } .popdef p:last-child { margin-bottom: 0; }
+/* a note behind a trigger: the reading keeps one short line, the text opens on tap */
+button.deflink.note { color: var(--ink-2); }
+#readout .more { margin: 8px 0 0; } #readout .howto { color: var(--ink-2); margin: 0 0 4px; }
 /* a Hebrew letter inside running text: Geist has none, so the system's Hebrew face */
 .he { font-family: "Noto Sans Hebrew", "Arial Hebrew", "David", "Times New Roman", serif; font-size: 1.12em; line-height: 1; }
 a.g:hover { text-decoration-style: solid; color: var(--ink); }
@@ -340,7 +348,7 @@ button.ready { color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3p
 @media (max-width: 720px) {
   body.reading #readout { font-size: 15px; line-height: 1.55; }
   #readout h3 { font-size: 15px; margin: 26px 0 10px; }
-  #readout h4, #readout table.cards tr.head td { font-size: 12.5px; }
+  #readout h4, #readout table.cards tr.head td, #readout table.regimen tr.head td { font-size: 12.5px; }
   #readout p.verdict, #readout .verdict { font-size: 15px; }
   #readout .dim, #readout .recur, #readout .makers p, #readout .tie p, #readout table.cards tr.sub td { font-size: 14px; }
   #readout .tie .th { font-size: 15px; }
