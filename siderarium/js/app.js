@@ -576,7 +576,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const tp = st.temperament, TT = SD.temperament.text(), nm = t => TT.temp[t], q = r => SD.temperament.QUAL[r.temperament].split('').map(x => TT.q[{ H: 'hot', C: 'cold', M: 'moist', D: 'dry' }[x]]).join(', ');
       L.push(`## ${i.cap1(TT.heading)}`);
       L.push(`- ${R('verdict')}: ${i.cap1(SD.temperament.line(tp, tp.partial))}`);
-      if (tp.day) { const hm = d => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(d); L.push(`- ${TT.dayRuns} ${tp.day.map(x => `${SD.temperament.line(x.judgement)} (${hm(x.from)}–${hm(x.to)})`).join('; ')}`); }
+      if (tp.day) { const hm = d => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(tp.tz ? d : new Date(d.getTime() + n.place.lon / 15 * 3600e3)); L.push(`- ${TT.dayRuns} ${tp.day.map(x => `${SD.temperament.line(x.judgement)} (${hm(x.from)}–${hm(x.to)})`).join('; ')}`); }
       for (const r of tp.rows) L.push(`- ${TT.row[r.step]} · ${tempDetail(st, r)}: ${nm(r.temperament)} (${q(r)}) · ${tempNum(r.w)}`);
       L.push(`- ${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(' · ')}`);
       L.push(`- ${TT.columns(tempNum(tp.columns.hot), tempNum(tp.columns.cold), tempNum(tp.columns.moist), tempNum(tp.columns.dry), SD.temperament.TEMPS.includes(tp.columns.verdict) ? nm(tp.columns.verdict) : TT.q[tp.columns.verdict])}`);
@@ -1007,7 +1007,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const i = SD.i18n, R = x => i.t('ui.r.' + x), TT = () => SD.temperament.text(), Y = S.state && S.state.syn;
     const N = { roseTransits: () => R('roseTransitsNote'), rose: () => R('roseNote'), stone: () => R('stoneNote'), void: () => R('voidNote'),
       ties: () => R(Y && !Y.age.sexual ? 'tiesNoteFamily' : 'tiesNote'), composite: () => R('compositeNote'), pair: () => R('pairNote'),
-      temperament: () => TT().intro, intemperance: () => TT().intemperanceNote, symbolic: () => SD.tikkun.text().symbolic };
+      temperament: () => TT().intro, intemperance: () => TT().intemperanceNote, mixed: () => TT().mixed, mixedMelancholy: () => TT().mixed + '\n\n' + TT().melancholyMix, symbolic: () => SD.tikkun.text().symbolic };
     return N[k] ? N[k]() : null;
   }
   const popBtn = (k, label) => `<button type="button" class="deflink note nolink" data-def="note:${k}" aria-expanded="false">${label}</button>`;
@@ -1032,7 +1032,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
      Ficino's regimen; the mixture; the intemperance; then the testimonies, the tally, Lilly's columns and the Lord of the Geniture */
   function temperamentHtml(st) {
     const i = SD.i18n, tp = st.temperament, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), nm = t => TT.temp[t];
-    const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(d);
+    const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(tp.tz ? d : new Date(d.getTime() + S.natal.place.lon / 15 * 3600e3));   // no zone: the local mean time of the longitude
     const many = tp.firsts.length > 1, mixedIn = tp.firsts.concat(tp.seconds);
     const regimen = t => `<table class="regimen"><tr class="head nolink"><td colspan="2">${TT.regimen}${many ? ' · ' + nm(t) : ''}</td></tr>${['call', 'colours', 'music', 'odours', 'places', 'stones'].map(k => `<tr><td class="nolink">${TT.reg[k]}</td><td>${TT.regimens[t][k]}</td></tr>`).join('')}</table>`;
     const runs = tp.day ? `<p class="dim">${TT.dayRuns} ${tp.day.map((x, n) => `${SD.temperament.line(x.judgement)} ${n + 1 < tp.day.length ? TT.until(hm(x.to)) : TT.after(hm(x.from))}`).join('; ')}.</p>` : '';
@@ -1043,13 +1043,13 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     return `<h3>${i.cap1(i.t('ui.h.temperament'))}</h3>
       <p class="verdict">${i.cap1(SD.temperament.line(tp, tp.partial))}</p>${runs}
       ${tp.firsts.map(t => `<p>${TT.reading[t]}</p>${regimen(t)}`).join('')}
-      ${mixedIn.length > 1 ? `<p>${TT.mixed}</p>${mixedIn.includes('melancholic') ? `<p>${TT.melancholyMix}</p>` : ''}` : ''}
+      ${mixedIn.length > 1 ? `<p class="more">${popBtn(mixedIn.includes('melancholic') ? 'mixedMelancholy' : 'mixed', TT.mixedIs)}</p>` : ''}
       ${tp.intemperate ? `<p>${popBtn('intemperance', TT.intemperanceIs)}: ${tp.intemperance.map(contact).join('; ')}.</p>` : ''}
       <h4>${TT.testimonies}</h4><table class="temper">${rows}</table>
       <p class="nolink">${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(' · ')}</p>
       <p class="dim nolink">${TT.columns(tempNum(c.hot), tempNum(c.cold), tempNum(c.moist), tempNum(c.dry), cv)}.${tp.columnsThird ? ' ' + TT.columnsThird(nm(tp.columnsThird)) : ''}</p>
       ${lg ? `<p>${TT.lord(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}.</p>` : ''}
-      <p class="more">${popBtn('temperament', i.t('ui.r.aboutMethod'))}${tp.relocated ? ` <span class="dim">${TT.relocated}</span>` : ''}</p>`;
+      <p class="more">${popBtn('temperament', i.t('ui.r.aboutMethod'))}${tp.polar ? ` <span class="dim">${TT.polar}</span>` : ''}${tp.relocated ? ` <span class="dim">${TT.relocated}</span>` : ''}</p>`;
   }
   /* the cards, after the whole chart: three tables with the same columns, the letter on a muted second line,
      recurring cards said in words, the tikkun's own cards marked */
