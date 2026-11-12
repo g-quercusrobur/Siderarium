@@ -568,3 +568,10 @@ body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48p
 /* the older readout, pop-up and talisman rules this block replaced were removed (November 2026; DESIGN.md, "The readout system") */
 /* the Transits tab: no 72-hour strip, that is the clock's */
 body.transits #ahead { display: none; }
+
+@media (min-width: 721px) { body.small #stage { overflow: hidden auto; } }
+/* line breaks (after the redesign's check): a date never splits; the impediment's dot stays with its words; cells wrap without a lone last word; one rule under the last talisman row is the section's own */
+#readout time { white-space: nowrap; }
+#readout .tal-why span.asp::before { display: inline; padding: 0 3.5px; font-size: 7px; line-height: 0; }
+#readout :is(td, th, .meta, .det, .tal-why, .s) { text-wrap: pretty; }
+#readout .tal-planet:last-child { border-bottom: 0; }

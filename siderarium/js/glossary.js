@@ -363,19 +363,24 @@
     const nodes = []; let n; while ((n = walker.nextNode())) nodes.push(n);
     for (const node of nodes) {
       const txt = node.nodeValue; re.lastIndex = 0; if (!re.test(txt)) continue; re.lastIndex = 0;
-      const para = node.parentElement.closest('p'), prose = para && !para.matches('.verdict, .note, .pills, .asp-key, .rose-key');
+      const para = node.parentElement.closest('p'), prose = para && !para.matches('.verdict, .note, .pills, .asp-key, .rose-key, .tal-sub');
       const frag = document.createDocumentFragment(); let last = 0, m, made = 0;
       while ((m = re.exec(txt))) {
         const start = m.index + m[1].length, word = m[2], key = byWord.get(word.toLowerCase()), group = groupOf.get(key);
         if (para && (group === 'element' || COMMON.has(key) || (group === 'house' && !/^(realm|reino)\b/i.test(word)))) continue;   // "inner work", "shining water": words, not terms
         if (start > last) frag.appendChild(document.createTextNode(txt.slice(last, start)));
         const a = document.createElement('a'); a.className = 'g'; a.href = '#g-' + key; a.dataset.g = key; a.textContent = word;
-        if (marks) { if (prose && !PLAIN.has(key) && !seen.has(key)) { a.dataset.first = ''; seen.add(key); } else a.tabIndex = -1; }
+        if (marks && prose && !PLAIN.has(key) && !seen.has(key)) { a.dataset.first = ''; seen.add(key); }
         frag.appendChild(a); last = start + word.length; made++;
       }
       if (!made) continue;
       if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
       node.parentNode.replaceChild(frag, node);
+    }
+    if (opts) {                                              // one tab stop per term per call: the drawn mention, else the first
+      const by = new Map();
+      for (const a of root.querySelectorAll('a.g:not(.card)')) { const k = a.dataset.g; if (!by.has(k)) by.set(k, []); by.get(k).push(a); }
+      for (const list of by.values()) { const keep = list.find(a => a.hasAttribute('data-first')) || list[0]; for (const a of list) if (a === keep) a.removeAttribute('tabindex'); else a.tabIndex = -1; }
     }
   }
   SD.glossary = { entries: G, groups: GROUPS, order: ORDER, link, setDynamic, dynamic: lang => dynamic[lang] || [], byKey: k => G.find(g => g.key === k) };
