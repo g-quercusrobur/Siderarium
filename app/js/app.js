@@ -717,194 +717,289 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
 
   const ordinalWord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 
-  /* ---------- readout: every mark traceable ---------- */
+  /* ---------- the readout: one reading system for the four views (DESIGN.md, "The readout system") ----------
+     A section opens with its answer: a 20 px title, a 17 px standfirst. The evidence follows as rows, one fact a row;
+     reference folds away under a summary that names what is inside; every note of method sits behind a labelled pill
+     that opens a pop-up. Each section is one element carrying data-sec, so a re-render replaces only what changed and
+     an open fold stays open. Astrology first, tarot and Kabbalah last; the Transits tab holds only the transits. */
+  const kvTable = rows => { const r = rows.filter(x => x && x[1]); return r.length ? `<table class="kv">${r.map(([k, v]) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</table>` : ''; };
+  const rankList = (items, cls, start) => items.length ? `<ol class="rank${cls ? ' ' + cls : ''}"${start ? ` start="${start}"` : ''}>${items.map(x => x.grp ? `<li class="grp">${x.grp}</li>`
+    : `<li${x.tone ? ` class="asp-${x.tone}"` : ''}><span class="nm">${x.name}</span><span class="n">${x.n || ''}</span>${(x.meta || []).filter(Boolean).map(m => `<span class="meta">${m}</span>`).join('')}</li>`).join('')}</ol>` : '';
+  const secOf = (view, key, inner, attrs) => `<section class="rs" data-sec="${view}.${key}"${attrs || ''}>${inner}</section>`;
+  const pillRow = (...b) => { const x = b.filter(Boolean); return x.length ? `<p class="pills">${x.join('')}</p>` : ''; };
+  const signed = (x, d) => (x > 0 ? '+' : x < 0 ? '\u2212' : '') + Math.abs(x).toFixed(d || 0);   // a true minus sign
+  const cardLink = (key, name) => `<a class="g card" data-g="${key}" href="#g-${key}">${name}</a>`;
+  const SIGN_TRUMP = [4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 17, 18], PLANET_TRUMP = { saturn: 21, jupiter: 10, mars: 16, sun: 19, venus: 3, mercury: 1, moon: 2 };
+  const trumpLink = n => cardLink('trump_' + n, SD.tikkun.major(n));
+  const decanLink = d => cardLink(`card_${d.suit}${d.num}`, SD.i18n.card(d));
+  const fmtIn = (d, tz, o) => new Intl.DateTimeFormat(SD.i18n.locale(), Object.assign({ timeZone: tz || 'UTC' }, o)).format(d);
+  const dayIn = (d, tz) => fmtIn(d, tz, { day: 'numeric', month: 'short' });                         // no weekday: "Sun 25 Oct" would link the Sunday to the Sun
+  const hmIn = (d, tz) => fmtIn(d, tz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const timeTag = (d, txt) => `<time class="nolink" datetime="${d.toISOString()}">${txt}</time>`;
+  const aspKeyHtml = () => { const R = k => SD.i18n.t('ui.r.' + k); return `<p class="asp-key nolink"><span class="asp asp-flow">${R('aspFlow')}</span><span class="asp asp-tension">${R('aspTension')}</span><span class="asp asp-afflict">${R('aspAfflict')}</span></p>`; };
+  const PETAL = 'M5 7C9 1 17 1 21 7C17 13 9 13 5 7Z';
+  const roseKeyHtml = (a, b) => { const K = k => SD.i18n.t('ui.r.roseKey')[k];
+    return `<p class="rose-key"><span class="k"><svg viewBox="0 0 26 14" aria-hidden="true"><path class="pe pe-h" d="${PETAL}"/></svg>${K(a)}</span><span class="k"><svg viewBox="0 0 26 14" aria-hidden="true"><path class="pe pe-s" d="${PETAL}"/></svg>${K(b)}</span><span class="k"><svg viewBox="0 0 26 14" aria-hidden="true"><path class="pe pe-h" d="M1 7C5 1 13 1 17 7C13 13 5 13 1 7Z"/><path class="pe pe-s" d="M9 7C13 1 21 1 25 7C21 13 13 13 9 7Z"/></svg>${K('overlap')}</span></p>`; };
+
+  /* paint: the first paint of a view sets every section; a later one replaces only the sections whose html changed, links
+     each one's terms (drawn once a section), restores its open folds and re-points an open pop-up to its new trigger */
+  const openSecs = new Set(store.get('openSecs', []));
+  const painted = { view: null, keys: '', html: new Map() };
+  const restoreOpen = el => { const all = [...el.querySelectorAll('details[data-sec]')]; if (el.matches && el.matches('details[data-sec]')) all.push(el); for (const d of all) if (openSecs.has(d.dataset.sec)) d.open = true; };
+  const linkSection = el => { glossaryTerms(); try { SD.glossary.link(el, SD.i18n.locale().startsWith('es') ? 'es' : 'en', { marks: true }); } catch (e) { /* the glossary is a nicety */ } };
+  let toggleBound = false;
+  function paintReadout(view, parts) {
+    const ro = $('readout'), keys = parts.map(p => p[0]).join('|'), pop = SD.app_pop && SD.app_pop.open();
+    if (!toggleBound) {                                      // 'toggle' does not bubble: caught on the way down, kept for the next visit
+      toggleBound = true;
+      ro.addEventListener('toggle', e => { const d = e.target; if (!d.dataset || !d.dataset.sec) return; if (d.open) openSecs.add(d.dataset.sec); else openSecs.delete(d.dataset.sec); store.set('openSecs', [...openSecs]); }, true);
+    }
+    let full = view !== painted.view || keys !== painted.keys;
+    if (!full) for (const [k, html] of parts) {
+      if (painted.html.get(k) === html) continue;
+      const old = ro.querySelector(`:scope > [data-sec="${view}.${k}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
+      const el = t.content.firstElementChild; if (!old || !el) { full = true; break; }
+      old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(k, html);
+    }
+    if (full) {
+      ro.innerHTML = parts.map(p => p[1]).join('\n');
+      Object.assign(painted, { view, keys, html: new Map(parts) }); ro.dataset.view = view;
+      for (const el of ro.children) { linkSection(el); restoreOpen(el); }
+    }
+    if (pop && !pop.btn.isConnected) {
+      const nb = ro.querySelector(pop.key.startsWith('g:') ? `a.g[data-g="${pop.key.slice(2)}"]` : `[data-def="${pop.key}"]`);
+      if (nb) { pop.btn = nb; nb.setAttribute('aria-expanded', 'true'); } else SD.app_pop.closeDef();
+    }
+  }
+  /* one section painted alone, the same way (the talismans' search repaints its section as it goes) */
+  function paintSection(view, key, html) {
+    const ro = $('readout'); if (painted.view !== view || !painted.html.has(key) || painted.html.get(key) === html) return;
+    const old = ro.querySelector(`:scope > [data-sec="${view}.${key}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
+    const el = t.content.firstElementChild; if (!old || !el) return;
+    old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(key, html);
+  }
+
   function updateReadout() {
-    const st = viewState(), C = SD.corr, i = SD.i18n, R = k => i.t('ui.r.' + k), H = k => i.cap1(i.t('ui.h.' + k));
-    const P = k => i.planet(k), A = k => i.aspect(k);
-    const rows = C.ORDER.map(k => {
-      const b = st.bodies[k];
-      const flags = [b.retro ? i.flag('retrograde') : '', b.station ? i.flag('stationary') : '', b.cazimi ? i.flag('cazimi') : b.combust ? i.flag('combust') : b.beams ? i.flag('beams') : '', b.oob ? i.flag('oob') : ''].filter(Boolean).join(', ');
-      const dig = C.PLANETS[k].kind === 'optic' ? i.flag('noDignity') : `${b.dignity.score > 0 ? '+' : ''}${b.dignity.score} · ${b.dignity.labels.map(l => i.dignity(l)).join(', ') || '—'}`;
-      return `<tr><td>${P(k)}</td><td>${Math.floor(b.deg)}°${String(Math.floor((b.deg % 1) * 60)).padStart(2, '0')}′ ${i.sign(b.sign)}</td><td>${R('house')} ${i.roman(b.house)}</td></tr><tr class="sub"><td></td><td colspan="2">${i.cap1(dig)}${flags ? ' · ' + flags : ''}</td></tr>`;
-    }).join('');
-    // the four angles after the bodies, in the order of their houses (I, IV, VII, X); none for a chart without a birth time
-    const dms = lon => { const L = ((lon % 360) + 360) % 360, d = L % 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(Math.floor(L / 30))}`; };
-    const noTime = st.natalView && S.natal && S.natal.unknownTime;
-    const angleRows = noTime ? '' : [['asc', st.asc, 1], ['ic', st.mc + 180, 4], ['dsc', st.asc + 180, 7], ['mc', st.mc, 10]]
-      .map(([k, lon, h]) => `<tr><td>${i.t('ui.r.angleName.' + k)}</td><td>${dms(lon)}</td><td>${R('house')} ${i.roman(h)}</td></tr>`).join('');
-    // Algol: its place, its house, its light, and the switch that shows it on the art
-    const al = SD.engine.algol(st.date, st.loc), alTz = st.loc.tz || 'UTC';
-    const alWhen = d => new Intl.DateTimeFormat(i.locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: alTz }).format(d);
-    const alNote = al.eclipse > 0.3 ? R(st.natalView ? 'algolDimBirth' : 'algolDimNow') : st.natalView ? '' : `${R('algolNext')} ${alWhen(al.nextMin)}`;
-    const algolRows = `<tr><td>Algol</td><td>${dms(al.lon)}</td><td>${noTime ? '' : `${R('house')} ${i.roman(SD.engine.houseIn(st.cusps, al.lon))}`}</td></tr>
-      ${alNote ? `<tr class="sub"><td></td><td colspan="2">${i.cap1(alNote)}</td></tr>` : ''}
-      <tr class="sub"><td></td><td colspan="2"><button class="toggle algol-toggle" data-act="algol" aria-pressed="${S.algol ? 'true' : 'false'}"><span class="sw" aria-hidden="true"></span><span>${i.cap1(R(S.algol ? 'algolShown' : 'algolShow'))}</span></button></td></tr>`;
-    const cf = st.configs;
-    const figName = a => a.natal ? `${P(a.a)} ${A(a.aspect)} ${i.t('cap.natal')} ${P(a.b)}` : `${P(a.a)} ${A(a.aspect)} ${P(a.b)}`;
-    // every aspect in the reading wears its colour: positive, tense or afflicting (SD.engine.aspectTone)
-    const toned = (tone, html) => tone ? `<span class="asp asp-${tone}">${html}</span>` : html;
-    const fig = a => toned(SD.engine.aspectTone(a.aspect, a.a, a.b, a.orb), figName(a));
-    const aspKey = `<p class="asp-key nolink"><span class="asp asp-flow">${R('aspFlow')}</span> · <span class="asp asp-tension">${R('aspTension')}</span> · <span class="asp asp-afflict">${R('aspAfflict')}</span></p>`;
+    const st = viewState();
+    if (S.mode === 'pair' && st && (st.pair || st.pairMissing)) { paintReadout('pair', pairParts(st)); return; }
+    const C = SD.corr, i = SD.i18n, R = k => i.t('ui.r.' + k), H = k => i.cap1(i.t('ui.h.' + k)), K = k => i.t('ui.kv.' + k);
+    const P = k => i.planet(k), A = k => i.aspect(k), E = SD.engine;
+    const view = st.transits ? 'transits' : st.natalView ? 'natal' : 'clock', sec = (key, inner, attrs) => secOf(view, key, inner, attrs);
+    const noTime = st.natalView && S.natal && S.natal.unknownTime, tz = st.loc.tz || 'UTC', hm = d => hmIn(d, tz);
+    const tone = a => E.aspectTone(a.aspect, a.a, a.b, a.orb) || '';
+    const motion = a => i.cap1(a.applying ? R('applying') : R('separating'));
     const evName = e => i.event(e) !== e ? i.event(e) : e.split(' ').map(w => i.event(w)).join(' ');   // whole names first: 'new moon', 'lunar eclipse'
-    // the aspects in one table: the dial's three first (the figure and its two rings, ranked as the dial ranks them, an event's lift
-    // included), then the rest of the sky by power, twelve rows in all; the dial's rows carry their polygon {n/k} and their event
-    const MAJ = /^(conjunction|sextile|square|trine|opposition)$/, acard = a => st.tikkun && MAJ.test(a.aspect) ? ` · ${SD.tikkun.cardOf(SD.tikkun.aspectCard(a.a, a.b))}` : '';
-    const dial = [cf.primary, ...cf.secondary].filter(Boolean);
-    const ranked = [...dial, ...st.aspects.filter(a => !dial.some(d => d.a === a.a && d.b === a.b))].slice(0, 12);
-    const aspRows = ranked.map(a => {
-      const n = dial.indexOf(a);
-      const tag = [n < 0 ? '' : `${i.cap1(R(n ? 'ring' : 'figure'))} {${a.n}/${a.k}}`, a.event ? evName(a.event) : '', a.dissociate ? i.flag('outOfSign') : ''].filter(Boolean).join(' · ');
-      return `<tr><td>${fig(a)}${acard(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>${tag ? `<tr class="sub"><td colspan="3">${i.cap1(tag)}</td></tr>` : ''}`;
-    }).join('');
-    const cap = SD.render.captionLines(st);
-    const el = st.elements ? `${R('element')} ${i.t('ui.el.' + st.elements.dominant)} ${Math.round(st.elements.shares[st.elements.dominant] * 100)}% · ${i.t('ui.el.' + st.elements.order[1])} ${Math.round(st.elements.shares[st.elements.order[1]] * 100)}%` : '';
-    const guardians = `${R('guardians')} ${P(st.hour.dayRuler)}${st.hour.dayRuler === st.hour.hourRuler ? ' ' + R('alone') : ' ' + R('and') + ' ' + P(st.hour.hourRuler)}`;
-    const lead = st.natalView ? '' : `<p class="verdict state-${st.title.state}"><span class="op">${i.t('cap.operations')}</span> ${i.state(st.title.state).replace(/^./, ch => ch.toLowerCase())} · ${i.house12(st.title.house)} · ${i.cap1(i.window(st.title.mode))} · ${i.t('cap.under')} ${i.name(st.hour.angel)}</p>`;
-    const tz = st.loc.tz || 'UTC';
-    const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
-    const inter = st.interaction;
-    const interSentence = f => f.name === 'setOff' ? `${P(f.t)} ${R('setsOff')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}` : `${P(f.t)} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${P(f.a)} ${A(f.natalAspect)} ${P(f.b)}`;
-    const figTone = f => f.tone === 'harmony' ? 'flow' : ['mars', 'saturn', 'pluto'].some(m => m === f.t || m === f.a || m === f.b) ? 'afflict' : 'tension';
-    // the transits in one table, ranked by weight; a contact that sets off or closes a figure in the chart carries it on the line
-    // beneath, under the stronger of its two contacts. The dial's own figure (the first) always finds its row
-    const trRows = (() => {
-      if (!st.transits) return '';
-      const shown = st.transits.slice(0, 8), tags = new Map(), same = (x, t, n, asp) => x.a === t && x.b === n && x.aspect === asp;
+    const deg = lon => { const d = E.norm360(lon) % 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′`; };
+    const sgnOf = lon => Math.floor(E.norm360(lon) / 30);
+
+    // ---- the moment (the clock) and the birth moment: operations, mode, realm, angel, sect; then the sound
+    const momentRows = () => kvTable([
+      [K('operations'), i.state(st.title.state)],
+      [K('mode'), `${i.cap1(i.window(st.title.mode))} (${K('mother')[st.title.mode]})`],
+      [K('realm'), `${i.house12(st.title.house)} (${R('house')} ${i.roman(st.title.house)})`],
+      [K('angelHour'), i.name(st.hour.angel)],
+      [K('sect2'), K('sect')[st.sect]]]);
+    const ch = st.chord, soundRows = () => kvTable([
+      [K('chord'), ch && ch.name && ch.name !== 'none' ? `${i.chordLong(ch)}${ch.interval ? ', ' + i.interval(ch.interval) : ''}` : ''],
+      [K('notes'), ch.notes.length ? `${ch.notes.map(n => i.note(n)).join(' ')}${ch.planets ? `, ${R('from')} ${ch.planets.map(P).join(', ')}` : ''}` : ''],
+      [K('moonNote'), ch.moonNote ? i.note(ch.moonNote) : ''],
+      [K('ground'), ch.ground && ch.ground.length ? ch.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(', ') : ''],
+      [K('nextChord'), !st.natalView && st.nextChord ? `${i.chordName(st.nextChord.to)} ${K('at')(hm(st.nextChord.at))}` : '']]);
+    const birthWhen = () => {
+      const n = S.natal, ntz = n.place.tz || 'UTC', d = new Date(n.date);
+      const day = fmtIn(d, ntz, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const time = n.unknownTime ? i.t('ui.rep.noon') : fmtIn(d, ntz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' });
+      return `${i.cap1(day)} · ${time} · ${esc(n.place.label || i.placeName(n.place.name))}`;
+    };
+
+    // ---- the bodies: name | degrees | sign | house, the condition on a second line; the angles; Algol
+    const houseCol = !noTime, span = houseCol ? 4 : 3;
+    const bRow = (name, lon, h, sub) => `<tr><th class="k" scope="row">${name}</th><td class="n">${deg(lon)}</td><td class="v">${i.sign(sgnOf(lon))}</td>${houseCol ? `<td class="n">${h ? i.roman(h) : ''}</td>` : ''}</tr>${sub ? `<tr class="sub"><td></td><td colspan="${span - 1}">${sub}</td></tr>` : ''}`;
+    const condition = (k, b) => {
+      const conds = [b.retro ? i.flag('retrograde') : '', b.station ? i.flag('stationary') : '', b.cazimi ? i.flag('cazimi') : b.combust ? i.flag('combust') : b.beams ? i.flag('beams') : '', b.oob ? i.flag('oob') : ''].filter(Boolean);
+      if (C.PLANETS[k].kind === 'optic') return conds.length ? i.cap1(conds.join(', ')) : '';
+      return `${i.cap1(b.dignity.labels.map(l => i.dignity(l)).join(', ') || '—')} (${signed(b.dignity.score)})${conds.length ? ' · ' + conds.join(', ') : ''}`;
+    };
+    const al = E.algol(st.date, st.loc);
+    const alNote = al.eclipse > 0.3 ? i.cap1(R(st.natalView ? 'algolDimBirth' : 'algolDimNow')) : st.natalView ? '' : `${i.cap1(R('algolNext'))} ${timeTag(al.nextMin, `${dayIn(al.nextMin, tz)}, ${hm(al.nextMin)}`)}`;
+    const bodiesHtml = () => {
+      const head = `<tr class="head"><td></td><td colspan="2">${K('position')}</td>${houseCol ? `<td class="n">${K('house')}</td>` : ''}</tr>`;
+      const rows = C.ORDER.map(k => bRow(P(k), st.bodies[k].lon, st.bodies[k].house, condition(k, st.bodies[k]))).join('');
+      const angles = noTime ? '' : `<tr class="grp"><td colspan="${span}">${K('angles')}</td></tr>` + [['asc', st.asc, 1], ['ic', st.mc + 180, 4], ['dsc', st.asc + 180, 7], ['mc', st.mc, 10]].map(([k, lon, h]) => bRow(i.t('ui.r.angleName.' + k), lon, h)).join('');
+      const algol = `<tr class="grp"><td colspan="${span}">${K('fixedStar')}</td></tr>` + bRow('Algol', al.lon, noTime ? 0 : E.houseIn(st.cusps, al.lon), alNote);
+      const el = st.elements ? `${i.cap1(K('element'))}: ${i.t('ui.el.' + st.elements.dominant)} ${Math.round(st.elements.shares[st.elements.dominant] * 100)}%, ${i.t('ui.el.' + st.elements.order[1])} ${Math.round(st.elements.shares[st.elements.order[1]] * 100)}%` : '';
+      return sec('bodies', `<h3>${H('bodies')}</h3>${el ? `<p class="verdict">${el}</p>` : ''}<table class="bodies">${head}${rows}${angles}${algol}</table>
+        <p class="ctl"><button class="toggle algol-toggle" data-act="algol" aria-pressed="${S.algol ? 'true' : 'false'}"><span class="sw" aria-hidden="true"></span><span>${i.cap1(R(S.algol ? 'algolShown' : 'algolShow'))}</span></button></p>`);
+    };
+
+    // ---- the aspects: the dial's figure and two rings first, then the rest by weight; the planets on the angles
+    const aspectsHtml = () => {
+      const cf = st.configs, dial = [cf.primary, ...cf.secondary].filter(Boolean);
+      const ranked = [...dial, ...st.aspects.filter(a => !dial.some(d => d.a === a.a && d.b === a.b))].slice(0, 12);
+      const items = ranked.map(a => { const n = dial.indexOf(a);
+        return { tone: tone(a), name: `${P(a.a)} ${A(a.aspect)} ${P(a.b)}`, n: `${a.orb.toFixed(2)}°`,
+          meta: [[motion(a), n < 0 ? '' : `${R(n ? 'ring' : 'figure')} {${a.n}/${a.k}}`, a.event ? evName(a.event) : '', a.dissociate ? i.flag('outOfSign') : ''].filter(Boolean).join(' · ')] }; });
+      const angles = st.onAngles && st.onAngles.length ? [{ grp: i.cap1(R('onAngles')) }, ...st.onAngles.map(x => ({ tone: E.aspectTone('conjunction', x.planet, x.angle) || '', name: `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)}`, n: `${x.orb.toFixed(2)}°` }))] : [];
+      return sec('aspects', `<h3>${H('aspects')}</h3>${items.length ? aspKeyHtml() + rankList([...items, ...angles]) : `<p class="verdict">${i.cap1(i.t('ui.quietSky'))}</p>${rankList(angles)}`}`);
+    };
+
+    // ---- the Moon, the day and its hours, the events
+    const m = st.moon;
+    const conditionTxt = () => {
+      const flags = m.flags.filter(f => f !== 'void of course').map(f => i.flag(f === 'under the beams' ? 'beams' : f));
+      if (m.verdict === 'void') return `${i.cap1(i.flag('void of course'))}${m.tolerable ? `, ${i.t('cap.tolerable')(i.sign(st.bodies.moon.sign))}` : ''}${st.natalView ? '' : `: ${R('voidFit')}`}${flags.length ? '; ' + flags.join(', ') : ''}`;
+      return `${i.cap1(i.verdict(m.verdict))}${m.next ? `: ${A(m.next.aspect)} ${P(m.next.planet)} ${R('in')} ${(m.next.days * 24).toFixed(1)} h` : ''}${flags.length ? '; ' + flags.join(', ') : ''}`;
+    };
+    const veilTxt = () => { const f = st.veil.factors.filter(x => !(m.verdict === 'void' && /void/i.test(x.key))); return `${st.veil.v.toFixed(2)}${f.length ? ': ' + f.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}`; };
+    const mansionTxt = `${i.ordinal(st.bodies.moon.mansion.index)}, ${i.name(st.bodies.moon.mansion.name)}`;
+    const hourIdx = st.hour.index, table = st.hour.table;
+    const hourTxt = () => { const h = table && table[hourIdx], nx = table && table[hourIdx + 1];
+      return `${K('hourOf')(i.ordinal(hourIdx + 1), P(st.hour.hourRuler), st.hour.hourRuler)}, ${K('angelOf')(i.name(st.hour.angel))}${!st.natalView && h ? ` · ${hm(h.start)}–${nx ? hm(nx.start) : ''}` : ''}`; };
+    const events = () => {
+      const rows = st.events.map(e => [i.cap1(i.event(e.type)), e.type === 'outer exact' && e.aspect ? `${P(e.aspect.a)} ${A(e.aspect.aspect)} ${P(e.aspect.b)}` : [e.planet ? P(e.planet) : '', e.kind ? evName(e.kind) : '', e.direction ? i.event(e.direction) : ''].filter(Boolean).join(', ')]);
+      if (!st.natalView && st.wheel) rows.push([K('wheel'), `${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')}, ` : ''}${i.t('ui.wheel.' + st.wheel.next)}, ${fmtIn(st.wheel.nextDate, 'UTC', { day: 'numeric', month: 'long' })}, ${R('inDays')(st.wheel.days)}`]);
+      return rows.length ? `<h4>${st.natalView ? H('eventsBirth') : K('events')}</h4>${kvTable(rows)}` : '';
+    };
+    const dayHtml = () => {
+      const moon = kvTable([[K('condition'), conditionTxt()], [K('guardians'), !st.natalView && m.verdict === 'void' ? `${P(st.hour.dayRuler)}${st.hour.dayRuler === st.hour.hourRuler ? '' : ' ' + R('and') + ' ' + P(st.hour.hourRuler)}` : ''],
+        [K('veil'), st.natalView ? '' : veilTxt()], [K('mansion'), mansionTxt]]);
+      const day = kvTable([[K('day'), `${P(st.hour.dayRuler)}, ${K('angelOf')(i.name(st.hour.dayAngel))}`], [K('hour'), noTime ? '' : hourTxt()],
+        [K('nextHour'), !st.natalView && table && table[hourIdx + 1] ? `${P(table[hourIdx + 1].ruler)}, ${K('at')(hm(table[hourIdx + 1].start))}` : '']]);
+      const all = !st.natalView ? (table ? `<details class="more" data-sec="clock.hours"><summary>${K('all24')}</summary><ol class="hours">${table.map(h => `<li${h.index === hourIdx ? ' class="now"' : ''}><span class="i">${h.index + 1}</span><span>${P(h.ruler)}</span><span class="t">${hm(h.start)}</span></li>`).join('')}</ol></details>` : `<p class="note">${i.cap1(i.t('ui.polar'))}</p>`) : '';
+      return sec('day', `<h3>${H(st.natalView ? 'dayNatal' : 'dayClock')}</h3><h4>${st.natalView ? H('moonBirth') : K('theMoon')}</h4>${moon}<h4>${st.natalView ? K('dayHourBirth') : K('dayHours')}</h4>${day}${all}${events()}`);
+    };
+
+    // ---- the tarot: what the card answers | the card (it opens its plate), its derivation beneath
+    const tarotHtml = () => {
+      const row = (label, card, sub) => `<tr><th class="k" scope="row">${label}</th><td class="card">${card}</td></tr><tr class="sub"><td></td><td>${sub}</td></tr>`;
+      const dec = b => `${i.cap1(i.decanOrd(b.decan.decan))} ${i.t('cap.decanOf')} ${i.sign(b.sign)}, ${P(b.decan.ruler)}`, asc = sgnOf(st.asc);
+      return sec('tarot', `<h3>${H('tarot')}</h3><table class="cards">${row(P('sun'), decanLink(st.bodies.sun.decan), dec(st.bodies.sun))}${row(P('moon'), decanLink(st.bodies.moon.decan), dec(st.bodies.moon))}${noTime ? '' : row(K('ascendant'), trumpLink(SIGN_TRUMP[asc]), i.sign(asc))}${row(K('day'), trumpLink(PLANET_TRUMP[st.hour.dayRuler]), P(st.hour.dayRuler))}${noTime ? '' : row(K('hour'), trumpLink(PLANET_TRUMP[st.hour.hourRuler]), P(st.hour.hourRuler))}</table>`);
+    };
+
+    // ---- the transits to a chart: one ranked list, the timing and the house beneath, the figure set off beneath that
+    const inter = st.interaction, owner = (st.transitInfo && st.transitInfo.name) || '';
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : k;
+    const natalPt = k => owner ? i.t('cap.own')(owner, pt(k)) : `${i.t('cap.natalOf')} ${pt(k)}`;
+    const transitsHtml = () => {
+      const all = st.transits || [], shown = all.slice(0, 8), tags = new Map(), same = (x, t, n, asp) => x.a === t && x.b === n && x.aspect === asp;
       for (const [n, f] of (inter ? inter.figures.slice(0, 6) : []).entries()) {
-        const both = [st.transits.find(x => same(x, f.t, f.a, f.x.aspect)), st.transits.find(x => same(x, f.t, f.b, f.y.aspect))].filter(Boolean).sort((p, q) => q.power - p.power);
-        const c = both.find(x => shown.includes(x)) || (n === 0 ? both[0] : null);
-        if (!c) continue;
+        const both = [all.find(x => same(x, f.t, f.a, f.x.aspect)), all.find(x => same(x, f.t, f.b, f.y.aspect))].filter(Boolean).sort((p, q) => q.power - p.power);
+        const c = both.find(x => shown.includes(x)) || (n === 0 ? both[0] : null); if (!c) continue;
         if (!shown.includes(c)) shown.push(c);
         tags.set(c, (tags.get(c) || []).concat(f));
       }
       shown.sort((p, q) => q.power - p.power);
-      // the leading transits' timing: when exact (or when it was), and until when in orb (SD.engine.transitSpan, searched once a day)
-      const spans = (st.transitInfo && st.transitInfo.spans) || {}, tz = st.loc.tz || 'UTC';
-      const day = d => new Intl.DateTimeFormat(i.locale(), { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz }).format(d);
+      const spans = (st.transitInfo && st.transitInfo.spans) || {}, houses = (st.transitInfo && st.transitInfo.houses) || {};
       const timing = a => { const sp = spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return '';
-        const ex = sp.exact ? `${i.t(sp.exact.getTime() < st.date.getTime() - 3600e3 ? 'cap.wasExact' : 'cap.exact')} ${day(sp.exact)} ${hm(sp.exact)}` : '';
-        return [ex, sp.leave ? `${i.t('cap.untilOrb')} ${day(sp.leave)}` : ''].filter(Boolean).join(' · '); };
-      return shown.map(a => { const tm = timing(a);
-        return `<tr><td>${fig(a)}</td><td class="nw">${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')}</td><td class="nw">${a.power.toFixed(2)}</td></tr>${tm ? `<tr class="sub"><td colspan="3">${i.cap1(tm)}</td></tr>` : ''}${(tags.get(a) || []).map(f => `<tr class="sub"><td colspan="3">${toned(figTone(f), i.cap1(R(f.tone)))} · ${interSentence(f)} · ${f.power.toFixed(2)}</td></tr>`).join('')}`; }).join('');
-    })();
-    const verdict = inter ? `<p class="verdict state-${inter.grade}">${i.cap1(i.t('ui.grade.' + inter.grade))} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
-    const dec = b => `${i.decanOrd(b.decan.decan)} ${i.t('cap.decanOf')} ${i.sign(b.sign)} · ${P(b.decan.ruler)}`;
-    const tarot = `<table>
-      <tr><td>${i.cap1(R('sun'))}</td><td>${i.cap1(dec(st.bodies.sun))}</td><td>${i.card(st.bodies.sun.decan)} · ${i.title(st.bodies.sun.decan)}</td></tr>
-      <tr><td>${i.cap1(R('moon'))}</td><td>${i.cap1(dec(st.bodies.moon))}</td><td>${i.card(st.bodies.moon.decan)} · ${i.title(st.bodies.moon.decan)}</td></tr>
-      <tr><td>${i.cap1(R('ascendant'))}</td><td>${i.sign(Math.floor(st.asc / 30))}</td><td>${i.trumpSign(Math.floor(st.asc / 30))}</td></tr>
-      <tr><td>${i.cap1(R('dayRuler'))}</td><td>${P(st.hour.dayRuler)}</td><td>${i.trumpPlanet(st.hour.dayRuler)}</td></tr>
-      <tr><td>${i.cap1(R('hourRuler'))}</td><td>${P(st.hour.hourRuler)}</td><td>${i.trumpPlanet(st.hour.hourRuler)}</td></tr></table>`;
-    const hours = st.hour.table ? st.hour.table.map(h => `<span${h.index === st.hour.index ? ' class="now"' : ''}>${h.index + 1} ${P(h.ruler)} ${hm(h.start)}</span>`).join(' · ') : i.cap1(i.t('ui.polar'));
-    const ev = st.events.map(e => i.event(e.type) + (e.planet ? ' ' + P(e.planet) : '') + (e.kind ? ' ' + evName(e.kind) : '') + (e.direction ? ' ' + i.event(e.direction) : '')).join(' · ') || '—';
-    if (st.pair && st.natal) { $('readout').innerHTML = pairReadout(st); linkTerms($('readout')); return; }
-    /* the views, each its own reading (DESIGN.md, "The readout, redesigned"):
-       the clock and the chart: the moment, its sky, its sound, its Moon and hours, the talismans;
-       the birth chart: the birth moment and its chord, the bodies, the aspects, the temperament, the rest of the tradition,
-       then the tarot and the Kabbalistic reading; the transits: only the transits to the chart, and the stone of the day */
-    const noteBtn = (k, label) => popBtn(k, label);
-    const chord = `${i.chordLong(st.chord)}${st.chord.interval ? ' · ' + i.interval(st.chord.interval) : ''}${st.chord.notes.length ? ` · ${R('notes')} ` + st.chord.notes.map(n => i.note(n)).join(' ') : ''}${st.chord.planets ? ` · ${R('from')} ` + st.chord.planets.map(P).join(', ') : ''}${st.chord.moonNote ? ` · ${R('moonNote')} ${i.note(st.chord.moonNote)}` : ''}${st.chord.ground && st.chord.ground.length ? ` · ${R('ground')} ` + st.chord.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(' ') : ''}`;
-    const angles = `${i.cap1(R('ascendant'))} ${Math.floor(st.asc % 30)}° ${i.sign(Math.floor(st.asc / 30))} · ${R('midheaven')} ${Math.floor(st.mc % 30)}° ${i.sign(Math.floor(st.mc / 30))}`;
-    const dayHour = `${i.cap1(R('dayOfIs')(st.hour.dayRuler, P(st.hour.dayRuler), i.name(st.hour.dayAngel), st.natalView))}${noTime ? '' : ` · ${R('hourIs')(i.ordinal(st.hour.index + 1), st.hour.hourRuler, P(st.hour.hourRuler), i.name(st.hour.angel))}`}`;
-    const moonLine = `${st.moon.verdict === 'void' ? noteBtn('void', i.cap1(i.verdict(st.moon.verdict))) : i.cap1(i.verdict(st.moon.verdict))} · ${st.moon.next ? `${R('nextMoon')} ${toned(SD.engine.aspectTone(st.moon.next.aspect, 'moon', st.moon.next.planet), `${A(st.moon.next.aspect)} ${P(st.moon.next.planet)}`)} ${R('in')} ${(st.moon.next.days * 24).toFixed(1)}h` : i.flag('void of course')}${st.moon.flags.filter(f => f !== 'void of course').map(f => ' · ' + i.flag(f === 'under the beams' ? 'beams' : f)).join('')}`;
-    const mansion = `${i.ordinal(st.bodies.moon.mansion.index)} ${R('mansion')} · ${i.name(st.bodies.moon.mansion.name)} (Agrippa II.33)`;
-    const stoneTxt = st.stone ? `${i.cap1(i.stone(st.stone.stone))}${st.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(st.stone.alternative)}` : ''} · ${i.t('cap.stonesOf')(st.stone.planet, P(st.stone.planet))} · ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${i.t('cap.natalOf')} ${C.PLANETS[st.stone.why.b] ? P(st.stone.why.b) : st.stone.why.b === 'ascendant' ? 'ASC' : 'MC'}` : ''}` : '';
-    const birthWhen = () => {
-      const n = S.natal, tz = n.place.tz || 'UTC', d = new Date(n.date);
-      const day = new Intl.DateTimeFormat(i.locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: tz }).format(d);
-      const time = n.unknownTime ? i.t('ui.rep.noon') : new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
-      return `${i.cap1(day)} · ${time} · ${esc(n.place.label || i.placeName(n.place.name))}`;
+        return [sp.exact ? `${i.t(sp.exact.getTime() < st.date.getTime() - 3600e3 ? 'cap.wasExact' : 'cap.exact')} ${timeTag(sp.exact, `${dayIn(sp.exact, tz)}, ${hm(sp.exact)}`)}` : '', sp.leave ? `${i.t('cap.untilOrb')} ${timeTag(sp.leave, dayIn(sp.leave, tz))}` : ''].filter(Boolean).join(' · '); };
+      const house = a => houses[a.a] && owner ? `${P(a.a)} ${i.t('cap.inHouseOf')(owner, i.roman(houses[a.a]))}` : '';
+      const figLine = f => `${i.cap1(R(f.tone))}: ${f.name === 'setOff' ? `${R('setsOff')} ${natalPt(f.a)} ${A(f.natalAspect)} ${P(f.b)}` : `${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${natalPt(f.a)} ${A(f.natalAspect)} ${P(f.b)}`}`;
+      const item = (a, full) => ({ tone: tone(a), name: `${P(a.a)} ${A(a.aspect)} ${natalPt(a.b)}`, n: `${a.orb.toFixed(2)}°`, meta: [[motion(a), full ? timing(a) : '', full ? house(a) : ''].filter(Boolean).join(' · '), ...(full ? (tags.get(a) || []).map(figLine) : [])] });
+      const rest = all.filter(a => !shown.includes(a));
+      const head = owner ? i.cap1(i.t('ui.h.transitsTo')(owner)) : H('transits');
+      const std = inter ? `<p class="verdict">${i.cap1(R('harmony'))} ${inter.harmony.toFixed(2)}, ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
+      return sec('transits', `<h3>${head}</h3>${std}${shown.length ? aspKeyHtml() + rankList(shown.map(a => item(a, true))) : `<p>${i.cap1(i.t('ui.noContact'))}</p>`}${rest.length ? `<details class="more" data-sec="transits.rest"><summary>${R('moreInOrb')(rest.length)}</summary>${rankList(rest.map(a => item(a, false)), '', shown.length + 1)}</details>` : ''}${inter && !inter.figures.length && shown.length ? `<p class="note">${i.cap1(R('noFigure'))}.</p>` : ''}`);
     };
-    const blocks = {
-      lead: () => lead,
-      birth: () => `<h3>${H('birth')}</h3><p class="verdict">${birthWhen()}</p>
-        <p>${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart')(true))}${noTime ? '' : ' · ' + angles}</p><p>${dayHour}</p>
-        <p>${i.cap1(i.t('ui.rep.chord'))}: ${chord}</p>${el ? `<p>${i.cap1(el)}</p>` : ''}`,
-      bodies: () => `<h3>${H('bodies')}</h3><table>${rows}${angleRows}${algolRows}</table>`,
-      aspects: () => `<h3>${H('aspects')}</h3>${aspRows ? `${aspKey}<table>${aspRows}</table>` : `<p>${i.cap1(i.t('ui.quietSky'))}</p>`}
-        <p>${i.cap1(R('onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${toned(SD.engine.aspectTone('conjunction', x.planet, x.angle), `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)}`)} ${x.orb.toFixed(1)}°`).join(' · ') : R('noneOnAngles')}</p>`,
-      temperament: () => st.temperament ? temperamentHtml(st) : '',
-      sound: () => `<h3>${H('sound')}</h3><p>${chord}${st.nextChord ? ` · ${R('next')} ${i.chordName(st.nextChord.to)} ${R('at')} ${hm(st.nextChord.at)}` : ''}</p>`,
-      tarot: () => `<h3>${H('tarot')}</h3>${tarot}`,
-      howto: () => `<p class="howto">${R('roseTransitsLine')} ${noteBtn('roseTransits', R('howToRead'))}</p>`,
-      transits: () => `<h3>${H('transits')}</h3>${verdict}<table>${trRows || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>`}</table>${inter && !inter.figures.length && trRows ? `<p class="dim">${i.cap1(R('noFigure'))}</p>` : ''}`,
-      stone: () => st.stone ? `<h3>${H('stone')}</h3><p>${stoneTxt}</p><p class="more">${noteBtn('stone', R('howChosen'))}</p>` : '',
-      moon: () => `<h3>${H(st.natalView ? 'moonBirth' : 'moon')}</h3><p>${moonLine}</p>${st.natalView ? '' : `<p>${i.cap1(guardians)}</p><p>${i.cap1(i.t('ui.veil'))} ${st.veil.v.toFixed(2)}${st.veil.factors.length ? ' · ' + st.veil.factors.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}</p>`}<p>${mansion}</p>`,
-      hours: () => `<h3>${H('hours')}</h3><p class="hours">${hours}</p>`,
-      events: () => `<h3>${H(st.natalView ? 'eventsBirth' : 'events')}</h3><p>${i.cap1(ev)}</p>${!st.natalView && st.wheel ? `<p>${i.cap1(R('wheel'))}: ${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')} · ` : ''}${R('wheelNext')} ${i.t('ui.wheel.' + st.wheel.next)} · ${new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(st.wheel.nextDate)} · ${R('inDays')(st.wheel.days)}</p>` : ''}`,
-      kabbalah: () => st.tikkun ? `${tikkunHead(st)}${tikkunCards(st)}` : '',
-      talismans: () => `<section id="talismans">${talismansHtml()}</section>`,
-      footer: () => `<p class="dim nolink">${i.cap1(R(st.sect === 'day' ? 'dayChart' : 'nightChart')(false))} · ${angles}<br>${dayHour}</p>`,
-    };
-    const view = st.transits ? 'transits' : st.natalView ? 'natal' : 'clock';
-    const ORDER = {
-      clock: ['lead', 'bodies', 'aspects', 'sound', 'tarot', 'moon', 'hours', 'events', 'talismans', 'footer'],
-      natal: ['birth', 'bodies', 'aspects', 'temperament', 'moon', 'events', 'tarot', 'kabbalah'],
-      transits: ['howto', 'transits', 'stone'],
-    };
-    $('readout').innerHTML = ORDER[view].map(k => blocks[k]()).join('\n');
-    $('readout').dataset.view = view;
-    linkTerms($('readout'));
-    if (!st.natalView && !st.transits) talismansKick();
+    const roseHead = () => { const line = roseLine(st, true);
+      return `<div class="r-head nolink" data-sec="transits.howto">${roseKeyHtml('easy', 'hard')}<p class="lede">${R('roseTransitsLine')} ${popBtn('roseTransits', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`; };
+    const stoneHtml = () => st.stone ? sec('stone', `<h3>${H('stone')}</h3><p class="verdict">${i.cap1(i.stone(st.stone.stone))}${st.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(st.stone.alternative)}` : ''}</p><p class="note">${i.cap1(i.t('cap.stonesOf')(st.stone.planet, P(st.stone.planet)))}, ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${natalPt(st.stone.why.b)}` : ''}</p>${pillRow(popBtn('stone', R('howStone')))}`) : '';
+
+    // ---- the parts of each view, in order
+    const parts = [];
+    const add = (key, html) => { if (html) parts.push([key, html]); };
+    if (view === 'transits') {
+      add('howto', roseHead()); add('transits', transitsHtml()); add('stone', stoneHtml());
+      add('out', `<p class="out" data-sec="transits.out">${R('outLead')} <button type="button" data-go="clock">${R('openClock')}</button></p>`);
+    } else if (view === 'natal') {
+      const notes = [noTime ? R('timeUnknown') : '', st.relocated ? R('housesFrom')(esc(i.placeName(st.relocated))) : ''].filter(Boolean).map(x => `<p class="note">${x}</p>`).join('');
+      add('birth', sec('birth', `<h3>${H('birth')}</h3><p class="verdict">${birthWhen()}</p>${notes}${momentRows()}<h4>${K('sound')}</h4>${soundRows()}`));
+      add('bodies', bodiesHtml()); add('aspects', aspectsHtml());
+      if (st.temperament) add('temperament', temperamentHtml(st));
+      add('day', dayHtml()); add('tarot', tarotHtml());
+      if (st.tikkun) add('kabbalah', kabbalahHtml(st));
+    } else {
+      add('moment', sec('moment', `<h3>${H('moment')}</h3>${momentRows()}<h4>${K('sound')}</h4>${soundRows()}`));
+      add('bodies', bodiesHtml()); add('aspects', aspectsHtml()); add('day', dayHtml());
+      add('talismans', talismansHtml()); add('tarot', tarotHtml());
+    }
+    paintReadout(view, parts);
+    if (view === 'clock') talismansKick();
   }
 
-  /* the reading of a pair: two columns, one per chart, the same rows for each; then what passes between them.
-     the hour, the chord, the tarot and the Moon's verdict are one chart's and are left out: a pair lists both or neither */
-  function pairReadout(st) {
-    const C = SD.corr, i = SD.i18n, R = k => i.t('ui.r.' + k), H = k => i.cap1(i.t('ui.h.' + k)), P = k => i.planet(k), A = k => i.aspect(k);
-    const a = st, b = st.natal, pr = st.pair, own = (who, what) => i.t('cap.own')(who, what);
-    const pos = x => `${Math.floor(x.deg)}°${String(Math.floor((x.deg % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign)} · ${R('house')} ${i.roman(x.house)}`;
-    const dig = (k, x) => C.PLANETS[k].kind === 'optic' ? i.flag('noDignity') : `${x.dignity.score > 0 ? '+' : ''}${x.dignity.score} · ${x.dignity.labels.map(l => i.dignity(l)).join(', ') || '—'}${x.retro ? ' · ' + i.flag('retrograde') : ''}`;
-    const head = `<tr class="head"><td></td><td>${esc(pr.a)}</td><td>${esc(pr.b)}</td></tr>`;
-    const when = x => { const d = new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: x.loc.tz || 'UTC' }).format(x.date); return `${d}<br>${esc(i.placeName(x.loc.name))}`; };
-    const angle = (lab, la, lb) => `<tr><td>${lab}</td><td>${Math.floor(la % 30)}° ${i.sign(Math.floor(la / 30))}</td><td>${Math.floor(lb % 30)}° ${i.sign(Math.floor(lb / 30))}</td></tr>`;
-    const rows = C.ORDER.map(k => `<tr><td>${P(k)}</td><td>${pos(a.bodies[k])}</td><td>${pos(b.bodies[k])}</td></tr><tr class="sub"><td></td><td>${i.cap1(dig(k, a.bodies[k]))}</td><td>${i.cap1(dig(k, b.bodies[k]))}</td></tr>`).join('');
-    const elem = x => x.elements ? `${i.t('ui.el.' + x.elements.dominant)} ${Math.round(x.elements.shares[x.elements.dominant] * 100)}% · ${i.t('ui.el.' + x.elements.order[1])} ${Math.round(x.elements.shares[x.elements.order[1]] * 100)}%` : '—';
-    const figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} · {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
-    const of = st.ownFigures || {};
-    const inter = st.interaction;
-    const Y = st.syn, cap = SD.render.captionLines(st), lab = Y ? i.t('cap.syn.label.' + Y.label) : '';
-    const desTxt = '';                                       // the pleasure scale is the one measure of pleasure
-    const verdict = Y ? `<p class="verdict state-${cap.stateKey}">${cap.state} · ${cap.title.replace(/^[^:]+:\s*/, '')} · ${R('harmony')} ${Y.harmony.toFixed(2)} · ${R('strife')} ${Y.strife.toFixed(2)} · ${R('adjustment')} ${Y.adjustment.toFixed(2)}${desTxt}</p>` : '';
-    const types = ['partner', 'friend', 'colleague', 'parent', 'sibling', 'other'], cur = pairTypeOf(pr.ids[0], pr.ids[1]);
-    const relSel = Y ? `<p class="rel nolink"><label>${i.cap1(i.t('ui.rel.label'))} <select id="pair-type">${types.map(t => `<option value="${t}"${t === cur ? ' selected' : ''}>${i.t('ui.rel.' + t)}</option>`).join('')}</select></label>${Y.age.forced ? ` <span class="dim">${i.t('ui.rel.forced')}</span>` : ''}</p>` : '';
-    const flags = c => `${c.discounted ? ' · ' + R('discounted') : ''}${c.uncertain ? ' · ' + i.t('cap.syn.uncertain') : ''}`;
-    const cTone = c => { const t = c.h + c.s; if (c.x > 0 || !t) return c.x > 0 ? 'tension' : ''; const r = c.h / t; return r >= 0.6 ? 'flow' : r > 0.4 ? 'tension' : ['mars', 'saturn', 'pluto'].some(m => m === c.a || m === c.b) ? 'afflict' : 'tension'; };
-    const contacts = Y ? Y.contacts.slice(0, 15).map(c => `<tr><td>${(tn => tn ? `<span class="asp asp-${tn}">${contactWords(c, pr)}</span>` : contactWords(c, pr))(cTone(c))}${flags(c)}</td><td class="nw">${c.orb.toFixed(2)}°</td><td class="nw">${c.w.toFixed(2)}</td></tr>`).join('') || `<tr><td>${i.cap1(i.t('ui.noContact'))}</td></tr>` : '';
-    const ovl = Y && Y.overlays ? Y.overlays.map(o => `<tr><td>${i.t('cap.own')(o.who === 'a' ? pr.a : pr.b, P(o.planet))}</td><td colspan="2">${i.t('cap.inHouseOf')(o.who === 'a' ? pr.b : pr.a, i.roman(o.house))}${o.unseen ? ` · <span class="dim">${R('unseen')}</span>` : ''}</td></tr>`).join('') : '';
-    const act = (st.synActive || []).map(x => activeLine(x, st)).join('');
-    const sentence = f => f.name === 'setOff' ? `${own(pr.a, P(f.t))} ${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${own(pr.a, P(f.t))} ${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`;
-    const figures = inter && inter.figures.length ? inter.figures.slice(0, 6).map(f => `<tr><td>${(tn => `<span class="asp asp-${tn}">${i.cap1(R(f.tone))}</span>`)(f.tone === 'harmony' ? 'flow' : ['mars', 'saturn', 'pluto'].some(m => m === f.t || m === f.a || m === f.b) ? 'afflict' : 'tension')}</td><td colspan="2">${sentence(f)}</td></tr>`).join('') : `<tr><td colspan="3">${i.cap1(R('noFigure'))}</td></tr>`;
-    return `
-      ${verdict}
-      <h3>${H('bodies')}</h3><table class="pair">${head}
-      <tr><td>${i.cap1(R('born'))}</td><td>${when(a)}</td><td>${when(b)}</td></tr>
-      ${angle(i.cap1(R('ascendant')), a.asc, b.asc)}${angle('MC', a.mc, b.mc)}
-      ${rows}
-      <tr><td>${i.cap1(R('element'))}</td><td>${elem(a)}</td><td>${elem(b)}</td></tr>
-      <tr><td>${i.cap1(R('figure'))}</td><td>${figOf(of.a)}</td><td>${figOf(of.b)}</td></tr>
-      <tr><td>${i.cap1(R('sect'))}</td><td>${a.sect === 'day' ? R('day') : R('night')}</td><td>${b.sect === 'day' ? R('day') : R('night')}</td></tr></table>
-      ${relSel}
-      ${roseHtml(st)}
-      <h3>${H('ties')}</h3>${tiesHtml(st)}
-      <p class="more">${popBtn('ties', R('howRead'))}</p>
-      ${act ? `<h3>${H('active')}</h3>${act}` : ''}
-      ${ovl ? `<h3>${H('overlays')}</h3><table class="nolink">${ovl}</table>` : ''}
-      <h3>${H('composite')}</h3>${compositeHtml(st)}
-      <p class="more">${popBtn('composite', R('howRead'))}</p>
-      <h3>${H('contacts')}</h3><table>${contacts}</table>
-      <h3>${H('between')}</h3><table>${figures}</table>
-      <p class="more">${popBtn('pair', R('howRead'))}</p>`;
+  /* ---------- the reading of a pair: the rose, the three ties, the contacts, what is active now, the pair's chart,
+     the house overlays, and the two charts side by side, folded. With no second chart, only the way to choose one */
+  function pairParts(st) {
+    const C = SD.corr, i = SD.i18n, R = k => i.t('ui.r.' + k), H = k => i.cap1(i.t('ui.h.' + k)), K = k => i.t('ui.kv.' + k), P = k => i.planet(k), A = k => i.aspect(k);
+    const sec = (key, inner) => secOf('pair', key, inner);
+    if (st.pairMissing || !st.natal) return [['empty', `<div class="r-head" data-sec="pair.empty"><p class="lede">${R('pairEmpty')}</p><p><button type="button" class="cta" data-go="pick-second">${R('chooseSecond')}</button></p></div>`]];
+    const a = st, b = st.natal, pr = st.pair, own = (who, what) => i.t('cap.own')(who, what), Y = st.syn, inter = st.interaction, parts = [];
+    const add = (key, html) => { if (html) parts.push([key, html]); };
+    // the rose
+    { const line = roseLine(st);
+      add('rose', `<div class="r-head nolink" data-sec="pair.rose">${roseKeyHtml('harmony', 'strife')}<p class="lede">${R('roseLine')} ${popBtn('rose', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`); }
+    // the three ties: the relationship first (it changes them), then each tie's makers, signed
+    if (Y) {
+      const types = ['partner', 'friend', 'colleague', 'parent', 'sibling', 'other'], cur = pairTypeOf(pr.ids[0], pr.ids[1]);
+      const rel = `<p class="rel nolink"><label>${i.cap1(i.t('ui.rel.label'))} <select id="pair-type">${types.map(t => `<option value="${t}"${t === cur ? ' selected' : ''}>${i.t('ui.rel.' + t)}</option>`).join('')}</select></label>${Y.age.forced ? ` <span class="dim">${i.t('ui.rel.forced')}</span>` : ''}</p>`;
+      const scales = SD.render.tieScale(st), keys = ['friendship', 'business', 'pleasure'];
+      const ties = keys.map((k, n) => { const g = scales[n] || {}, makers = Y.cats[k].contacts.map(c => ({ name: contactWords(c, pr), n: signed(+(c.h - c.s).toFixed(2), 2) }));
+        return `<h4>${i.cap1(SD.render.catName(Y, k))}${g.word ? ` <span class="hv">· ${g.word}</span>` : ''}</h4>${makers.length ? rankList(makers, 'plain') : `<p class="note">${i.cap1(i.t('ui.catWord.neutral'))}</p>`}`; }).join('');
+      add('ties', sec('ties', `<h3>${H('ties')}</h3>${rel}${pillRow(popBtn('ties', R('howTies')))}${ties}`));
+    }
+    // the contacts, the figures they set off on the line beneath
+    if (Y) {
+      const cTone = c => { const t = c.h + c.s; if (c.x > 0 || !t) return c.x > 0 ? 'tension' : ''; const r = c.h / t; return r >= 0.6 ? 'flow' : r > 0.4 ? 'tension' : ['mars', 'saturn', 'pluto'].some(m => m === c.a || m === c.b) ? 'afflict' : 'tension'; };
+      const figs = inter ? inter.figures.slice(0, 6) : [], tagFor = new Map();
+      for (const f of figs) { const c = Y.contacts.find(x => !x.rev && !x.place && x.a === f.t && (x.b === f.a || x.b === f.b)); if (c) tagFor.set(c, (tagFor.get(c) || []).concat(f)); }
+      const figLine = f => `${i.cap1(R(f.tone))}: ${f.name === 'setOff' ? `${R('setsOff')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pr.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`}`;
+      const item = (c, full) => ({ tone: cTone(c), name: contactWords(c, pr), n: `${c.orb.toFixed(2)}°`, meta: [[c.discounted ? i.cap1(R('discounted')) : '', c.uncertain ? i.t('cap.syn.uncertain') : ''].filter(Boolean).join(' · '), ...(full ? (tagFor.get(c) || []).map(figLine) : [])] });
+      const top = Y.contacts.slice(0, 10), rest = Y.contacts.slice(10);
+      add('contacts', sec('contacts', `<h3>${H('contacts')}</h3><p class="verdict">${i.cap1(R('harmony'))} ${Y.harmony.toFixed(2)}, ${R('strife')} ${Y.strife.toFixed(2)}, ${R('adjustment')} ${Y.adjustment.toFixed(2)}</p>${pillRow(popBtn('pair', R('aboutContacts')))}${top.length ? aspKeyHtml() + rankList(top.map(c => item(c, true))) : `<p>${i.cap1(i.t('ui.noContact'))}</p>`}${rest.length ? `<details class="more" data-sec="pair.rest"><summary>${R('moreContacts')(rest.length)}</summary>${rankList(rest.map(c => item(c, false)), '', 11)}</details>` : ''}`));
+    }
+    // what is active now: each transiting planet on the pair's points, its exact passes and stations
+    { const act = st.synActive || [];
+      if (act.length) {
+        const d = dt => timeTag(dt, fmtIn(dt, st.loc.tz, { day: 'numeric', month: 'short', year: 'numeric' }));
+        const who = h => h.who === 'a' ? pr.a : pr.b, ptOf = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : SD.tikkun.text().north;
+        const items = act.map(x => { const [h0, ...more] = x.hits;
+          const axes = [...new Set(x.hits.flatMap(h => h.axes.filter(c => c.aspect === 'opposition' || c.aspect === 'conjunction' || c.aspect === 'square').slice(0, 1).map(c => contactWords(c, pr))))];
+          return { tone: SD.engine.aspectTone(h0.aspect, x.planet, h0.key, h0.orb) || '', name: `${P(x.planet)} ${A(h0.aspect)} ${own(who(h0), ptOf(h0.key))}`, n: `${h0.orb.toFixed(2)}°`,
+            meta: [more.length ? i.cap1(`${R('also')} ${more.map(h => `${A(h.aspect)} ${own(who(h), ptOf(h.key))}, ${h.orb.toFixed(1)}°`).join('; ')}`) : '',
+              `${i.cap1(R('exactPasses'))} ${x.exact.map(d).join(', ') || '—'}${x.stations.length ? ` · ${R('stations')} ${x.stations.map(d).join(', ')}` : ''}`,
+              axes.length ? i.cap1(`${R('onAxis')} ${axes.join(' · ')}`) : ''] }; });
+        add('active', sec('active', `<h3>${H('active')}</h3>${rankList(items)}`));
+      } }
+    // the pair's chart
+    { const c = st.composite;
+      if (c) {
+        const deg = lon => `${Math.floor(SD.engine.norm360(lon) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(lon) / 30))}`, f = c.configs.primary;
+        const std = f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}, ${R('orb')} ${f.orb.toFixed(2)}°` : i.cap1(i.t('ui.quietSky'));
+        const kv = kvTable([[K('ascendant'), deg(c.asc)], [K('midheaven'), deg(c.mc)], [K('fortune'), deg(c.fortune)], [K('element'), c.elements ? `${i.t('ui.el.' + c.elements.dominant)} ${Math.round(c.elements.shares[c.elements.dominant] * 100)}%` : '']]);
+        const pos = C.ORDER.map(k => { const x = c.bodies[k], d = x.deg % 30; return `<tr><th class="k" scope="row">${P(k)}</th><td class="n">${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′</td><td class="v">${i.sign(x.sign)}</td><td class="n">${i.roman(x.house)}</td></tr>`; }).join('');
+        add('composite', sec('composite', `<h3>${H('composite')}</h3><p class="verdict">${std}</p>${kv}${pillRow(popBtn('composite', R('howComposite')))}<details class="more" data-sec="pair.positions"><summary>${K('positions')}</summary><table class="bodies">${pos}</table></details>`));
+      } }
+    // the house overlays: two rows
+    if (Y && Y.overlays && Y.overlays.length) {
+      const row = w => Y.overlays.filter(o => o.who === w).map(o => `${P(o.planet)} ${i.roman(o.house)}${o.unseen ? ` (${R('unseen')})` : ''}`).join(', ');
+      add('overlays', sec('overlays', `<h3>${H('overlays')}</h3>${kvTable([[R('inHouses')(esc(pr.a), esc(pr.b)), row('a')], [R('inHouses')(esc(pr.b), esc(pr.a)), row('b')]])}`));
+    }
+    // the two charts, folded
+    { const when = x => `${fmtIn(x.date, x.loc.tz, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}<br>${esc(i.placeName(x.loc.name))}`;
+      const pos = x => `${Math.floor(x.deg % 30)}°${String(Math.floor(((x.deg % 30) % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign).slice(0, 3)} · ${i.roman(x.house)}`;
+      const angle = l => `${Math.floor(SD.engine.norm360(l) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(l) / 30))}`;
+      const elem = x => x.elements ? `${i.t('ui.el.' + x.elements.dominant)} ${Math.round(x.elements.shares[x.elements.dominant] * 100)}%` : '—';
+      const of = st.ownFigures || {}, figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
+      const sect = x => x.sect === 'day' ? R('day') : R('night');
+      const rows = [[K('born'), when(a), when(b)], [K('ascendant'), angle(a.asc), angle(b.asc)], [K('midheaven'), angle(a.mc), angle(b.mc)], ...C.ORDER.map(k => [P(k), pos(a.bodies[k]), pos(b.bodies[k])]), [K('element'), elem(a), elem(b)], [K('figure'), figOf(of.a), figOf(of.b)], [K('sect2'), sect(a), sect(b)]];
+      const summary = `${esc(pr.a)}, ${sect(a)}, ${a.elements ? i.t('ui.el.' + a.elements.dominant) : ''} · ${esc(pr.b)}, ${sect(b)}, ${b.elements ? i.t('ui.el.' + b.elements.dominant) : ''}`;
+      add('charts', sec('charts', `<details class="fold" data-sec="pair.chartsFold"><summary><h3>${H('charts')}</h3><span class="s">${summary}</span></summary><table class="pair"><tr class="head"><td></td><td>${esc(pr.a)}</td><td>${esc(pr.b)}</td></tr>${rows.map(([k, x, y]) => `<tr><th scope="row">${k}</th><td>${x}</td><td>${y}</td></tr>`).join('')}</table></details>`)); }
+    return parts;
   }
   /* the rose in words: its leading symmetries and their share of the weight */
-  function roseLine(st) {
+  function roseLine(st, transits) {
     const i = SD.i18n, R = k => i.t('ui.r.' + k), rs = SD.render.roseSummary(st); if (!rs) return '';
     const top = rs.folds.filter((f, k) => k === 0 || f.share >= 0.15).slice(0, 2).map(f => `${R('fold')[f.n]} (${Math.round(100 * f.share)}%)`);
-    return i.t('ui.r.roseIs')(rs.n, top.join(i.locale().startsWith('es') ? ' y ' : ' and '));
-  }
-  function roseHtml(st) {
-    const i = SD.i18n, line = roseLine(st); if (!line) return '';
-    return `<h3>${i.cap1(i.t('ui.h.rose'))}</h3><p>${i.cap1(line)}.</p><p class="more">${popBtn('rose', i.t('ui.r.howToRead'))}</p>`;
+    return i.t(transits ? 'ui.r.roseTransitsIs' : 'ui.r.roseIs')(rs.n, top.join(i.locale().startsWith('es') ? ' y ' : ' and '));
   }
   /* a contact between the two charts in words, whichever way it runs */
   function contactWords(x, pr) {
@@ -915,32 +1010,19 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const [first, second] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b];
     return `${own(first, pt(x.a))} ${i.aspect(x.aspect)} ${own(second, pt(x.b))}`;
   }
-  /* the three ties as scales: a hairline with a tick wherever the word changes, a dot at the score, the word under the
-     dot in its colour; warm for antipathy, neutral for none, cool for sympathy. the same scale on the dial and the phone */
+  /* the three ties as scales, in the caption: a hairline with a tick wherever the word changes, a dot at the score, the word
+     under the dot in its colour; warm for antipathy, neutral for none, cool for sympathy */
   function tieScales(st) {
     const i = SD.i18n; if (!st.syn && !st.ties) return '';
     return `<div class="scales">${SD.render.tieScale(st).map(g => `<div class="scale"><span class="sl">${i.cap1(g.label)}</span><div class="sline">${g.ticks.map(x => `<i style="left:${(x * 100).toFixed(1)}%"${x === 0.5 ? ' class="mid"' : ''}></i>`).join('')}<b style="left:${(g.pos * 100).toFixed(1)}%;background:${g.color}"></b></div><span class="sw" style="color:${g.color}">${g.word}</span></div>`).join('')}</div>`;
   }
-  function tiesHtml(st) {
-    const Y = st.syn, pr = st.pair, i = SD.i18n; if (!Y) return '';
-    const parts = ['friendship', 'business', 'pleasure'].map(k => { const p = Y.cats[k].contacts.map(c => `${contactWords(c, pr)} ${c.h >= c.s ? '+' : '−'}${Math.abs(c.h - c.s).toFixed(2)}`).join(' · '); return `<p><b>${i.cap1(SD.render.catName(Y, k))}</b> ${p || i.t('ui.catWord.neutral')}</p>`; }).join('');
-    return `${tieScales(st)}<div class="makers nolink">${parts}</div>`;
-  }
-  /* a transiting outer planet on a synastry point: the hit, the axis it belongs to, the exact passes and the stations */
+  /* a transiting outer planet on a synastry point, as one line of the pair's report: the hit, the axis it belongs to, the exact passes and the stations */
   function activeLine(x, st) {
     const i = SD.i18n, pr = st.pair, P = k => i.cap1(i.planet(k)), A = a => i.aspect(a), d = dt => new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: st.loc.tz || 'UTC' }).format(dt);
     const who = h => h.who === 'a' ? pr.a : pr.b, pt = k => SD.corr.PLANETS[k] ? i.planet(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : SD.tikkun.text().north;
     const hits = x.hits.map(h => `${A(h.aspect)} ${i.t('cap.own')(who(h), pt(h.key))} ${h.orb.toFixed(1)}°`).join(' · ');
     const axes = [...new Set(x.hits.flatMap(h => h.axes.filter(c => c.aspect === 'opposition' || c.aspect === 'conjunction' || c.aspect === 'square').slice(0, 1).map(c => contactWords(c, pr))))].join(' · ');
     return `<p class="nolink">${P(x.planet)} ${hits}${axes ? ` <span class="dim">(${i.t('ui.r.onAxis')} ${axes})</span>` : ''}<br><span class="dim">${i.cap1(i.t('ui.r.exactOn'))} ${x.exact.map(d).join(', ') || '—'} · ${i.t('ui.r.stations')} ${x.stations.map(d).join(', ')}</span></p>`;
-  }
-  function compositeHtml(st) {
-    const i = SD.i18n, C = SD.corr, c = st.composite, P = k => i.planet(k), A = k => i.aspect(k), R = k => i.t('ui.r.' + k); if (!c) return '';
-    const pos = x => `${Math.floor(x.deg)}°${String(Math.floor((x.deg % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign)}`;
-    const f = c.configs.primary, fig = f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} · {${f.n}/${f.k}} · ${i.cap1(R('orb'))} ${f.orb.toFixed(2)}°` : i.cap1(i.t('ui.quietSky'));
-    const rows = C.ORDER.map(k => `<tr><td>${P(k)}</td><td>${pos(c.bodies[k])}</td><td>${R('house')} ${i.roman(c.bodies[k].house)}</td></tr>`).join('');
-    const el = c.elements ? `${i.t('ui.el.' + c.elements.dominant)} ${Math.round(c.elements.shares[c.elements.dominant] * 100)}%` : '';
-    return `<p class="verdict">${i.cap1(R('pairFigure'))}: ${fig}</p><table><tr><td>${i.cap1(R('ascendant'))}</td><td>${Math.floor(c.asc % 30)}° ${i.sign(Math.floor(c.asc / 30))}</td><td>MC ${Math.floor(c.mc % 30)}° ${i.sign(Math.floor(c.mc / 30))}</td></tr>${rows}<tr><td>${i.cap1(R('fortune'))}</td><td>${Math.floor(c.fortune % 30)}° ${i.sign(Math.floor(c.fortune / 30))}</td><td>${i.cap1(R('element'))} ${el}</td></tr></table>`;
   }
   /* the report of a pair, for pasting into an interpreter: both charts' birth data, the three ties with their makers,
      the grade of harmony and strife, the pull, the composite, every contact */
@@ -997,95 +1079,90 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
 
   /* the life mission: karma to mission, the engine, the conjunctions and threshold, the signs on the road, the aspect cards */
   /* the head of the natal reading: the mission in one line and one sentence */
-  function tikkunHead(st) {
-    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major;
-    const realm = k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : '';
-    return `<h3>${T.label}</h3><p class="verdict">${i.cap1(T.short[k.north.sign])} · ${M(k.north.card)}</p><p>${T.long[k.north.sign]}${realm}</p>`;
-  }
-  /* the long notes live in pop-ups: a short trigger in the reading, the text on tap (DESIGN.md, "The readout, redesigned") */
+  /* the long notes live in pop-ups: a labelled pill in the reading, the text on tap (DESIGN.md, "The readout system") */
   function noteText(k) {
-    const i = SD.i18n, R = x => i.t('ui.r.' + x), TT = () => SD.temperament.text(), Y = S.state && S.state.syn;
-    const N = { roseTransits: () => R('roseTransitsNote'), rose: () => R('roseNote'), stone: () => R('stoneNote'), void: () => R('voidNote'),
+    const i = SD.i18n, R = x => i.t('ui.r.' + x), TT = () => SD.temperament.text(), Y = S.state && S.state.syn, tp = () => (viewState() || {}).temperament;
+    if (k.startsWith('humour.')) {                           // the humour's reading; with a mixture, how the humours mix, and Ficino's melancholy mixtures
+      const t = k.slice(7), T = TT(), x = tp(), mix = x ? x.firsts.concat(x.seconds) : [t];
+      return T.reading[t] + (mix.length > 1 ? `\n\n§ ${T.mixedIs}\n\n${T.mixed}${mix.includes('melancholic') ? '\n\n' + T.melancholyMix : ''}` : '');
+    }
+    const N = { roseTransits: () => R('roseTransitsNote'), rose: () => R('roseNote'), stone: () => R('stoneNote'),
       ties: () => R(Y && !Y.age.sexual ? 'tiesNoteFamily' : 'tiesNote'), composite: () => R('compositeNote'), pair: () => R('pairNote'),
-      temperament: () => TT().intro, intemperance: () => TT().intemperanceNote, mixed: () => TT().mixed, mixedMelancholy: () => TT().mixed + '\n\n' + TT().melancholyMix, symbolic: () => SD.tikkun.text().symbolic };
+      temperament: () => TT().intro, intemperance: () => TT().intemperanceNote, symbolic: () => SD.tikkun.text().symbolic.replace(/^[^:]+:\s*/, ''),
+      talHow: () => i.t('ui.tal.how'), talSources: () => i.t('ui.tal.note'), cautionMars: () => i.t('ui.tal.cautionMars'), cautionSaturn: () => i.t('ui.tal.cautionSaturn') };
     return N[k] ? N[k]() : null;
   }
-  const popBtn = (k, label) => `<button type="button" class="deflink note nolink" data-def="note:${k}" aria-expanded="false">${label}</button>`;
+  const popBtn = (k, label) => `<button type="button" class="pill nolink" data-def="note:${k}" aria-expanded="false" aria-haspopup="dialog">${label}</button>`;
   /* the temperament (SD.temperament): what each testimony is, in words */
   function tempDetail(st, r) {
     const i = SD.i18n, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), B = st.bodies;
     const phase = k => k === 'mercury' ? `, ${SD.engine.norm360(B.mercury.lon - B.sun.lon) > 180 ? TT.oriental : TT.occidental}` : '';   // Mercury's heat goes by his phase
     const placed = k => k === 'sun' ? `${P('sun')}, ${TT.season[Math.floor(B.sun.lon / 90)]}` : k === 'moon' ? `${P('moon')}, ${TT.quarter[Math.floor(st.moon.phaseAngle / 90)]}` : `${P(k)} ${TT.in} ${i.sign(B[k].sign)}`;
     switch (r.step) {
-      case 'S1': return TT.season[r.season];
+      case 'S1': return i.cap1(TT.season[r.season]);
       case 'S2': case 'S5': return i.sign(r.sign);
       case 'S3': return P(r.planet) + phase(r.planet);
-      case 'S4': return P(r.planet) + phase(r.planet) + (r.shared > 1 ? ` (${TT.shared(r.shared)})` : '');
-      case 'S6': return TT.quarter[r.quarter];
+      case 'S4': return P(r.planet) + phase(r.planet) + (r.shared > 1 ? `, ${TT.shared(r.shared)}` : '');
+      case 'S6': return i.cap1(TT.quarter[r.quarter]);
       case 'S7': case 'S8': case 'S12': return placed(r.planet);
-      case 'S9': return r.again ? TT.again[r.again] : r.planet === 'northNode' ? TT.north : r.planet === 'southNode' ? TT.south : P(r.planet) + phase(r.planet);
+      case 'S9': return r.again ? i.cap1(TT.again[r.again]) : r.planet === 'northNode' ? TT.north : r.planet === 'southNode' ? TT.south : P(r.planet) + phase(r.planet);
       default: return `${r.aspect === 'conjunction' ? P(r.planet) + phase(r.planet) : placed(r.planet)} · ${i.aspect(r.aspect)} ${r.orb.toFixed(1)}°`;
     }
   }
   const tempNum = x => String(+(x / 12).toFixed(2));                 // the tallies are kept in twelfths
-  /* the reading of the native's temperament: the verdict; the leading humour read after Ficino, Agrippa and the Picatrix, with
-     Ficino's regimen; the mixture; the intemperance; then the testimonies, the tally, Lilly's columns and the Lord of the Geniture */
+  /* the temperament: the verdict; the humour's reading and the method behind pills; the conditions of this chart; Ficino's
+     regimen; the intemperance and the Lord of the Geniture; the testimonies folded under their tally */
   function temperamentHtml(st) {
-    const i = SD.i18n, tp = st.temperament, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), nm = t => TT.temp[t];
+    const i = SD.i18n, tp = st.temperament, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), nm = t => TT.temp[t], R = k => i.t('ui.r.' + k);
     const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(tp.tz ? d : new Date(d.getTime() + S.natal.place.lon / 15 * 3600e3));   // no zone: the local mean time of the longitude
-    const many = tp.firsts.length > 1, mixedIn = tp.firsts.concat(tp.seconds);
-    const regimen = t => `<table class="regimen"><tr class="head nolink"><td colspan="2">${TT.regimen}${many ? ' · ' + nm(t) : ''}</td></tr>${['call', 'colours', 'music', 'odours', 'places', 'stones'].map(k => `<tr><td class="nolink">${TT.reg[k]}</td><td>${TT.regimens[t][k]}</td></tr>`).join('')}</table>`;
-    const runs = tp.day ? `<p class="dim">${TT.dayRuns} ${tp.day.map((x, n) => `${SD.temperament.line(x.judgement)} ${n + 1 < tp.day.length ? TT.until(hm(x.to)) : TT.after(hm(x.from))}`).join('; ')}.</p>` : '';
+    const many = tp.firsts.length > 1;
+    const cite = v => { const m = v.match(/^(.*?)\s*\(([^()]*)\)$/); return m ? `${m[1]} <span class="sep">${m[2]}</span>` : v; };   // the chapter, quiet, after the value
+    const regimen = t => `<h4>${TT.regimen}${many ? ` <span class="hv">· ${nm(t)}</span>` : ''}</h4>${kvTable(['call', 'colours', 'music', 'odours', 'places', 'stones'].map(k => [i.cap1(TT.reg[k]), i.cap1(cite(TT.regimens[t][k]))]))}`;
+    const notes = [tp.polar ? TT.polar : '', tp.relocated ? TT.relocated : '',
+      tp.day ? `${TT.dayRuns} ${tp.day.map((x, n) => `${SD.temperament.line(x.judgement)} ${n + 1 < tp.day.length ? TT.until(hm(x.to)) : TT.after(hm(x.from))}`).join('; ')}.` : ''].filter(Boolean).map(x => `<p class="note">${x}</p>`).join('');
     const contact = c => c.aspect === 'body' ? TT.contact.body(P(c.planet), `${c.orb.toFixed(1)}°`) : TT.contact[c.to](P(c.planet), i.aspect(c.aspect), `${c.orb.toFixed(1)}°`, c.aspect);
-    const rows = tp.rows.map(r => `<tr><td>${TT.row[r.step]}<span class="dim nolink"> · ${tempDetail(st, r)}</span></td><td class="nolink">${nm(r.temperament)}</td><td class="nw nolink">${tempNum(r.w)}</td></tr>`).join('');
-    const c = tp.columns, cv = SD.temperament.TEMPS.includes(c.verdict) ? nm(c.verdict) : TT.q[c.verdict];
     const lg = tp.lordOfGeniture;
-    return `<h3>${i.cap1(i.t('ui.h.temperament'))}</h3>
-      <p class="verdict">${i.cap1(SD.temperament.line(tp, tp.partial))}</p>${runs}
-      ${tp.firsts.map(t => `<p>${TT.reading[t]}</p>${regimen(t)}`).join('')}
-      ${mixedIn.length > 1 ? `<p class="more">${popBtn(mixedIn.includes('melancholic') ? 'mixedMelancholy' : 'mixed', TT.mixedIs)}</p>` : ''}
-      ${tp.intemperate ? `<p>${popBtn('intemperance', TT.intemperanceIs)}: ${tp.intemperance.map(contact).join('; ')}.</p>` : ''}
-      <h4>${TT.testimonies}</h4><table class="temper">${rows}</table>
-      <p class="nolink">${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(' · ')}</p>
-      <p class="dim nolink">${TT.columns(tempNum(c.hot), tempNum(c.cold), tempNum(c.moist), tempNum(c.dry), cv)}.${tp.columnsThird ? ' ' + TT.columnsThird(nm(tp.columnsThird)) : ''}</p>
-      ${lg ? `<p>${TT.lord(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}.</p>` : ''}
-      <p class="more">${popBtn('temperament', i.t('ui.r.aboutMethod'))}${tp.polar ? ` <span class="dim">${TT.polar}</span>` : ''}${tp.relocated ? ` <span class="dim">${TT.relocated}</span>` : ''}</p>`;
+    const facts = kvTable([[TT.intemperanceIs, tp.intemperate ? `${tp.intemperance.map(contact).join('; ')} ${popBtn('intemperance', R('lillyRule'))}` : ''],
+      [TT.lordIs, lg ? `${TT.lordVal(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}` : '']]);
+    const rows = tp.rows.map(r => `<tr><td>${TT.row[r.step]}<span class="det">${tempDetail(st, r)}</span></td><td class="v">${nm(r.temperament)}</td><td class="n">${(r.w / 12).toFixed(2)}</td></tr>`).join('');
+    const c = tp.columns, cv = SD.temperament.TEMPS.includes(c.verdict) ? nm(c.verdict) : TT.q[c.verdict];
+    const tally = `${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(', ')}`;
+    return secOf('natal', 'temperament', `<h3>${i.cap1(i.t('ui.h.temperament'))}</h3>
+      <p class="verdict">${i.cap1(SD.temperament.line(tp, tp.partial))}</p>
+      ${pillRow(...tp.firsts.map(t => popBtn('humour.' + t, R('humourOf')(nm(t)))), popBtn('temperament', R('aboutMethod')))}${notes}
+      ${tp.firsts.map(regimen).join('')}${facts}
+      <details class="fold" data-sec="natal.testimonies"><summary><h4>${TT.testimonies}</h4><span class="s">${tally}</span></summary>
+        <table class="temper"><tr class="head"><td></td><td>${i.cap1(TT.humour)}</td><td class="n">${i.cap1(TT.weight)}</td></tr>${rows}</table>
+        <p class="note">${TT.columns(tempNum(c.hot), tempNum(c.cold), tempNum(c.moist), tempNum(c.dry), cv)}.${tp.columnsThird ? ' ' + TT.columnsThird(nm(tp.columnsThird)) : ''}</p></details>`);
   }
-  /* the cards, after the whole chart: three tables with the same columns, the letter on a muted second line,
-     recurring cards said in words, the tikkun's own cards marked */
-  function tikkunCards(st) {
-    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major, P = p => i.cap1(i.planet(p)), A = a => i.aspect(a), R = x => i.t('ui.r.' + x);
-    const lt = l => `${SD.tikkun.text().name[l]} <span class="he" lang="he" dir="rtl">${SD.tikkun.GLYPH[l]}</span>, ${SD.tikkun.text().letter[l]}`;   // the name, the letter itself, what it depicts
-    const dl = (key, word) => `<button type="button" class="deflink" data-def="${key}" aria-expanded="false">${word}</button>`;   // a word of the left column: a tap opens its definition
-    const dm = lon => { const s = Math.floor(lon / 30), d = lon - s * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(s)}`; };
-    const hs = h => h ? ` · ${i.roman(h)}` : '';                // sign and house only: the degrees are in the planets above
-    const mine = new Set([k.north.card, k.engine.card]);
-    const cell = c => `<td class="card${mine.has(c) ? ' tk' : ''}">${M(c)}</td>`;
-    const r2 = (a, b, c, sub) => `<tr><td class="nolink">${a}</td><td class="nolink">${b}</td>${c}</tr>${sub ? `<tr class="sub nolink"><td></td><td colspan="2">${sub}</td></tr>` : ''}`;   // only the card names link to their plates: the rest stays plain
-    const head = (a, b, c) => `<tr class="head nolink"><td>${a}</td><td>${b}</td><td>${c}</td></tr>`;
-    // 1 · the tikkun
-    const t1 = [head('', T.place, T.card),
-      r2(dl('karma', T.karma), `${T.south} · ${i.sign(k.south.sign)}${hs(k.south.house)}`, cell(k.south.card), lt(k.south.letter)),
-      r2(dl('mission', T.mission), `${T.north} · ${i.sign(k.north.sign)}${hs(k.north.house)}`, cell(k.north.card), lt(k.north.letter)),
-      r2(dl('engine', T.engine), `${P(k.engine.planet)} · ${i.sign(k.engine.sign)}${hs(k.engine.house)}`, cell(k.engine.card), lt(k.engine.letter) + (k.engine.doubled ? ` · ${T.doubled}` : '')),
-      ...k.conj.map(c => r2(dl('conj', T.conj), `${P(c.planet)} · ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}°`, cell(c.card), lt(c.letter))),
-      ...k.threshold.map(t => r2(dl('threshold', T.threshold), SD.tikkun.near(t), cell(t.card), lt(t.letter)))].join('');
-    // 2 · the signs on the road, in the order of the chart
+  /* the life mission (tikkun) and its cards, one section: the mission, the cards of the tikkun, the signs on the road folded
+     under the cards that recur, the aspect cards. Every card name opens its plate; the role words open their definitions */
+  function kabbalahHtml(st) {
+    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), P = p => i.cap1(i.planet(p)), A = a => i.aspect(a), R = x => i.t('ui.r.' + x);
+    const lt = l => `${T.name[l]} <span class="he" lang="he" dir="rtl">${SD.tikkun.GLYPH[l]}</span>, ${T.letter[l]}`;   // the name, the letter itself, what it depicts
+    const dl = (key, word) => `<button type="button" class="deflink" data-def="${key}" aria-expanded="false">${word}</button>`;
+    const hs = h => h ? `, ${i.roman(h)}` : '';
+    const row = (a, card, sub) => `<tr><td>${a}</td><td class="card">${card}</td></tr>${sub ? `<tr class="sub"><td></td><td>${sub}</td></tr>` : ''}`;
+    const t1 = [row(dl('karma', T.karma), trumpLink(k.south.card), `${T.south}, ${i.sign(k.south.sign)}${hs(k.south.house)} · ${lt(k.south.letter)}`),
+      row(dl('mission', T.mission), trumpLink(k.north.card), `${T.north}, ${i.sign(k.north.sign)}${hs(k.north.house)} · ${lt(k.north.letter)}`),
+      row(dl('engine', T.engine), trumpLink(k.engine.card), `${P(k.engine.planet)}, ${i.sign(k.engine.sign)}${hs(k.engine.house)} · ${lt(k.engine.letter)}${k.engine.doubled ? ` · ${T.doubled}` : ''}`),
+      ...k.conj.map(c => row(dl('conj', T.conj), trumpLink(c.card), `${P(c.planet)}, ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${lt(c.letter)}`)),
+      ...k.threshold.map(t => row(dl('threshold', T.threshold), trumpLink(t.card), `${SD.tikkun.near(t)} · ${lt(t.letter)}`))].join('');
     const order = (k.noTime ? [] : ['ascendant']).concat(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']).concat(k.noTime ? [] : ['midheaven']);
     const lonOf = x => x === 'ascendant' ? st.asc : x === 'midheaven' ? st.mc : st.bodies[x].lon, nm = x => x === 'ascendant' ? i.cap1(R('ascendant')) : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
-    const t2 = [head('', T.sign, T.card), ...order.map(x => { const s = Math.floor(lonOf(x) / 30); return r2(nm(x), i.sign(s), cell(SD.tikkun.SIGN[s][1])); })].join('');
-    const recur = k.placements.filter(p => p.count > 1).map(p => T.recurs(M(p.card), p.count, p.keys.map(nm).join(', ')));
-    // 3 · the aspect cards
-    const t3 = [head(T.aspect, T.card, T.quality), ...k.aspects.map(a => `<tr><td class="nolink">${(tn => tn ? `<span class="asp asp-${tn}">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)}</span>` : `${nm(a.a)} ${A(a.aspect)} ${nm(a.b)}`)(SD.engine.aspectTone(a.aspect, a.a, a.b, a.orb))} · ${a.orb.toFixed(1)}°</td><td class="card">${SD.tikkun.cardOf(a)}</td><td class="nolink">${T[a.quality]}${a.weak ? `, ${T.weak}` : ''}</td></tr>${a.path ? `<tr class="sub nolink"><td></td><td colspan="2">${T.pathOf} ${lt(a.letter)}</td></tr>` : ''}`)].join('');
-    return `<h3>${T.cards}</h3>
-      <table class="cards">${t1}</table>
-      <h4>${T.road}</h4><table class="cards">${t2}</table>
-      ${recur.length ? `<p class="recur nolink">${recur.join('<br>')}</p>` : ''}
-      <h4>${T.aspects}</h4><table class="cards">${t3}</table>
-      <p class="dim nolink"><span class="tkmark"></span> ${T.tikkunMark}.</p>
-      <p class="more">${popBtn('symbolic', i.t('ui.r.howRead'))}${k.noTime ? ` <span class="dim">${i.cap1(T.noTime)}.</span>` : ''}</p>`;
+    const t2 = order.map(x => { const s = Math.floor(SD.engine.norm360(lonOf(x)) / 30); return `<tr><td>${nm(x)}</td><td>${i.sign(s)}</td><td class="card">${trumpLink(SD.tikkun.SIGN[s][1])}</td></tr>`; }).join('');
+    const recur = k.placements.filter(p => p.count > 1).map(p => T.recurs(trumpLink(p.card), p.count, p.keys.map(nm).join(', ')));
+    const cards = a => a.path ? trumpLink(a.card) : a.cards.map(trumpLink).join(' + ');
+    const t3 = k.aspects.map(a => `<tr class="asp-${SD.engine.aspectTone(a.aspect, a.a, a.b, a.orb) || ''}"><td><span class="nm">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)}</span></td><td class="card">${cards(a)}</td></tr><tr class="sub"><td colspan="2">${a.orb.toFixed(1)}° · ${T[a.quality]}${a.weak ? `, ${T.weak}` : ''}${a.path ? ` · ${lt(a.letter)}` : ''}</td></tr>`).join('');
+    const realm = k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : '';
+    return secOf('natal', 'kabbalah', `<h3>${T.label}</h3>
+      <p class="verdict">${i.cap1(T.short[k.north.sign])} · ${trumpLink(k.north.card)}</p>
+      <p class="prose">${T.long[k.north.sign]}${realm}</p>
+      ${pillRow(popBtn('symbolic', R('howCards')))}${k.noTime ? `<p class="note">${i.cap1(T.noTime)}.</p>` : ''}
+      <h4>${T.cards}</h4><table class="cards">${t1}</table>
+      <details class="fold" data-sec="natal.road"><summary><h4>${T.road}</h4><span class="s">${recur.length ? recur.join(' ') : R('noRepeat')}</span></summary><table class="cards">${t2}</table></details>
+      <h4>${T.aspects}</h4><table class="cards asp">${t3}</table>`);
   }
-
   /* the update button: ask the server for a newer service worker, let it install (it takes over at once), then reload.
      the pages come network-first, so the reload brings the newest files; offline it simply reloads the cached app */
   async function updateApp() {
@@ -1117,6 +1194,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     { const ct = $('chart-toggle'), on = S.mode === 'natalchart', i = SD.i18n; ct.classList.toggle('on', on); ct.setAttribute('aria-pressed', on ? 'true' : 'false'); ct.setAttribute('aria-label', i.t(on ? 'ui.asArt' : 'ui.asChart')); ct.title = i.t(on ? 'ui.asArt' : 'ui.asChart'); }
     document.body.classList.toggle('natal', S.mode === 'natal' || S.mode === 'natalchart');
     document.body.classList.toggle('pair', S.mode === 'pair');
+    document.body.classList.toggle('transits', S.mode === 'synastry');   // the Transits tab: no 72-hour strip, that is the clock's
     $('sigil').classList.toggle('on', S.sigil);
     slideSeg();
   }
@@ -1195,15 +1273,17 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       renderTalismans();
     })();
   }
-  function renderTalismans() { const el = $('talismans'); if (!el) return; el.innerHTML = talismansHtml(); linkTerms(el); }
+  function renderTalismans() { paintSection('clock', 'talismans', talismansHtml()); }
+  /* the talismans: one sentence, the rules and the sources behind pills, then seven rows present from the first paint, so the
+     page never jumps while the search runs; a found planet's row opens on its windows, the soonest named on the row */
   function talismansHtml() {
     const i = SD.i18n, T = k => i.t('ui.tal.' + k), P = k => i.cap1(i.planet(k)), tz = S.place.tz || 'UTC', loc = i.locale();
     const day = new Intl.DateTimeFormat(loc, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: tz });
     const hm = new Intl.DateTimeFormat(loc, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz });
     const cap = t => t.replace(/^./, c => c.toUpperCase());
     const res = tal.out || tal.partial, now = Date.now();
-    const head = `<h3>${i.cap1(T('h'))}</h3><p class="dim nolink">${T('intro')(i.placeName(S.place.name))}</p>`;
-    if (!res) return head + `<p class="dim nolink">${i.cap1(T('reading'))}</p>`;
+    const edges = e => { const a = Math.ceil(e.start / 6e4) * 6e4, z = Math.floor(e.end / 6e4) * 6e4; return [a, z]; };   // whole minutes inside the window, never past its edges
+    const when = e => { const [a, z] = edges(e); return `${cap(day.format(a))}, ${hm.format(a)}–${hm.format(z)}`; };
     const dig = e => e.dignity.includes('exaltation') ? T('exalted') : e.dignity.includes('domicile') ? T('ownSign') : e.dignity.includes('triplicity') ? T('triplicity') : T('term');
     const line = (e, k) => {
       const where = T(e.angle === 'asc' ? 'rising' : 'culminating')(k, P(k), i.sign(e.sign));
@@ -1212,24 +1292,25 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const by = e.cautionBy || {}, cBy = T('cBy'), x = { P, asp: a => i.aspect(a), ord: n => i.ordinal(n) };   // name the planet behind a caution, and say fall or detriment for the Moon
       const said = c => c === 'moonFall' ? cBy.moonFall(i.sign(e.moon.sign), e.moon.sign === 7) : by[c] && cBy[c] ? cBy[c](by[c].by, by[c].how, x) : T('c')[c] || c;
       const caut = e.cautions.length ? ` · <span class="asp asp-tension">${e.cautions.map(said).join(', ')}</span>` : '';
-      const a = Math.ceil(e.start / 6e4) * 6e4, z = Math.floor(e.end / 6e4) * 6e4, at = Math.min(Math.max(e.at, a), z);   // whole minutes inside the window, never past its edges
-      return `<li><a href="#" class="tal-at" data-tal="${new Date(at).toISOString()}">${cap(day.format(a))} · ${hm.format(a)}–${hm.format(z)}</a> · ${T('minutes')(Math.round((z - a) / 6e4))}<br><span class="tal-why nolink">${where}, ${dig(e)} · ${e.day ? T('dayHour')(k, P(k)) : T('hourOf')(k, P(k))} · ${moon}${caut}</span></li>`;
+      const [a, z] = edges(e), at = Math.min(Math.max(e.at, a), z);
+      return `<li><a href="#" class="tal-at" data-tal="${new Date(at).toISOString()}">${when(e)}</a> (${T('minutes')(Math.round((z - a) / 6e4))})<span class="tal-why nolink">${where}, ${dig(e)} · ${e.day ? T('dayHour')(k, P(k)) : T('hourOf')(k, P(k))} · ${moon}${caut}</span></li>`;
     };
     const rows = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'].map(k => {
-      const r = res[k]; if (!r) return '';
-      if (!r.done) return `<div class="tal-planet nolink"><h4>${P(k)}</h4><p class="dim">${i.cap1(T('reading'))}</p></div>`;   // a list half searched is not yet the best three
-      if (r.error) return `<div class="tal-planet nolink"><h4>${P(k)}</h4><p class="dim">${T('failed')(k, P(k))}</p></div>`;
+      const r = res && res[k];
+      if (!r || !r.done) return `<div class="tal-planet"><span class="p">${P(k)}</span><span class="w">${T('searching')}</span></div>`;   // a list half searched is not yet the best three
+      if (r.error) return `<div class="tal-planet"><span class="p">${P(k)}</span><span class="w">${T('failed')(k, P(k))}</span></div>`;
       const best = r.best.filter(e => e.end > now), lesser = r.lesser.filter(e => e.end > now);
+      const soonest = [...best].sort((u, v) => u.start - v.start)[0] || [...lesser].sort((u, v) => u.start - v.start)[0];
+      const summary = soonest ? when(soonest) : T('noneShort')(Math.round(SD.talismans.RULES.horizon[k] / 365));
       let body = '';
-      if (best.length) body += `${lesser.length ? `<p class="tal-sub">${T('firstRate')}</p>` : ''}<ul class="tal">${best.map(e => line(e, k)).join('')}</ul>`;
+      if (best.length) body += `<p class="tal-sub">${T('firstRate')}</p><ul class="tal">${best.map(e => line(e, k)).join('')}</ul>`;
       if (lesser.length) body += `<p class="tal-sub">${T('lesserHead')}</p><ul class="tal">${lesser.map(e => line(e, k)).join('')}</ul>`;
-      if (!best.length && !lesser.length) body = `<p class="dim">${T('none')(k, P(k), Math.round(SD.talismans.RULES.horizon[k] / 365))}</p>`;
-      const first = [...best, ...lesser].reduce((a, e) => Math.min(a, e.start), Infinity);
-      if (r.wait && r.wait.until > now && (!isFinite(first) || first - now > 60 * 864e5)) body += `<p class="dim">${T('wait')(k, P(k), cap(day.format(r.wait.until)))}</p>`;
-      if (k === 'mars' || k === 'saturn') body += `<p class="dim">${T(k === 'mars' ? 'cautionMars' : 'cautionSaturn')}</p>`;
-      return `<div class="tal-planet nolink"><h4>${P(k)}</h4>${body}</div>`;
+      const first = [...best, ...lesser].reduce((m, e) => Math.min(m, e.start), Infinity);
+      if (r.wait && r.wait.until > now && (!isFinite(first) || first - now > 60 * 864e5)) body += `<p class="note">${T('wait')(k, P(k), cap(day.format(r.wait.until)))}</p>`;
+      if (k === 'mars' || k === 'saturn') body += pillRow(popBtn(k === 'mars' ? 'cautionMars' : 'cautionSaturn', T('cautionPill')));
+      return `<details class="tal-planet" data-sec="tal.${k}"><summary><span class="p">${P(k)}</span><span class="w">${summary}</span></summary>${body}</details>`;
     }).join('');
-    return head + rows + `<p class="dim nolink">${T('note')}</p>`;
+    return secOf('clock', 'talismans', `<h3>${i.cap1(T('h'))}</h3><p>${T('lead')(i.placeName(S.place.name))}</p>${pillRow(popBtn('talHow', T('howPill')), popBtn('talSources', T('sourcesPill')))}<div class="tal-list">${rows}</div>`, ' id="talismans"');
   }
   /* a date of the list: the clock at that moment, the dial in view, and its chord (the tap lets the sound start) */
   function openMoment(d) {
@@ -1345,7 +1426,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (t) { t.scrollIntoView({ block: 'start', behavior: 'instant' }); t.classList.add('lit'); }   // the entry at once, no slide; it stays lit until the next word is followed
     else $('glossary').scrollTop = 0;
   }
-  const linkTerms = root => { try { SD.glossary.link(root, SD.i18n.locale().startsWith('es') ? 'es' : 'en'); } catch (e) { /* the glossary is a nicety */ } };
+  const linkTerms = root => { try { glossaryTerms(); SD.glossary.link(root, SD.i18n.locale().startsWith('es') ? 'es' : 'en', { marks: false }); } catch (e) { /* the glossary is a nicety */ } };
   function natalSummary() {
     const i = SD.i18n;
     if (!S.natal) return i.cap1(i.t('ui.noneSet'));
@@ -1479,25 +1560,54 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('save').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(2048)));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
     $('readout').addEventListener('click', e => { const a = e.target.closest('[data-tal]'); if (!a) return; e.preventDefault(); openMoment(new Date(a.dataset.tal)); });
-    // the tikkun's words: one small square at a time, under the word (above it near the foot of the screen); the word
-    // again, a tap elsewhere, Escape or a resize closes it
+    $('readout').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (!g) return; e.preventDefault();   // the links out of the reading: to the Clock, or to choose the second chart
+      if (g.dataset.go === 'clock') { const b = document.querySelector('.seg [data-mode="clock"]') || document.querySelector('[data-mode="clock"]'); if (b) b.click(); }
+      else if (g.dataset.go === 'pick-second' && openPick) openPick('second', document.querySelector('[data-mode="pair"]')); });
+    // the pop-up (DESIGN.md, "The readout system"): one at a time, titled with the words that opened it; anchored under its
+    // trigger, or above it near the foot of the screen; on a phone a text over sixty words rises as a sheet. It holds a method
+    // note ("note:stone"), a tikkun word ("karma") or a glossary entry ("g:void"). The trigger again, ×, a tap outside,
+    // Escape or a change of width closes it; a sheet gives the focus back to its trigger
     let defOpen = null;
-    const closeDef = () => { if (!defOpen) return; defOpen.box.remove(); defOpen.btn.setAttribute('aria-expanded', 'false'); defOpen = null; };
-    const openDef = btn => {
-      const same = defOpen && defOpen.btn === btn; closeDef(); if (same) return;
-      const key = btn.dataset.def, txt = key.startsWith('note:') ? noteText(key.slice(5)) : (SD.tikkun.text().defs || {})[key]; if (!txt) return;
-      const box = document.createElement('div'); box.className = 'popdef'; box.id = 'popdef'; box.setAttribute('role', 'note');
-      for (const para of String(txt).split(/\n\n+/)) { const p = document.createElement('p'); p.textContent = SD.i18n.cap1(para); box.appendChild(p); }
-      document.body.appendChild(box);
-      const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight, w = box.offsetWidth, h = box.offsetHeight;
-      const left = Math.max(16, Math.min(vw - 16 - w, r.left)), below = r.bottom + 8 + h <= vh - 8 || r.top - 8 - h < 8;
-      box.style.left = (left + window.scrollX) + 'px'; box.style.top = ((below ? r.bottom + 8 : r.top - 8 - h) + window.scrollY) + 'px';
-      btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', 'popdef');
-      defOpen = { btn, box };
+    const closeDef = back => { if (!defOpen) return; const d = defOpen; defOpen = null; d.box.remove(); if (d.scrim) d.scrim.remove(); d.btn.setAttribute('aria-expanded', 'false'); if (back && d.btn.isConnected) d.btn.focus({ preventScroll: true }); };
+    const popContent = (key, btn) => {
+      const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en';
+      if (key.startsWith('g:')) { const k = key.slice(2), g = SD.glossary.byKey(k) || SD.glossary.dynamic(lang).find(x => x.key === k); return g ? { title: g[lang][0].replace(/\s*\(.*\)$/, ''), text: g[lang][1], gloss: k } : null; }
+      const title = btn.textContent.trim();
+      if (key.startsWith('note:')) return { title, text: noteText(key.slice(5)) };
+      return { title, text: (SD.tikkun.text().defs || {})[key] };
     };
-    document.addEventListener('click', e => { const b = e.target.closest('[data-def]'); if (b) { e.preventDefault(); openDef(b); return; } if (defOpen && !e.target.closest('.popdef')) closeDef(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDef(); });
-    window.addEventListener('resize', closeDef);
+    const openDef = (btn, key) => {
+      key = key || btn.dataset.def;
+      const same = defOpen && defOpen.key === key && defOpen.btn === btn; closeDef(); if (same) return;
+      const c = popContent(key, btn); if (!c || !c.text) return;
+      const i = SD.i18n, txt = String(c.text), sheet = window.innerWidth <= 720 && txt.split(/\s+/).length > 60;
+      const box = document.createElement('div'); box.className = 'popdef' + (sheet ? ' sheet' : ''); box.id = 'popdef'; box.tabIndex = -1;
+      box.setAttribute('role', sheet ? 'dialog' : 'note'); box.setAttribute('aria-labelledby', 'popdef-t'); if (sheet) box.setAttribute('aria-modal', 'true');
+      const t = document.createElement('span'); t.className = 'pt'; t.id = 'popdef-t'; t.textContent = i.cap1(c.title); box.appendChild(t);
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'pclose'; x.setAttribute('aria-label', i.cap1(i.t('ui.close'))); x.textContent = '×'; box.appendChild(x);
+      for (const para of txt.split(/\n\n+/)) { const p = document.createElement('p'); if (para.startsWith('§ ')) { p.className = 'ps'; p.textContent = para.slice(2); } else p.textContent = i.cap1(para); box.appendChild(p); }
+      if (c.gloss) { const f = document.createElement('p'), b = document.createElement('button'); f.className = 'pfoot'; b.type = 'button'; b.dataset.gloss = c.gloss; b.textContent = i.t('ui.inGlossary'); f.appendChild(b); box.appendChild(f); }
+      let scrim = null;
+      if (sheet) { scrim = document.createElement('div'); scrim.className = 'pop-scrim'; document.body.appendChild(scrim); }
+      document.body.appendChild(box);
+      if (!sheet) {
+        const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight, w = box.offsetWidth, h = box.offsetHeight;
+        const left = Math.max(16, Math.min(vw - 16 - w, r.left)), below = r.bottom + 8 + h <= vh - 8 || r.top - 8 - h < 8;
+        box.style.left = (left + window.scrollX) + 'px'; box.style.top = ((below ? r.bottom + 8 : r.top - 8 - h) + window.scrollY) + 'px';
+      }
+      btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', 'popdef');
+      defOpen = { btn, box, scrim, key, w: window.innerWidth };
+      if (sheet) box.focus({ preventScroll: true });
+    };
+    SD.app_pop = { openDef, closeDef, open: () => defOpen };          // the readout's re-render re-points or closes an open pop-up
+    document.addEventListener('click', e => {
+      if (e.target.closest('.popdef .pclose')) { closeDef(true); return; }
+      const gb = e.target.closest('.popdef [data-gloss]'); if (gb) { const k = gb.dataset.gloss; closeDef(); openGlossary(k); return; }
+      const b = e.target.closest('[data-def]'); if (b) { e.preventDefault(); openDef(b); return; }
+      if (defOpen && !e.target.closest('.popdef')) closeDef();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDef(true); });
+    window.addEventListener('resize', () => { if (defOpen && defOpen.w !== window.innerWidth) closeDef(); });   // a phone's toolbar changes the height while scrolling: only a new width closes it
     $('readout').addEventListener('click', e => { if (!e.target.closest('[data-act="algol"]')) return; S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateReadout(); });   // the Demon Star on the art, kept between visits
     $('preview').addEventListener('input', e => { S.playing = false; S.offsetMs = Number(e.target.value) * 60000; recompute(); });
     $('save-hd').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(4096)));
@@ -1506,7 +1616,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('about-close').addEventListener('click', () => { $('about').hidden = true; $('about-open').classList.remove('on'); });
     $('glossary-open').addEventListener('click', () => { openGlossary(); openMenu(false); });
     $('glossary-close').addEventListener('click', () => { $('glossary').hidden = true; });
-    document.addEventListener('click', e => { const a = e.target.closest('a.g, [data-g]'); if (!a) return; e.preventDefault(); if (/^(card_|trump_)/.test(a.dataset.g || '')) openCard(a.dataset.g); else openGlossary(a.dataset.g); });   // a tarot card opens as a lightbox, at once
+    document.addEventListener('click', e => { const a = e.target.closest('a.g, [data-g]'); if (!a) return; e.preventDefault(); if (/^(card_|trump_)/.test(a.dataset.g || '')) openCard(a.dataset.g); else if (a.closest('#readout, #caption') && SD.app_pop) SD.app_pop.openDef(a, 'g:' + a.dataset.g); else openGlossary(a.dataset.g); });   // a tarot card opens as a lightbox, at once
     const fullScreen = () => {                              // the f key: the bare dial, full screen where the browser allows it
       document.body.classList.toggle('bare');
       if (document.body.classList.contains('bare') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});

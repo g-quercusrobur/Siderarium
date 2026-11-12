@@ -327,37 +327,53 @@
   };
   const ORDER = ['title', 'moon', 'figure', 'planet', 'angel', 'sign', 'element', 'house', 'dignity', 'temperament', 'time', 'wheel', 'stone', 'sound', 'sd', 'mansion'];   // the stones are back: the Transits view names the stone of the day
 
-  /* the linker: every term and alias, longest first, matched on word boundaries, case-insensitive */
+  /* the linker: every term and alias, longest first, matched on word boundaries, case-insensitive. Tarot cards are never
+     matched: the reading prints each card as its own link (a.g.card), so "the Moon" or "judgement" never opens a plate */
   let cache = {}, dynamic = { en: [], es: [] };
   function setDynamic(lang, entries) { dynamic[lang] = entries; cache[lang] = null; }
   function matcher(lang) {
     if (cache[lang]) return cache[lang];
-    const words = [];
-    for (const g of [...G.filter(x => ORDER.includes(x.group)), ...(dynamic[lang] || [])]) {   // only the groups on show link; the dynamic entries always
+    const words = [], groupOf = new Map();
+    for (const g of [...G.filter(x => ORDER.includes(x.group)), ...(dynamic[lang] || []).filter(x => !/^(card_|trump_)/.test(x.key))]) {   // only the groups on show link
       const t = g[lang][0].replace(/\s*\(.*\)$/, '');            // the term without its bracket
       const list = [t, ...(g.aliases[lang] || [])];
       for (const w of list) if (w && w.length > 2) words.push({ w, key: g.key });
+      groupOf.set(g.key, g.group);
     }
     words.sort((a, b) => b.w.length - a.w.length);
     const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(`(^|[^\\p{L}])(${words.map(x => esc(x.w)).join('|')})(?![\\p{L}])`, 'giu');
     const byWord = new Map(words.map(x => [x.w.toLowerCase(), x.key]));
-    return (cache[lang] = { re, byWord });
+    return (cache[lang] = { re, byWord, groupOf });
   }
-  /* wraps the terms found in the text nodes under root in <a class="g" data-g="key">; skips text already inside a link or a form field */
-  function link(root, lang) {
-    const { re, byWord } = matcher(lang);
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && !n.parentElement.closest('a, button, input, select, textarea, .nolink') && n.nodeValue.trim()) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+  /* "tappable always, drawn once" (DESIGN.md, "The readout system"): every term found in the text under root becomes
+     <a class="g" data-g="key">, which opens its definition; with marks, only a term's first mention in running prose (a <p>
+     that is not a verdict, a note or a row of pills) is drawn, and never a planet, a sign, an element, an angel, the houses
+     or the motion words. Inside running prose a house links only as its realm, and an element word not at all. Nothing
+     links inside a link, a button, a form field, a summary, a heading, a date, the rose's legend or .nolink */
+  const PLAIN = new Set(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo',
+    'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces', 'fire', 'earth', 'air', 'water', 'michael', 'gabriel', 'raphael', 'anael', 'samael', 'sachiel', 'cassiel',
+    'houses', 'applying', 'separating']);
+  const SKIP = 'a, button, input, select, textarea, .nolink, summary, h3, h4, time, .r-head';
+  // entries whose term is also an everyday word: inside running prose they are words, not terms ("open the clock", "in its fall")
+  const COMMON = new Set(['open', 'ripe', 'unripe', 'work', 'watch', 'shelter', 'cut', 'face', 'fall', 'term', 'mode', 'realm', 'figure', 'windows', 'veil', 'chord', 'orb', 'guardians']);
+  function link(root, lang, opts) {
+    const marks = !!(opts && opts.marks), { re, byWord, groupOf } = matcher(lang), seen = new Set();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && !n.parentElement.closest(SKIP) && n.nodeValue.trim()) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
     const nodes = []; let n; while ((n = walker.nextNode())) nodes.push(n);
     for (const node of nodes) {
       const txt = node.nodeValue; re.lastIndex = 0; if (!re.test(txt)) continue; re.lastIndex = 0;
-      const frag = document.createDocumentFragment(); let last = 0, m;
+      const para = node.parentElement.closest('p'), prose = para && !para.matches('.verdict, .note, .pills, .asp-key, .rose-key');
+      const frag = document.createDocumentFragment(); let last = 0, m, made = 0;
       while ((m = re.exec(txt))) {
-        const start = m.index + m[1].length, word = m[2];
+        const start = m.index + m[1].length, word = m[2], key = byWord.get(word.toLowerCase()), group = groupOf.get(key);
+        if (para && (group === 'element' || COMMON.has(key) || (group === 'house' && !/^(realm|reino)\b/i.test(word)))) continue;   // "inner work", "shining water": words, not terms
         if (start > last) frag.appendChild(document.createTextNode(txt.slice(last, start)));
-        const a = document.createElement('a'); a.className = 'g'; a.href = '#g-' + byWord.get(word.toLowerCase()); a.dataset.g = byWord.get(word.toLowerCase()); a.textContent = word;
-        frag.appendChild(a); last = start + word.length;
+        const a = document.createElement('a'); a.className = 'g'; a.href = '#g-' + key; a.dataset.g = key; a.textContent = word;
+        if (marks) { if (prose && !PLAIN.has(key) && !seen.has(key)) { a.dataset.first = ''; seen.add(key); } else a.tabIndex = -1; }
+        frag.appendChild(a); last = start + word.length; made++;
       }
+      if (!made) continue;
       if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
       node.parentNode.replaceChild(frag, node);
     }
