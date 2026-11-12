@@ -915,16 +915,21 @@
     return { figures, harmony, strife, verdict, grade, balance };
   }
 
-  /* the element of the sky: the four elements weighed by the bodies' signs, the luminaries and the ascendant heaviest */
-  function elements(st) {
+  /* the element of the sky: the four elements weighed by the bodies' signs, the luminaries and the ascendant heaviest.
+     without a birth time the angles are unknown and left out. pct: whole percentages that add up to 100 (largest
+     remainder), so a reading never shows 101% */
+  function elements(st, opts = {}) {
     const W = { sun: 3, moon: 3, mercury: 1.5, venus: 1.5, mars: 1.5, jupiter: 1, saturn: 1, uranus: 0.4, neptune: 0.4, pluto: 0.4 };
     const s = { fire: 0, earth: 0, air: 0, water: 0 };
     for (const k in W) s[C.SIGNS[st.bodies[k].sign].element] += W[k];
-    s[C.SIGNS[Math.floor(st.asc / 30)].element] += 2.5; s[C.SIGNS[Math.floor(st.mc / 30)].element] += 1;
+    if (!opts.noTime) { s[C.SIGNS[Math.floor(norm360(st.asc) / 30)].element] += 2.5; s[C.SIGNS[Math.floor(norm360(st.mc) / 30)].element] += 1; }
     const tot = Object.values(s).reduce((a, b) => a + b, 0);
     const shares = {}; for (const k in s) shares[k] = s[k] / tot;
     const order = Object.keys(s).sort((a, b) => s[b] - s[a]);
-    return { shares, order, dominant: order[0] };
+    const pct = {}; let left = 100;
+    for (const k of order) { pct[k] = Math.floor(shares[k] * 100); left -= pct[k]; }
+    for (const k of order.slice().sort((a, b) => (shares[b] * 100 % 1) - (shares[a] * 100 % 1)).slice(0, left)) pct[k]++;
+    return { shares, order, dominant: order[0], pct };
   }
 
   /* ---------- the whole state ---------- */
