@@ -1475,6 +1475,11 @@
     const p = Object.fromEntries(f.formatToParts(date).map(x => [x.type, x.value]));
     return `${I().cap1(p.weekday)} ${p.day} ${p.month.replace(/\.$/, '')} ${p.hour}:${p.minute}`;   // the month as the language writes it: Oct, oct
   }
+  function fmtDay(date, loc) {
+    const f = new Intl.DateTimeFormat(I().locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: loc.tz || 'UTC' });
+    const p = Object.fromEntries(f.formatToParts(date).map(x => [x.type, x.value]));
+    return `${p.day} ${p.month.replace(/\.$/, '')}, ${p.hour}:${p.minute}`;
+  }
   function captionLines(state) {
     const i = I(), T = fmtTime(state.date, state.loc), B = state.bodies, H = state.hour;
     const fig = state.configs.primary, ev = fig && fig.event ? (i.event(fig.event) === fig.event && fig.event.includes(' ') ? fig.event.split(' ').map(w => i.event(w)).join(' ') : i.event(fig.event)) : '';
@@ -1496,14 +1501,14 @@
     if (state.pairMissing) return { label: i.t('cap.synastryLabel'), stateKey: 'watch', state: c1(i.t('cap.noPair')), title: '', reason: '', l1: c1(`${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`), detail1: '', detail2: '', detail3: '', detail4: '', l2: '', l3: '', fig: '', moon: '', chord: '', decan: '', mansion: '', next: '' };
     return {
       // the tiers: the instrument, the state, the title, the reason, the moment, the day's colour, the sound
-      label: i.t('cap.clockLabel'),
+      label: state.natalView && !state.pair ? c1(`${i.t('cap.nativity')}${state.chartName ? ' · ' + state.chartName : ''}`) : i.t('cap.clockLabel'),   // a birth chart is labelled as one: 'Birth chart · A'
       stateKey: T2.state,
       opLabel: i.t('cap.operations'),                      // 'Magickal operations:' answered by the verdict, on the clock and on a birth chart alike
       state: i.state(T2.state).replace(/^./, ch => ch.toLowerCase()),
       title: `${i.t('cap.modeOf')} ${c1(i.window(T2.mode))} · ${i.realm(T2.house)} · ${i.t('cap.under')}\u00a0${i.name(H.angel)}`,   // 'under' and the angel never part across a line; the mode first, named as a mode; the house as a realm; the angel
       reason: `${c1(figLine)} · ${c1(mv)}${mn}`,
       copy: !!(state.natalView && !state.transits && !state.pair),   // a birth chart: a copy icon after the city
-      l1: c1(`${state.natalView ? i.t('cap.nativity') + (state.chartName ? ' · ' + state.chartName : '') + (state.relocated ? ' · ' + i.t('cap.relocated') + ' ' + i.placeName(state.relocated) : '') + ' · ' : ''}${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`),
+      l1: c1(`${state.natalView && state.relocated ? i.t('cap.relocated') + ' ' + i.placeName(state.relocated) + ' · ' : ''}${T.day} · ${T.date} · ${T.time} ${T.zone} · ${i.placeName(state.loc.name)}`),
       detail1: cs(`${i.t('cap.dayOf')} ${i.planet(H.dayRuler)} · ${i.t('cap.hourOf')} ${i.planet(H.hourRuler)} · ${i.t('cap.sunIn')} ${i.t('cap.house')} ${i.roman(B.sun.house)} · ${dms(B.sun.deg)} ${i.sign(B.sun.sign)}`),
       detail2: cs(`${i.t('cap.decanOf')} ${i.planet(d.ruler)} · ${i.card(d)} · ${i.title(d)}`),
       detail3: state.tikkun ? c1(`${SD.tikkun.text().label}: ${SD.tikkun.text().short[state.tikkun.north.sign]} · ${SD.tikkun.major(state.tikkun.north.card)}`) : cs(`${i.ordinal(B.moon.mansion.index)} ${i.t('cap.mansion')} · ${i.name(B.moon.mansion.name)}`),   // a birth chart: its life mission in place of the Moon's mansion
@@ -1529,7 +1534,7 @@
     const chartName = info.name || '';                    // the chart's own name: the app never assumes whose chart it is
     const own = (k, who) => pr ? i.t('cap.own')(who, pt(k)) : chartName ? i.t('cap.own')(chartName, pt(k)) : `${pt(k)} ${i.t('cap.natalOf')}`;
     const nat = k => own(k, pr && pr.b), mine = k => pr ? i.t('cap.own')(pr.a, P(k)) : P(k);
-    const when = a => { const sp = info.spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return ''; if (sp.exact) { const past = sp.exact.getTime() < state.date.getTime() - 3600e3; return ` · ${i.t(past ? 'cap.wasExact' : 'cap.exact')} ${fmtShort(sp.exact, state.loc)}`; } return sp.leave ? ` · ${i.t('cap.untilOrb')} ${fmtShort(sp.leave, state.loc)}` : ''; };
+    const when = a => { const sp = info.spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return ''; if (sp.exact) { const past = sp.exact.getTime() < state.date.getTime() - 3600e3; return ` · ${i.t(past ? 'cap.wasExact' : 'cap.exact')} ${fmtDay(sp.exact, state.loc)}`; } return sp.leave ? ` · ${i.t('cap.untilOrb')} ${fmtDay(sp.leave, state.loc)}` : ''; };
     const line = a => `${mine(a.a)} ${A(a.aspect)} ${nat(a.b)}`;
     const short = a => pr ? `${line(a)} · ${a.orb.toFixed(1)}°` : `${line(a)} · ${a.orb.toFixed(1)}° ${i.t(a.applying ? 'cap.applying' : 'cap.separating')}`;   // two fixed charts have no applying or separating
     const grade = inter ? inter.grade : 'quiet', stateKey = grade;   // seven steps from deep strife to deep harmony, each its own colour
@@ -1579,7 +1584,7 @@
       detail2: x.cs(figTxt || `${i.t('ui.r.harmony')} ${inter ? inter.harmony.toFixed(2) : '0'} · ${i.t('ui.r.strife')} ${inter ? inter.strife.toFixed(2) : '0'}`),
       detail3: x.cs(pr ? `${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}` : `${i.t('cap.inOrb')(tr.length)} · ${i.t('cap.applyingN')(applying)}`),
       stone: !pr && state.stone ? x.cs(`${i.t('cap.stone')} ${i.stone(state.stone.stone)}${state.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(state.stone.alternative)}` : ''}`) : '',   // the stone of the day, read just before the chord
-      detail4: pr ? x.c1(tr[0] ? line(tr[0]) : i.t('cap.noTransit')) : x.cs(`${x.chordTxt}${x.nextTxt ? ' · ' + x.nextTxt : ''}`),   // the pair has no chord of its own: its strongest contact instead
+      detail4: pr ? x.c1(tr[0] ? line(tr[0]) : i.t('cap.noTransit')) : '',   // the pair has no chord of its own: its strongest contact instead; the transits leave the chord to the clock
       pairLine: pr ? x.cs(`${harmonyTxt} · ${strifeTxt}`) : '',
       pairLine2: pr ? x.cs(`${blend ? blend + ' · ' : ''}${i.t('cap.contactsN')(tr.length)}${state.attraction && state.attraction.grade ? ' · ' + i.t('ui.desire.' + state.attraction.grade) : ''}`) : '',
       note: '',

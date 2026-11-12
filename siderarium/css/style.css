@@ -108,9 +108,6 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 #dial.turning { cursor: grabbing; }
 #listen::before { content: ''; display: inline-block; width: 6px; height: 6px; border: 1px solid currentColor; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 #sigil.on::before, #listen.on::before { background: currentColor; }
-#readout tr.sub td { color: var(--ink-3); padding-bottom: 6px; white-space: normal; }
-#readout .hours { white-space: normal; line-height: 1.9; }
-#readout .hours .now { color: var(--ink); border-bottom: 1px solid var(--ink-2); }
 
 .panel { position: fixed; inset: 0; z-index: 10; background: var(--void); overflow-y: auto;
   padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); }
@@ -153,7 +150,6 @@ body.small #caption .deck { font: 500 17px/1.35 var(--sans); color: var(--ink); 
 body.small #caption .reason { font: 400 15px/1.45 var(--sans); color: var(--ink); margin: 0 0 8px; }
 body.small #caption .moment { font: 400 13.5px/1.5 var(--sans); color: var(--ink-2); margin: 0 0 8px; }
 body.small #caption .detail { font: 400 13.5px/1.55 var(--sans); color: var(--ink-2); margin: 0 0 6px; }
-body.small #readout .lead { display: none; }
 body.small #stage { justify-content: flex-start; }
 #ahead { display: grid; gap: 4px; }
 #strip { width: 100%; height: 44px; display: block; }   /* 34 px + 30% */
@@ -170,20 +166,7 @@ body.bare #ahead, body.natal #ahead { display: none; }
   transition: width 0.2s steps(4);
 }
 body.reading #readout { width: min(480px, 40vw); padding: 18px 22px; border-left-color: var(--ink-3); }
-#readout .lead { margin: 0 0 18px; padding: 0 0 14px; border-bottom: 1px solid var(--ink-3); }
-#readout p.verdict { font: 500 14px/1.4 var(--sans); margin: 0 0 16px; }
-#readout .lead .big { font: 500 19px/1.25 var(--sans); color: var(--ink); margin: 0 0 6px; text-wrap: balance; }
-#readout .lead p { font: 400 13.5px/1.5 var(--sans); color: var(--ink-2); margin: 0; }
-#readout .lead .moment { font: 400 13px/1.5 var(--sans); color: var(--ink-3); margin-top: 6px; }
-#readout .verdict { font: 500 13px/1.5 var(--sans); color: var(--ink); margin: 0 0 8px; }
-#readout h3 { font: 500 13px/1 var(--sans); letter-spacing: 0.04em; color: var(--ink); margin: 20px 0 8px; }
-#readout .lead + h3 { margin-top: 0; }
-#readout table { border-collapse: collapse; width: 100%; table-layout: auto; }
-#readout td { padding: 2px 8px 2px 0; vertical-align: top; white-space: normal; overflow-wrap: break-word; }
-#readout td:first-child, #readout td.nw { white-space: nowrap; }
-#readout table.pair td { width: 40%; } #readout table.pair td:first-child { width: 20%; } #readout table.pair tr.head td { color: var(--ink); font-weight: 500; padding-bottom: 6px; }   /* a pair: two equal columns under the two names */
 body.small #caption .pair-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font: 400 13.5px/1.55 var(--sans); color: var(--ink-2); margin: 0 0 8px; } body.small #caption .pair-cols b { color: var(--ink); font-weight: 500; }
-#readout .dim { margin-top: 14px; color: var(--ink-3); white-space: normal; }
 /* the three ties as scales: label, hairline with ticks where the word changes, a dot at the score, the word under the dot */
 .scales { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 4px 0 14px; }
 .scale { position: relative; min-width: 0; }
@@ -193,21 +176,7 @@ body.small #caption .pair-cols { display: grid; grid-template-columns: 1fr 1fr; 
 .scale .sline b { position: absolute; top: -5px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; box-shadow: 0 0 0 2px var(--void, #000); }
 .scale .sw { display: block; margin-top: 11px; text-align: center; font: 500 13px/1.25 var(--sans); overflow-wrap: anywhere; }   /* centred under its own scale, wrapping rather than running into the next */
 body.small #caption .scales { margin: 8px 0 12px; }
-#readout .makers p { margin: 0 0 6px; font-size: 12.5px; color: var(--ink-2); white-space: normal; } #readout .makers b { color: var(--ink); font-weight: 500; }
 /* the cards of the tikkun: three tables, the same columns, the letter on a muted second line */
-#readout h4 { font: 500 11px/1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin: 16px 0 6px; }
-#readout table.cards td { white-space: normal; } #readout table.cards td:first-child { width: 28%; } #readout table.cards td.card { color: var(--ink); width: 38%; }
-#readout table.cards tr.head td { font: 500 11px/1.4 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 4px; }
-#readout table.cards tr.sub td { color: var(--ink-3); font-size: 12px; padding-top: 0; }
-/* the temperament: the testimonies (the label wraps; the humour and the weight do not) and Ficino's regimen, label and value */
-#readout table.temper td:first-child { white-space: normal; } #readout table.temper td:nth-child(2) { color: var(--ink); }
-#readout table.regimen { margin: 4px 0 14px; } #readout table.regimen td:first-child { color: var(--ink-3); width: 24%; }
-#readout table.regimen tr.head td { font: 500 11px/1.4 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 4px; }
-#readout td.card.tk::after, #readout .tkmark::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: #6fcf8e; vertical-align: middle; } #readout .tkmark::before { margin: 0 2px 0 0; }
-#readout .recur { color: var(--ink-2); font-size: 12.5px; margin: 8px 0 0; white-space: normal; }
-#readout .tie { display: grid; gap: 4px; margin: 0 0 12px; } #readout .tie .th { display: flex; justify-content: space-between; font: 500 13px/1.5 var(--sans); color: var(--ink); }
-#readout .tie .track { position: relative; height: 6px; border-radius: 3px; background: var(--ink-3); opacity: 0.9; } #readout .tie .track::before { content: ''; position: absolute; left: 50%; top: -3px; width: 1px; height: 12px; background: var(--ink-2); }
-#readout .tie .track i { position: absolute; top: -3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--ink); } #readout .tie p { margin: 0; font-size: 12.5px; color: var(--ink-2); white-space: normal; }
 
 body.bare { grid-template-areas: "stage stage" "stage stage" "stage stage"; }
 body.bare .bar, body.bare #readout { display: none; }
@@ -227,7 +196,6 @@ body.bare #stage { grid-row: 1 / 4; grid-column: 1 / 3; }
   .dialwrap .corner-sigil { width: 44px; height: 44px; left: 4px; bottom: 4px; }   /* mirrors the sound button */
   .dialwrap .corner-update { width: 44px; height: 44px; min-height: 44px; left: 4px; top: 4px; }   /* round: the phone's 44 px minimum height made it 40 × 44 */
   body.small #caption button.share-btn { width: 44px; height: 44px; min-height: 44px; }
-  body.reading #readout { padding: 16px 16px 24px; font-size: 13px; }
   .top .seg { order: 3; width: 100%; display: flex; }
   .top .seg button { flex: 1; padding: 0; }
   .bottom { gap: 6px; }
@@ -276,13 +244,6 @@ a.g { color: inherit; text-decoration: underline dotted; text-decoration-color: 
 button.deflink { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; min-height: 0; text-align: left; letter-spacing: inherit;
   text-decoration: underline dotted; text-decoration-color: rgba(235, 231, 220, 0.45); text-underline-offset: 3px; cursor: pointer; }
 button.deflink[aria-expanded="true"] { text-decoration-color: var(--ink); }
-.popdef { position: absolute; z-index: 20; box-sizing: border-box; width: min(18rem, calc(100vw - 32px)); padding: 12px 14px;
-  background: #111; color: var(--ink); border: 1px solid rgba(235, 231, 220, 0.25); border-radius: 4px;
-  font: 400 0.875rem/1.45 var(--sans); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
-.popdef { max-height: min(70vh, 34rem); overflow-y: auto; } .popdef p { margin: 0 0 8px; } .popdef p:last-child { margin-bottom: 0; }
-/* a note behind a trigger: the reading keeps one short line, the text opens on tap */
-button.deflink.note { color: var(--ink-2); }
-#readout .more { margin: 8px 0 0; } #readout .howto { color: var(--ink-2); margin: 0 0 4px; }
 /* a Hebrew letter inside running text: Geist has none, so the system's Hebrew face */
 .he { font-family: "Noto Sans Hebrew", "Arial Hebrew", "David", "Times New Roman", serif; font-size: 1.12em; line-height: 1; }
 a.g:hover { text-decoration-style: solid; color: var(--ink); }
@@ -315,7 +276,6 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 .corner-update { position: absolute; left: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; -webkit-user-select: none; user-select: none; touch-action: manipulation; }   /* the top-left corner: fetch the newest version and reload */
 body.small #caption { position: relative; } body.small #caption .eyebrow, body.small #caption .h1 { padding-right: 52px; }   /* the share button's column: no text runs under it */
 .share-btn { display: none; } body.small #caption .share-btn { display: inline-flex; position: absolute; right: 8px; top: 2px; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: transparent; color: var(--ink-2); align-items: center; justify-content: center; }   /* beside the headline */
-#readout p.rel { margin: 4px 0 12px; } #readout p.rel select { margin-left: 6px; }
 .corner-update:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
 .corner-update.busy { color: var(--ink); border-color: var(--ink-2); } .corner-update.busy svg { animation: sd-spin 0.9s linear infinite; }
 @keyframes sd-spin { to { transform: rotate(360deg); } }
@@ -346,13 +306,6 @@ button.ready { color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3p
 
 /* ---------- phone legibility (UX audit): no running text under 14 px, labels at 13 px at least ---------- */
 @media (max-width: 720px) {
-  body.reading #readout { font-size: 15px; line-height: 1.55; }
-  #readout h3 { font-size: 15px; margin: 26px 0 10px; }
-  #readout h4, #readout table.cards tr.head td, #readout table.regimen tr.head td { font-size: 12.5px; }
-  #readout p.verdict, #readout .verdict { font-size: 15px; }
-  #readout .dim, #readout .recur, #readout .makers p, #readout .tie p, #readout table.cards tr.sub td { font-size: 14px; }
-  #readout .tie .th { font-size: 15px; }
-  #readout td { padding: 3px 10px 3px 0; }
   .bar button, .bottom button { font-size: 15px; }
   .top .seg button { font-size: 13.5px; letter-spacing: 0; }
   #nexts, #nexts button { font-size: 14.5px; }
@@ -418,18 +371,200 @@ body.natal .corner-chart { display: inline-flex; }
    pure red on black is dim (5.3:1, and 4.2:1 to a protanope), so the red is a coral at 7.5:1; the orange sits a step
    lighter and the green leans to teal, which keeps the three apart for red-green colour blindness as well */
 :root { --asp-flow: #5fd3a1; --asp-tension: #ffb454; --asp-afflict: #ff6b61; }
-.asp-flow { color: var(--asp-flow); } .asp-tension { color: var(--asp-tension); } .asp-afflict { color: var(--asp-afflict); }
-.asp a.g { text-decoration-color: currentColor; text-decoration-color: color-mix(in srgb, currentColor 55%, transparent); }
-.asp a.g:hover { color: inherit; }
-#readout .asp-key { margin: 0 0 8px; font-size: 13px; color: var(--ink-3); }
-#readout .asp-key .asp::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 0; }
 
-/* ---------- planetary talismans timing (clock reading) ---------- */
-#readout .tal-planet { margin: 0 0 14px; }
-#readout .tal-planet h4 { margin: 16px 0 6px; }
-#readout ul.tal { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 8px; }
-#readout ul.tal li { line-height: 1.45; }
-#readout a.tal-at { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(235, 231, 220, 0.5); }
+/* ==========================================================================
+   READOUT · one type and layout system (November 2026)
+   Paste at the END of css/style.css; it wins over the older #readout rules by order and specificity, so it works
+   before the clean-up. The lines it supersedes are listed at the foot.
+   Two cuts of Geist (400, 500), nothing synthesised. Figures set in a column use Geist's own tabular digits (tnum:
+   every digit 600 units, + and − 570), so degrees, orbs and times align without a second family.
+   Phone first (≤ 720 px: 15 px text in a 358 px measure at 390); from 721 px every role one step smaller.
+   ========================================================================== */
+:root {
+  --rule: rgba(235, 231, 220, 0.12);      /* the hairline between sections and between talisman rows */
+  --rule-2: rgba(235, 231, 220, 0.24);    /* under column heads; the edge of pills and pop-ups */
+  --surface: #111;                        /* pop-ups */
+  --rose-h: #7fa4e0; --rose-s: #ff5a2a;   /* the rose's two layers, exactly as render.js draws them (ROSE_H, ROSE_S) */
+  --r-h3: 20px;   --r-h3-lh: 26px;        /* section title */
+  --r-std: 17px;  --r-std-lh: 24px;       /* standfirst: the section's answer, in one line */
+  --r-h4: 15px;   --r-h4-lh: 20px;        /* sub-section title */
+  --r-body: 15px; --r-body-lh: 24px;      /* sentences */
+  --r-row-lh: 22px;                       /* rows of lists and tables */
+  --r-sub: 14px;  --r-sub-lh: 20px;       /* second lines, notes, keys, legends */
+  --r-cap: 12px;  --r-cap-lh: 16px;       /* tracked capitals: column heads and group rows, nothing else */
+}
+@media (min-width: 721px) {
+  :root { --r-h3: 18px; --r-h3-lh: 24px; --r-std: 16px; --r-std-lh: 22px; --r-h4: 14px; --r-body: 14px; --r-body-lh: 22px;
+    --r-row-lh: 21px; --r-sub: 13px; --r-sub-lh: 19px; --r-cap: 11.5px; }
+}
+
+/* ---------- the column ---------- */
+body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48px; font: 400 var(--r-body)/var(--r-body-lh) var(--sans); letter-spacing: 0; color: var(--ink-2); font-synthesis: none; }   /* never narrower than a phone's measure; the font here outranks the old phone rule */
+@media (max-width: 720px) { body.reading #readout { width: 100%; padding: 20px 16px 48px; } }
+
+/* ---------- sections: a hairline between them, nothing else ---------- */
+#readout > :is(section.rs, .r-head) + section.rs { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--rule); }
+#readout h3 { margin: 0 0 10px; padding: 0; border: 0; font: 500 var(--r-h3)/var(--r-h3-lh) var(--sans); letter-spacing: -0.005em; color: var(--ink); text-wrap: balance; }
+#readout p.verdict { margin: 0 0 12px; font: 400 var(--r-std)/var(--r-std-lh) var(--sans); letter-spacing: 0; color: var(--ink); text-wrap: pretty; }
+#readout h4 { margin: 24px 0 8px; font: 500 var(--r-h4)/var(--r-h4-lh) var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink); }
+#readout :is(h3, p.verdict, .pills) + h4 { margin-top: 12px; }
+#readout h4 .hv { font-weight: 400; color: var(--ink-2); }   /* "Friendship · mixed": the tie's word after its name */
+
+/* ---------- sentences, notes, separators ---------- */
+#readout p { margin: 0 0 12px; text-wrap: pretty; }
+#readout p.prose { hyphens: auto; -webkit-hyphens: auto; }
+#readout :is(p.note, p.dim) { margin: 0 0 12px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); white-space: normal; }
+#readout span.dim, #readout .sep { color: var(--ink-3); }
+#readout b, #readout strong { font-weight: 500; color: var(--ink); }
+
+/* ---------- the head of a rose view (Transits, Synastry): the dial's legend, then one sentence ---------- */
+#readout .rose-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 10px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-2); }
+#readout .rose-key .k { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+#readout .rose-key svg { flex: none; width: 22px; height: 12px; overflow: visible; isolation: isolate; }
+#readout .rose-key .pe { stroke-width: 1.4; }
+#readout .rose-key .pe-h { fill: rgba(127, 164, 224, 0.32); stroke: var(--rose-h); }
+#readout .rose-key .pe-s { fill: rgba(255, 90, 42, 0.32); stroke: var(--rose-s); mix-blend-mode: screen; }   /* the dial blends its two layers with screen: so does the key */
+#readout p.lede { margin: 0 0 8px; color: var(--ink-2); }
+
+/* ---------- pop-up triggers: one kind, a labelled pill, placed under the section's answer ---------- */
+#readout .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+#readout button.pill { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 26px; min-height: 0; margin: 0; padding: 0 11px 0 5px;
+  border: 1px solid var(--rule-2); border-radius: 13px; background: none; font: 400 13px/1 var(--sans); letter-spacing: 0; color: var(--ink-2); white-space: nowrap; vertical-align: middle; cursor: pointer; }
+#readout button.pill::before { content: 'i'; flex: none; box-sizing: border-box; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font: 500 10px/14px var(--sans); text-align: center; }
+#readout button.pill::after { content: ''; position: absolute; inset: -9px -4px; }   /* a 44 px tall target */
+#readout button.pill:hover, #readout button.pill[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-2); }
+#readout :is(p:not(.pills), td) > button.pill { margin: -1px 0 -1px 4px; }   /* at the end of a sentence: the line keeps its height */
+@media (min-width: 721px) { #readout button.pill { height: 24px; border-radius: 12px; font-size: 12.5px; } }
+
+/* ---------- aspect tones: a 7 px dot, the letters stay in the ink ---------- */
+#readout .asp-flow { --tone: var(--asp-flow); }
+#readout .asp-tension { --tone: var(--asp-tension); }
+#readout .asp-afflict { --tone: var(--asp-afflict); }
+#readout :is(.asp-flow, .asp-tension, .asp-afflict) { color: inherit; }
+#readout span.asp::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--tone, transparent); vertical-align: 0.1em; }
+#readout p.asp-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 6px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout p.asp-key span.asp::before { width: 7px; height: 7px; margin-right: 6px; background: var(--tone); vertical-align: 0.1em; }   /* outranks the old key dots in currentColor */
+
+/* ---------- ranked lists (aspects, transits, contacts, active now, a tie's makers): the order is the rank ---------- */
+#readout ol.rank { list-style: none; margin: 0 0 8px; padding: 0; }
+#readout ol.rank > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; padding: 6px 0; line-height: var(--r-row-lh); }
+#readout ol.rank > li.grp { display: block; padding: 16px 0 4px; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout .nm { display: block; padding-left: 15px; text-indent: -15px; color: var(--ink); }   /* the dot hangs in a 15 px gutter; a wrapped name aligns under the name */
+#readout .nm::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: var(--tone, transparent); vertical-align: 0.1em; text-indent: 0; }
+#readout ol.rank .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+#readout ol.rank .meta { grid-column: 1 / -1; margin-top: 2px; padding-left: 15px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout ol.rank.plain .nm { padding-left: 0; text-indent: 0; }
+#readout ol.rank.plain .nm::before { display: none; }
+#readout ol.rank.plain .meta { padding-left: 0; }
+
+/* ---------- tables: names wrap, figures never do ---------- */
+#readout table { width: 100%; margin: 0 0 8px; border-collapse: collapse; table-layout: auto; font-variant-numeric: tabular-nums; }
+#readout :is(td, th) { padding: 6px 12px 6px 0; vertical-align: baseline; text-align: left; font-weight: 400; line-height: var(--r-row-lh); white-space: normal; overflow-wrap: break-word; }
+#readout :is(td, th):last-child { padding-right: 0; }
+#readout td:first-child { white-space: normal; }   /* was nowrap: it pushed the figures off the screen */
+#readout :is(td, th).n { width: 1%; white-space: nowrap; text-align: right; padding-left: 12px; }
+#readout :is(td, th).k, #readout td.v, #readout td.card { color: var(--ink); }
+#readout tr.head > :is(td, th) { padding: 0 12px 6px 0; border-bottom: 1px solid var(--rule-2); vertical-align: bottom; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout tr.head > :last-child { padding-right: 0; }
+#readout tr.head + tr > :is(td, th) { padding-top: 10px; }
+#readout tr.grp > :is(td, th) { padding: 16px 0 4px; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout tr.sub > td { padding: 0 12px 8px 0; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); white-space: normal; }
+#readout tr.sub > td:last-child { padding-right: 0; }
+#readout tr:has(+ tr.sub) > :is(td, th) { padding-bottom: 2px; }
+/* bodies: name | degrees | sign | house numeral */
+#readout table.bodies :is(td, th).k { width: 7.5em; }
+/* key and value: one fact per row */
+#readout table.kv th { width: 9.5em; font-size: var(--r-sub); color: var(--ink-3); }
+#readout table.kv td { color: var(--ink-2); }
+/* cards: what the card answers | the card; its derivation on the second line */
+#readout table.cards :is(td, th):first-child { width: 7.5em; }
+#readout table.cards td.card { width: auto; }   /* the old 38% pushed the card to the right edge */
+#readout table.cards.asp :is(td, th):first-child { width: 55%; }
+#readout table.cards tr.sub > td { padding-top: 0; font-size: var(--r-sub); line-height: var(--r-sub-lh); }   /* outranks the old 12 px */
+#readout table.cards.asp tr.sub > td { padding-left: 15px; }   /* under the name, past the dot */
+/* the temperament's testimonies: label (its detail on a second line) | humour | weight */
+#readout table.temper td.v { width: 6.5em; }
+#readout table.temper .det { display: block; margin-top: 2px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+/* two charts side by side */
+#readout table.pair tr.head > :is(td, th) { color: var(--ink); letter-spacing: 0; text-transform: none; font-size: var(--r-body); }
+#readout table.pair :is(td, th):first-child { width: 6.5em; }
+
+/* ---------- the 24 hours: day hours left, night hours right, the hour now marked ---------- */
+#readout ol.hours { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(12, auto); grid-auto-flow: column; column-gap: 16px; font-variant-numeric: tabular-nums; }
+#readout ol.hours li { position: relative; display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline; padding: 3px 0 3px 8px; line-height: var(--r-row-lh); color: var(--ink-2); }
+#readout ol.hours .i { text-align: right; font-size: var(--r-sub); color: var(--ink-3); }
+#readout ol.hours .t { text-align: right; }
+#readout ol.hours li.now, #readout .hours .now { color: var(--ink); font-weight: 500; border: 0; }   /* no underline: a line under a word means a definition */
+#readout ol.hours li.now::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; background: var(--ink); }
+
+/* ---------- disclosure: reference folds away; the summary always names what is inside ---------- */
+#readout details > summary { list-style: none; cursor: pointer; }
+#readout details > summary::-webkit-details-marker { display: none; }
+#readout details > summary::after { content: ''; flex: none; align-self: center; width: 6px; height: 6px; margin: 0 3px 0 auto; border-right: 1.3px solid var(--ink-3); border-bottom: 1.3px solid var(--ink-3); transform: translateY(-2px) rotate(45deg); }
+#readout details[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+#readout details > summary:hover { color: var(--ink); }
+#readout details > summary:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+#readout details.more { margin: 2px 0 8px; }
+#readout details.more > summary { display: flex; align-items: baseline; gap: 8px; min-height: 44px; padding: 11px 0; line-height: var(--r-row-lh); color: var(--ink-2); }
+#readout details.fold > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; min-height: 44px; }
+#readout details.fold > summary :is(h3, h4) { margin: 0; }
+#readout details.fold > summary .s { grid-column: 1; margin-top: 2px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout details.fold > summary::after { grid-column: 2; grid-row: 1; align-self: center; margin: 0 3px; }
+#readout details.fold[open] > summary { margin-bottom: 12px; }
+
+/* ---------- planetary talismans: seven rows, each opens on its windows ---------- */
+#readout .tal-list { margin: 4px 0 0; border-top: 1px solid var(--rule); }
+#readout .tal-planet { margin: 0; border-bottom: 1px solid var(--rule); }
+#readout .tal-planet > summary, #readout div.tal-planet { display: grid; grid-template-columns: 5.5em minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; min-height: 44px; padding: 11px 0; line-height: var(--r-row-lh); }
+#readout .tal-planet .p { color: var(--ink); }
+#readout .tal-planet .w { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+#readout div.tal-planet .w { color: var(--ink-3); }
+#readout .tal-planet > summary::after { grid-column: 3; margin: 0 3px; }
+#readout .tal-planet[open] { padding-bottom: 12px; }
+#readout .tal-sub { margin: 4px 0 6px; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout ul.tal { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+#readout ul.tal li { line-height: var(--r-row-lh); }
+#readout a.tal-at { color: var(--ink); font-variant-numeric: tabular-nums; text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 4px; }   /* solid: it goes somewhere (the clock at that moment) */
 #readout a.tal-at:hover, #readout a.tal-at:focus-visible { text-decoration-color: var(--ink); }
-#readout .tal-why { color: var(--ink-2); font-size: 0.93em; }
-#readout .tal-sub { margin: 8px 0 4px; font-size: 0.86em; letter-spacing: 0.04em; color: var(--ink-3); }
+#readout .tal-why { display: block; margin-top: 2px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+
+/* ---------- controls inside the reading ---------- */
+#readout p.ctl { margin: 4px 0 0; }
+#readout p.ctl .toggle { min-height: 40px; padding: 0; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-2); }
+#readout p.rel { margin: 0 0 12px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout p.rel label { display: inline-flex; align-items: center; gap: 12px; }
+#readout p.rel select { margin: 0; }
+#readout button.cta { min-height: 44px; padding: 0 16px; border: 1px solid var(--ink-3); border-radius: 2px; font: 400 15px/1 var(--sans); color: var(--ink); }
+#readout p.out { margin: 32px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout p.out button { min-height: 0; margin: 0; padding: 0; border: 0; background: none; font: inherit; letter-spacing: 0; color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 4px; }
+
+/* ---------- glossary words: tappable always, drawn once ---------- */
+#readout a.g, #caption a.g { color: inherit; text-decoration: none; }
+#readout a.g[data-first], #readout a.g.card { text-decoration: underline dotted 1px; text-decoration-color: rgba(235, 231, 220, 0.4); text-underline-offset: 4px; }
+#readout a.g:is(:hover, :focus-visible), #caption a.g:is(:hover, :focus-visible) { color: var(--ink); text-decoration: underline dotted 1px; text-decoration-color: currentColor; text-underline-offset: 4px; }
+#readout a.g:active, #caption a.g:active { background: rgba(235, 231, 220, 0.08); border-radius: 2px; }
+#readout button.deflink { text-decoration-color: rgba(235, 231, 220, 0.4); text-underline-offset: 4px; }   /* the tikkun's role words: the same mark, the same meaning */
+
+/* ---------- the pop-up: anchored under its trigger; on a phone, a long text rises as a sheet ---------- */
+.popdef { position: absolute; z-index: 20; box-sizing: border-box; width: min(20rem, calc(100vw - 32px)); max-height: min(60vh, 28rem); overflow-y: auto; overscroll-behavior: contain;
+  padding: 14px 16px 16px; background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule-2); border-radius: 6px;
+  font: 400 15px/22px var(--sans); letter-spacing: 0; text-wrap: pretty; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7); }
+.popdef .pt { display: block; margin: 0 0 8px; padding-right: 36px; font: 500 15px/20px var(--sans); color: var(--ink); }   /* the title: the trigger's words */
+.popdef p { margin: 0 0 10px; }
+.popdef p.ps { margin: 16px 0 6px; font-weight: 500; color: var(--ink); }   /* a second topic inside one note ('How the humours mix') */
+.popdef p:last-child { margin-bottom: 0; }
+.popdef .pclose { position: absolute; top: 4px; right: 4px; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; background: none; font: 400 22px/40px var(--sans); color: var(--ink-2); }
+.popdef .pfoot { margin: 12px 0 0; text-align: right; }
+.popdef .pfoot button { min-height: 0; padding: 8px 0; border: 0; background: none; font: 400 13px/1 var(--sans); letter-spacing: 0; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+.pop-scrim { display: none; }
+@media (max-width: 720px) {
+  .popdef.sheet { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 72dvh; padding: 20px 16px max(24px, env(safe-area-inset-bottom, 0px));
+    border-width: 1px 0 0; border-radius: 12px 12px 0 0; line-height: 24px; box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.7); hyphens: auto; -webkit-hyphens: auto; }
+  .popdef.sheet .pt { margin-bottom: 10px; font-size: 17px; line-height: 24px; }
+  .pop-scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgba(0, 0, 0, 0.6); }
+}
+@media (min-width: 721px) { .popdef { font-size: 14px; line-height: 21px; } .popdef.sheet { width: 26rem; max-height: min(70vh, 34rem); } }
+
+/* the older readout, pop-up and talisman rules this block replaced were removed (November 2026; DESIGN.md, "The readout system") */
+/* the Transits tab: no 72-hour strip, that is the clock's */
+body.transits #ahead { display: none; }
