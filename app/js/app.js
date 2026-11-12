@@ -841,7 +841,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const rows = C.ORDER.map(k => bRow(P(k), st.bodies[k].lon, st.bodies[k].house, condition(k, st.bodies[k]))).join('');
       const angles = noTime ? '' : `<tr class="grp"><td colspan="${span}">${K('angles')}</td></tr>` + [['asc', st.asc, 1], ['ic', st.mc + 180, 4], ['dsc', st.asc + 180, 7], ['mc', st.mc, 10]].map(([k, lon, h]) => bRow(i.t('ui.r.angleName.' + k), lon, h)).join('');
       const algol = `<tr class="grp"><td colspan="${span}">${K('fixedStar')}</td></tr>` + bRow('Algol', al.lon, noTime ? 0 : E.houseIn(st.cusps, al.lon), alNote);
-      const el = st.elements ? `${i.cap1(K('elements'))}: ${st.elements.order.map(k => `${i.t('ui.el.' + k)}\u00a0${st.elements.pct[k]}%`).join(', ')}` : '';   // all four, heaviest first: a weak element is part of the chart too
+      const el = st.elements && !st.natalView ? `${i.cap1(K('elements'))}: ${st.elements.order.map(k => `${i.t('ui.el.' + k)}\u00a0${st.elements.pct[k]}%`).join(', ')}` : '';   // the sky's four, heaviest first; a birth chart's lead its caption, so its reading does not repeat them
       return sec('bodies', `<h3>${H('bodies')}</h3>${el ? `<p class="verdict">${el}</p>` : ''}<table class="bodies">${head}${rows}${angles}${algol}</table>
         <p class="ctl"><button class="toggle algol-toggle" data-act="algol" aria-pressed="${S.algol ? 'true' : 'false'}"><span class="sw" aria-hidden="true"></span><span>${i.cap1(R(S.algol ? 'algolShown' : 'algolShow'))}</span></button></p>`);
     };
