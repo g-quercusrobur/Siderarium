@@ -446,23 +446,30 @@
     if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180)) return null;
     const tz = validZone(c.place.tz) ? c.place.tz : null; if (!tz) return null;
     const str = (v, n) => typeof v === 'string' ? v.slice(0, n) : undefined;
+    const ed = +c.edited, edited = ed > 0 && ed <= Date.now() + 864e5 ? ed : undefined;   // when it was last saved or edited: a date from the future is not believed
     return { id: str(c.id, 40) || uid(), name: str(c.name, 80), date: new Date(t).toISOString(), unknownTime: !!c.unknownTime,
-      place: { name: str(c.place.name, 80) || 'place', label: str(c.place.label, 160), lat, lon, tz } };
+      place: { name: str(c.place.name, 80) || 'place', label: str(c.place.label, 160), lat, lon, tz }, edited };
   }
   function importCharts(file) {
     const i = SD.i18n, note = $('import-note');
     file.text().then(txt => {
       const d = JSON.parse(txt);
       if (!d || d.app !== 'siderarium' || !Array.isArray(d.charts)) throw new Error('format');
-      let n = 0;
+      let n = 0, u = 0, k = 0;                              // added, updated, kept as here
       for (const raw of d.charts) {
         const c = soundChart(raw); if (!c) continue;
-        if (!S.charts.some(x => x.id === c.id)) { S.charts.push(c); n++; }
+        const j = S.charts.findIndex(x => x.id === c.id);
+        if (j < 0) { S.charts.push(c); n++; continue; }
+        if (sameChart(S.charts[j], c)) continue;            // the same chart, the same data: nothing to do
+        if ((c.edited || 0) > (S.charts[j].edited || 0)) {  // the same chart edited later on the other device: the file's copy wins, here and on show
+          S.charts[j] = c; u++;
+          if (S.natal && S.natal.id === c.id) { S.natal = { ...c }; store.set('natal', S.natal); natalCache.key = null; }
+        } else k++;                                          // edited later here, or no date to tell: this device's copy stays, and the note says so
       }
       store.set('charts', S.charts);
       const nat = soundChart(d.natal);
-      if (!S.natal && nat) { S.natal = nat; store.set('natal', S.natal); natalCache.key = null; }
-      note.textContent = i.cap1(i.t('ui.imported')(n));
+      if (!S.natal && nat) { S.natal = nat; store.set('natal', S.natal); natalCache.key = null; reconcileNatal(); }   // the file's loaded chart, as the list now holds it
+      note.textContent = i.cap1(i.t('ui.imported')(n, u, k));
       refreshMenu(); recompute();
     }).catch(() => { note.textContent = i.cap1(i.t('ui.badFile')); });
   }
@@ -1431,7 +1438,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       b.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); which = w; btn = b; show(); });
     }
     menu.addEventListener('click', e => {
-      if (e.target.closest('button[data-new]')) { menu.hidden = true; openBirth(true, which === 'second'); return; }   // a blank form; the loaded chart stays until the new one is saved
+      if (e.target.closest('button[data-new]')) { menu.hidden = true; openBirth(true, which === 'second', null, which === 'second' ? btnB : btnA); return; }   // a blank form; the loaded chart stays until the new one is saved. leaving it goes back to the tab
       const b = e.target.closest('button[data-id]'); if (!b) return;
       const chart = S.charts.find(c => c.id === b.dataset.id); menu.hidden = true; if (!chart) return;
       if (which === 'second') { S.pair = chart.id; store.set('pair', S.pair); S.mode = 'pair'; }
@@ -1463,11 +1470,28 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('natal-summary').innerHTML = `${esc(natalSummary())}${S.natal ? ` <button class="copy-btn" aria-label="${esc(i.t('ui.copyReport'))}" title="${esc(i.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}`;
     $('natal-saveas').disabled = !S.natal; $('natal-report').disabled = !S.natal; $('natal-copy').disabled = !S.natal;
     const ul = $('charts');
-    ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${esc(i.cap1(i.t('ui.useChart')) + ': ' + c.name)}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(c.name)}</span><span class="ops"><button data-act="edit" aria-label="${esc(i.cap1(i.t('ui.edit')) + ' ' + c.name)}">${i.cap1(i.t('ui.edit'))}</button><button data-act="dup" aria-label="${esc(i.cap1(i.t('ui.dup')) + ' ' + c.name)}">${i.cap1(i.t('ui.dup'))}</button><button data-act="delete" aria-label="${esc(i.cap1(i.t('ui.del')) + ' ' + c.name)}">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
+    const nm = c => c.name || '—';                          // an imported chart may have no name
+    ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${esc(i.cap1(i.t('ui.useChart')) + ': ' + nm(c))}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(nm(c))}</span><span class="ops"><button data-act="edit" aria-label="${esc(i.cap1(i.t('ui.edit')) + ' ' + nm(c))}">${i.cap1(i.t('ui.edit'))}</button><button data-act="dup" aria-label="${esc(i.cap1(i.t('ui.dup')) + ' ' + nm(c))}">${i.cap1(i.t('ui.dup'))}</button><button data-act="delete" aria-label="${esc(i.cap1(i.t('ui.del')) + ' ' + nm(c))}">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
       : `<li class="empty">${i.cap1(i.t('ui.noCharts'))}</li>`;
   }
   const esc = t => String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-  function openMenu(open) { $('menu').hidden = !open; $('menu-open').classList.toggle('on', open); if (open) refreshMenu(); }
+  function openMenu(open) {
+    $('menu').hidden = !open; $('menu-open').classList.toggle('on', open);
+    if (!open) { $('chart-new').hidden = true; $('natal-saveas').setAttribute('aria-expanded', 'false'); }   // the Save-as row goes with the menu: its name was offered for the chart then loaded
+    if (open) refreshMenu();
+  }
+  const chartFace = c => c ? JSON.stringify([c.name || '', c.date, !!c.unknownTime, c.place && c.place.name, c.place && +c.place.lat, c.place && +c.place.lon, c.place && c.place.tz]) : '';
+  const sameChart = (a, b) => chartFace(a) === chartFace(b);
+  /* the loaded chart and its copy in the list are one chart. when they differ (another tab edited the list and closed; a
+     file's chart kept as on this device; a write the browser refused), the later edit wins and both are made alike: the
+     dial and the form never show two versions. with no date to tell, the list's copy */
+  function reconcileNatal() {
+    const j = S.natal && S.natal.id ? S.charts.findIndex(c => c.id === S.natal.id) : -1;
+    if (j < 0 || sameChart(S.charts[j], S.natal)) return;
+    if ((S.natal.edited || 0) > (S.charts[j].edited || 0)) { S.charts[j] = { ...S.natal }; store.set('charts', S.charts); }
+    else { S.natal = { ...S.charts[j] }; store.set('natal', S.natal); }
+    natalCache.key = null;
+  }
   function upsertChart(chart) {
     const k = S.charts.findIndex(c => c.id === chart.id);
     if (k >= 0) S.charts[k] = chart; else S.charts.push(chart);
@@ -1475,7 +1499,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
   function saveChartAs(name) {
     if (!S.natal || !name) return;
-    const chart = { ...S.natal, id: uid(), name };
+    const chart = { ...S.natal, id: uid(), name, edited: Date.now() };
     upsertChart(chart); S.natal = chart; store.set('natal', S.natal); refreshMenu();
   }
   function bindMenu() {
@@ -1501,7 +1525,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('natal-saveas').addEventListener('click', () => { const open = $('chart-new').hidden; saveAsRow(open); if (open) { const nm = S.natal && S.natal.name; $('chart-name').value = nm ? SD.i18n.t('ui.copyOf')(nm) : ''; $('chart-name').focus(); $('chart-name').select(); } });   // a new name offered: saving under the same one would make two charts alike
     const commitNew = () => { const name = $('chart-name').value.trim(); if (!name) return; saveChartAs(name); saveAsRow(false); };
     $('chart-ok').addEventListener('click', commitNew);
-    $('chart-name').addEventListener('keydown', e => { if (e.key === 'Enter') commitNew(); if (e.key === 'Escape') { e.stopPropagation(); saveAsRow(false); } });
+    $('chart-name').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitNew(); } if (e.key === 'Escape') { e.stopPropagation(); saveAsRow(false); } });   // Enter's own press would land on Save as, which has the focus by then, and open the row again
     $('charts').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('span[data-act]')) { e.preventDefault(); e.target.click(); } });
     $('charts').addEventListener('click', e => {
       const b = e.target.closest('[data-act]'); if (!b || (e.target.tagName === 'INPUT' && !e.target.classList.contains('use'))) return;
@@ -1509,11 +1533,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (b.dataset.act === 'load') { S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null; if (!natalModes.includes(S.mode)) S.mode = 'natal'; store.set('mode', S.mode); recompute(); refreshMenu(); openMenu(false); }
       else if (b.dataset.act === 'edit') { openMenu(false); openBirth(chart); }   // the whole chart, in the form
       else if (b.dataset.act === 'dup') {               // a copy to edit without touching the original
-        const copy = { ...chart, place: chart.place && { ...chart.place }, id: uid(), name: SD.i18n.t('ui.copyOf')(chart.name || '') };
+        const copy = { ...chart, place: chart.place && { ...chart.place }, id: uid(), name: SD.i18n.t('ui.copyOf')(chart.name || '—'), edited: Date.now() };
         S.charts.splice(S.charts.indexOf(chart) + 1, 0, copy); store.set('charts', S.charts); refreshMenu();
       } else if (b.dataset.act === 'delete') {
         if (b.dataset.armed) { S.charts = S.charts.filter(c => c.id !== id); store.set('charts', S.charts); refreshMenu(); }
-        else { const I = SD.i18n; b.dataset.armed = '1'; b.textContent = I.cap1(I.t('ui.confirm')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.confirm'))} ${chart.name}`); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = I.cap1(I.t('ui.del')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.del'))} ${chart.name}`); } }, 3000); }
+        else { const I = SD.i18n, nm = chart.name || '—'; b.dataset.armed = '1'; b.textContent = I.cap1(I.t('ui.confirm')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.confirm'))} ${nm}`); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = I.cap1(I.t('ui.del')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.del'))} ${nm}`); } }, 3000); }
       }
     });
   }
@@ -1543,12 +1567,15 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('birth-date').addEventListener('input', () => { if ($('birth-date').classList.contains('bad')) dateError(false); });
     $('birth-date').addEventListener('change', showBirthDate);   // leaving the field: the date read and shown back in the language's order, or marked
     $('birth-date').addEventListener('keydown', e => { if (e.key === 'Enter') showBirthDate(); });
-    { let prev = '24';                                      // switching 24 h / am / pm converts the time already typed: 16:30 ⇄ 4:30 pm
+    { let prev = '24';                                      // the chooser after the time: 4:30 then pm is 4:30 pm (16:30); 12:30 then am is 00:30
       $('birth-ampm').addEventListener('focus', () => { prev = $('birth-ampm').value; });
       $('birth-ampm').addEventListener('change', () => {
-        const el = $('birth-time'), mode = $('birth-ampm').value, t24 = normTime(el.value.replace(/[ap]\.?\s*m?\.?\s*$/i, ''), prev);
-        if (t24) { const [h, m] = t24.split(':').map(Number); if (mode === '24') el.value = t24; else if ((mode === 'pm') === (h >= 12)) el.value = `${h % 12 || 12}:${String(m).padStart(2, '0')}`; else if (prev === '24') { el.value = `${h % 12 || 12}:${String(m).padStart(2, '0')}`; $('birth-ampm').value = h >= 12 ? 'pm' : 'am'; } }
-        prev = $('birth-ampm').value; }); }
+        const el = $('birth-time'), sel = $('birth-ampm'), mode = sel.value, t24 = normTime(el.value.replace(/[ap]\.?\s*m?\.?\s*$/i, ''), prev);
+        if (t24) { const [h, m] = t24.split(':').map(Number);
+          if (mode === '24') el.value = t24;                // back to 24 h: 4:30 pm becomes 16:30
+          else if (prev === '24') { el.value = `${h % 12 || 12}:${pad2(m)}`; if (h === 0 || h > 12) sel.value = h >= 12 ? 'pm' : 'am'; }   // the hand's choice stands for an hour from 1 to 12; 16:30 can only be pm and 00:30 only am, so there the chooser follows the figures
+        }                                                   // am ⇄ pm: the figures stay, the half of the day changes
+        delete el.dataset.apWas; prev = sel.value; }); }   // chosen by the hand: it stays
     $('when').addEventListener('change', commit);
     $('when-go').addEventListener('click', () => commit({ target: $('when') }));
     $('when').addEventListener('keydown', e => { if (e.key === 'Enter') { commit(e); e.target.blur(); } });
@@ -1568,9 +1595,18 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('birth-close').addEventListener('click', closeBirth);
     $('birth').addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); closeBirth(); } else if (e.key === 'Escape') e.stopPropagation(); });   // Escape leaves the form (after closing the towns' list, if it is open)
     $('birth-save').addEventListener('click', saveBirth);
-    window.addEventListener('storage', e => { if (e.key === 'cw.charts') { S.charts = store.get('charts', []) || []; if (!$('menu').hidden) refreshMenu(); } });   // another tab saved, edited or deleted a chart: this one follows, and never writes back an old list
+    window.addEventListener('storage', e => {                // another tab saved, edited or deleted a chart: this one follows, and never writes back an old list
+      if (e.key !== 'cw.charts') return;
+      const before = S.pair && S.charts.find(c => c.id === S.pair);
+      S.charts = store.get('charts', []) || [];
+      const mine = S.natal && S.natal.id && S.charts.find(c => c.id === S.natal.id), pairNow = S.pair && S.charts.find(c => c.id === S.pair);
+      let moved = !sameChart(before, pairNow);               // the pair's second chart is read from the list: a change there redraws
+      if (mine && !sameChart(mine, S.natal)) { S.natal = { ...mine }; natalCache.key = null; moved = true; }   // the loaded chart edited there: shown as edited here (cw.natal is that tab's to write)
+      if (!$('menu').hidden) refreshMenu();
+      if (moved) recompute();
+    });
     bindPlaceSearch();
-    $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) S.mode = 'clock'; closeBirth(); recompute(); });
+    $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) { S.mode = 'clock'; store.set('mode', S.mode); } closeBirth(); recompute(); });
     $('wallpaper').addEventListener('click', e => busy(e.currentTarget, exportWallpaper));
     $('update').addEventListener('click', updateApp);
     for (const cv of [canvas, plate]) if (cv && cv.addEventListener) cv.addEventListener('contextrestored', () => { SD.render.resetCaches(); S.dirty = true; });   // a canvas the browser dropped is drawn again
@@ -1663,7 +1699,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       else if (document.fullscreenElement) document.exitFullscreen();
     };
     window.addEventListener('keydown', e => {
-      if (!$('birth').hidden) return;                         // the birth form is open: its keys are its own (it handles Escape itself)
+      if (!$('birth').hidden) { if (e.key === 'Escape' && !e.defaultPrevented) closeBirth(); return; }   // the birth form is open: its keys are its own. Escape inside it is handled there; with the focus fallen to the page, here
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
       if (e.key === ' ' && e.target.closest && e.target.closest('button, a[href], summary, [role="button"], .popdef, .card-view')) return;   // Space activates the focused control
       if (e.key === 'f') fullScreen();
@@ -1685,26 +1721,27 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
      used. forPair: a new second chart for the pair. then: the view to show once a new chart is saved. the form is a
      dialog: the page behind it is inert, focus goes to its heading, and on leaving it goes back where it came from */
   const birthState = { opener: null, orig: null, then: null, rowId: null };
-  function openBirth(target, forPair = false, then = null) {
-    const blank = target === true, n = blank ? null : (target || S.natal || null);
+  function openBirth(target, forPair = false, then = null, opener = null) {
+    const blank = target === true, t = blank ? null : (target || S.natal || null), listed = t && t.id && S.charts.find(c => c.id === t.id);
+    const n = listed || t;                                    // a saved chart is filled from the list, which another tab may have changed
     S.birthNew = !n; S.birthForPair = !!forPair;
-    S.birthEdit = n && n.id && S.charts.some(c => c.id === n.id) ? n.id : null;
+    S.birthEdit = listed ? n.id : null;
     birthState.then = then; birthState.rowId = target && target !== true ? target.id : null;
-    birthState.opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    birthState.opener = opener || (document.activeElement && document.activeElement !== document.body ? document.activeElement : null);
     if (n) {
       const p = placeParts(new Date(n.date), n.place.tz);
       $('birth-name').value = n.name || '';
       $('birth-date').value = fmtDate({ y: +p.year, m: +p.month, d: +p.day }); $('birth-time').value = n.unknownTime ? '' : `${p.hour}:${p.minute}`; $('birth-ampm').value = '24';
       $('birth-unknown').checked = !!n.unknownTime;
       choosePlace(n.place);
-      birthState.orig = { stamp: `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`, unknown: !!n.unknownTime, lat: n.place.lat, lon: n.place.lon, tz: n.place.tz, date: n.date };   // to keep the stored instant when nothing of the moment changes
+      birthState.orig = { stamp: `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`, unknown: !!n.unknownTime, tz: n.place.tz, date: n.date, name: n.name || '', place: JSON.stringify([n.place.name, +n.place.lat, +n.place.lon, n.place.tz]) };   // what the form opened with: what the hand left alone is not written back
     } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-ampm').value = '24'; $('birth-unknown').checked = false; choosePlace(null); birthState.orig = null; }
     const h = $('birth-title'), key = n ? 'ui.editNativity' : 'ui.newNativity';
     h.dataset.i18n = key; h.textContent = SD.i18n.cap1(SD.i18n.t(key));
     $('birth-clear').hidden = !(n && n === S.natal && !S.birthEdit);   // Clear forgets the loaded chart that is in no list; a saved chart is deleted from the list, a blank form has nothing to clear
-    delete $('birth-date').dataset.free; delete $('birth-time').dataset.free;
+    delete $('birth-date').dataset.free; delete $('birth-time').dataset.free; delete $('birth-time').dataset.apWas;
     dateError(false);
-    $('birth-note').textContent = '';
+    $('birth-note').textContent = ''; delete $('birth-note').dataset.i18n;
     $('birth').hidden = false; $('birth').scrollTop = 0;     // always from the top: the heading, the name, the date
     setInert(true);
     h.focus({ preventScroll: true });
@@ -1717,7 +1754,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   function backToRow(id) {                                  // a chart edited from the list: the list again, its Edit in hand
     openMenu(true);
     const b = [...$('charts').querySelectorAll('li[data-id]')].find(li => li.dataset.id === id);
-    const e = b && b.querySelector('button[data-act="edit"]'); if (e) { e.focus({ preventScroll: true }); e.scrollIntoView({ block: 'nearest' }); }
+    const e = (b && b.querySelector('button[data-act="edit"]')) || $('menu-close');   // gone from the list meanwhile: the menu still has the focus
+    e.focus({ preventScroll: true }); if (b) e.scrollIntoView({ block: 'nearest' });
   }
   function closeBirth() {
     $('birth').hidden = true; setInert(false);
@@ -1739,6 +1777,37 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
      each entry carries its time zone, so the birth is read in the zone of its own place with the rules of its year. */
   const gaz = { rows: null, loading: null };
   const fold = t => String(t).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  /* the names a hand types for cities the gazetteer lists by their English or local name: Italian and Spanish first,
+     then a few English and local ones it lacks. found as the name itself, so Roma is Rome and not Roma in Lesotho,
+     Firenze is Florence, Nueva York is New York City, Cologne is Köln and not Cologne in Piedmont. [gazetteer name, country, names] */
+  const PLACE_ALIASES = [
+    ['Rome', 'IT', 'Roma'], ['Milan', 'IT', 'Milano'], ['Turin', 'IT', 'Torino'], ['Florence', 'IT', 'Firenze', 'Florencia'], ['Naples', 'IT', 'Napoli', 'Nápoles'],
+    ['Venice', 'IT', 'Venezia', 'Venecia'], ['Genoa', 'IT', 'Genova', 'Génova'], ['Padua', 'IT', 'Padova'], ['Mantua', 'IT', 'Mantova'], ["Reggio nell'Emilia", 'IT', 'Reggio Emilia'],
+    ['London', 'GB', 'Londra', 'Londres'], ['Edinburgh', 'GB', 'Edimburgo'], ['Dublin', 'IE', 'Dublino'],
+    ['Paris', 'FR', 'Parigi'], ['Marseille', 'FR', 'Marsiglia', 'Marsella'], ['Lyon', 'FR', 'Lione'], ['Nice', 'FR', 'Nizza', 'Niza'], ['Bordeaux', 'FR', 'Burdeos'],
+    ['Strasbourg', 'FR', 'Strasburgo', 'Estrasburgo'], ['Avignon', 'FR', 'Avignone', 'Aviñón'],
+    ['Berlin', 'DE', 'Berlino'], ['Munich', 'DE', 'Monaco di Baviera', 'München'], ['Köln', 'DE', 'Colonia', 'Cologne'], ['Frankfurt am Main', 'DE', 'Francoforte', 'Fráncfort', 'Frankfurt'],
+    ['Hamburg', 'DE', 'Amburgo', 'Hamburgo'], ['Dresden', 'DE', 'Dresda', 'Dresde'], ['Leipzig', 'DE', 'Lipsia'], ['Nuremberg', 'DE', 'Norimberga', 'Nürnberg'], ['Stuttgart', 'DE', 'Stoccarda'],
+    ['Mainz', 'DE', 'Magonza', 'Maguncia'], ['Trier', 'DE', 'Treviri', 'Tréveris'], ['Aachen', 'DE', 'Aquisgrana', 'Aquisgrán'],
+    ['Vienna', 'AT', 'Viena', 'Wien'], ['Salzburg', 'AT', 'Salisburgo', 'Salzburgo'],
+    ['Zürich', 'CH', 'Zurigo'], ['Geneva', 'CH', 'Ginevra', 'Ginebra', 'Genève'], ['Basel', 'CH', 'Basilea'], ['Bern', 'CH', 'Berna'], ['Lausanne', 'CH', 'Losanna', 'Lausana'], ['Luzern', 'CH', 'Lucerna', 'Lucerne'],
+    ['Brussels', 'BE', 'Bruxelles', 'Bruselas'], ['Antwerp', 'BE', 'Anversa', 'Amberes', 'Antwerpen'], ['Gent', 'BE', 'Gand', 'Gante', 'Ghent'], ['Brugge', 'BE', 'Bruges', 'Brujas'], ['Liège', 'BE', 'Liegi', 'Lieja'],
+    ['Luxembourg', 'LU', 'Lussemburgo', 'Luxemburgo'], ['The Hague', 'NL', "L'Aia", 'La Haya', 'Den Haag'],
+    ['Copenhagen', 'DK', 'Copenaghen', 'Copenhague', 'København'], ['Stockholm', 'SE', 'Stoccolma', 'Estocolmo'],
+    ['Lisbon', 'PT', 'Lisbona', 'Lisboa'], ['Porto', 'PT', 'Oporto'],
+    ['Barcelona', 'ES', 'Barcellona'], ['Sevilla', 'ES', 'Siviglia', 'Seville'], ['Zaragoza', 'ES', 'Saragozza', 'Saragossa'], ['A Coruña', 'ES', 'La Coruña'], ['Girona', 'ES', 'Gerona'],
+    ['Lleida', 'ES', 'Lérida'], ['Ourense', 'ES', 'Orense'], ['Donostia / San Sebastián', 'ES', 'San Sebastián'], ['Castelló de la Plana', 'ES', 'Castellón de la Plana', 'Castellón'],
+    ['Palma', 'ES', 'Palma de Mallorca'], ['Alicante', 'ES', 'Alacant'],
+    ['Prague', 'CZ', 'Praga', 'Praha'], ['Warsaw', 'PL', 'Varsavia', 'Varsovia', 'Warszawa'], ['Kraków', 'PL', 'Cracovia', 'Cracow'], ['Wrocław', 'PL', 'Breslavia'], ['Gdańsk', 'PL', 'Danzica', 'Danzig'],
+    ['Moscow', 'RU', 'Mosca', 'Moscú', 'Moskva'], ['Saint Petersburg', 'RU', 'San Pietroburgo', 'San Petersburgo'], ['Kyiv', 'UA', 'Kiev'], ['Lviv', 'UA', 'Leopoli', 'Leópolis'], ['Odesa', 'UA', 'Odessa'],
+    ['Athens', 'GR', 'Atene', 'Atenas'], ['Thessaloníki', 'GR', 'Salonicco', 'Tesalónica', 'Salonica'], ['Belgrade', 'RS', 'Belgrado'], ['Bucharest', 'RO', 'Bucarest'],
+    ['Ljubljana', 'SI', 'Lubiana', 'Liubliana'], ['Koper', 'SI', 'Capodistria'], ['Zagreb', 'HR', 'Zagabria'], ['Split', 'HR', 'Spalato'], ['Rijeka', 'HR', 'Fiume'], ['Zadar', 'HR', 'Zara'], ['Pula', 'HR', 'Pola'],
+    ['Istanbul', 'TR', 'Estambul'], ['İzmir', 'TR', 'Smirne', 'Esmirna', 'Smyrna'], ['Jerusalem', 'IL', 'Gerusalemme', 'Jerusalén'], ['Damascus', 'SY', 'Damasco'],
+    ['Cairo', 'EG', 'Il Cairo', 'El Cairo'], ['Algiers', 'DZ', 'Algeri', 'Argel'], ['Tunis', 'TN', 'Tunisi', 'Túnez'], ['Cape Town', 'ZA', 'Città del Capo', 'Ciudad del Cabo'],
+    ['Beijing', 'CN', 'Pechino', 'Pekín', 'Peking'], ['New Delhi', 'IN', 'Nuova Delhi', 'Nueva Delhi'], ['Mumbai', 'IN', 'Bombay'],
+    ['New York City', 'US', 'New York', 'Nuova York', 'Nueva York'], ['New Orleans', 'US', 'Nuova Orleans', 'Nueva Orleans'], ['Philadelphia', 'US', 'Filadelfia'],
+    ['Mexico City', 'MX', 'Città del Messico', 'Ciudad de México', 'México'], ['São Paulo', 'BR', 'San Paolo'],
+  ];
   function loadPlaces() {
     if (gaz.rows) return Promise.resolve(gaz.rows);
     if (gaz.loading) return gaz.loading;
@@ -1751,6 +1820,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
         const f = L[i].split('\t'); if (f.length < 8) continue;
         rows.push({ name: f[0], key: fold(f[0]) + (f[1] ? ' ' + fold(f[1]) : ''), cc: f[2], region: a1[f[2] + '.' + f[3]] || '', country: cc[f[2]] || f[2], lat: +f[4], lon: +f[5], tz: tz[+f[6]], pop: +f[7] });
       }
+      const top = new Map(); for (const r of rows) { const k = r.name + '|' + r.cc, o = top.get(k); if (!o || r.pop > o.pop) top.set(k, r); }   // the largest town of that name in that country
+      for (const [name, cc, ...al] of PLACE_ALIASES) { const r = top.get(name + '|' + cc); if (r) r.alias = al.map(fold); }
       gaz.rows = rows; gaz.loading = null; return rows;
     }).catch(e => { gaz.loading = null; throw e; });
     return gaz.loading;
@@ -1761,6 +1832,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     for (const r of gaz.rows) {
       const k = r.key; let sc = 0;
       if (k === q || k.startsWith(q + ' ')) sc = 3; else if (k.startsWith(q)) sc = 2; else if (k.includes(' ' + q) || k.includes('-' + q)) sc = 1;
+      if (r.alias) for (const a of r.alias) sc = Math.max(sc, a === q || a.startsWith(q + ' ') ? 3 : a.startsWith(q) ? 2 : 0);   // a name the hand types for it counts as its own
       if (sc) out.push({ r, sc });
     }
     return out.sort((a, b) => b.sc - a.sc || b.r.pop - a.r.pop).slice(0, 8).map(x => x.r);
@@ -1794,45 +1866,48 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       for (const id of ['birth-lat', 'birth-lon']) { const f = $(id); if (f.dataset.auto && f.value === f.dataset.auto) { f.value = ''; f.dataset.auto = ''; } }   // another town typed: the last one's coordinates go with it; coordinates typed by hand stay
       clearTimeout(timer); timer = setTimeout(() => { if (!gaz.rows && !gaz.loading) loadPlaces().then(show).catch(show); else if (gaz.loading) gaz.loading.then(show).catch(show); show(); }, 90); });
     box.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = list.querySelector('button[data-i]'); if (b) b.click(); e.preventDefault(); } if (e.key === 'Escape' && !list.hidden) { list.hidden = true; e.preventDefault(); } });
-    list.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; choosePlace(list.rows[+b.dataset.i]); });
+    list.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; choosePlace(list.rows[+b.dataset.i]); if (e.detail === 0) box.focus({ preventScroll: true }); });   // chosen from the keyboard: back to the box, whose button is gone (a tap leaves the phone's keyboard down)
     box.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 150));
   }
   function saveBirth() {
-    const i = SD.i18n, note = k => { $('birth-note').textContent = i.cap1(i.t(k)); };
+    const i = SD.i18n, note = k => { $('birth-note').dataset.i18n = k; $('birth-note').textContent = i.cap1(i.t(k)); };   // keyed, so a change of language translates it
     const pd = parseDate($('birth-date').value), unknown = $('birth-unknown').checked, timeTxt = unknown ? '12:00' : normTime($('birth-time').value, $('birth-ampm').value);
     if (!pd) { dateError(true); $('birth-date').focus(); return; }
     const dateTxt = isoDate(pd);
     if (!unknown && !/^\d{2}:\d{2}$/.test(timeTxt)) { note('ui.badTime'); $('birth-time').focus(); return; }
-    $('birth-date').value = fmtDate(pd); dateError(false); if (!unknown) { $('birth-time').value = timeTxt; $('birth-ampm').value = '24'; }
+    $('birth-date').value = fmtDate(pd); dateError(false); if (!unknown) { $('birth-time').value = timeTxt; $('birth-ampm').value = '24'; delete $('birth-time').dataset.apWas; }
     const lat = parseFloat($('birth-lat').value), lon = parseFloat($('birth-lon').value), hand = Number.isFinite(lat) && Number.isFinite(lon);
     let place = null;
     if (S.birthPlace) place = { ...S.birthPlace, lat: hand ? lat : S.birthPlace.lat, lon: hand ? lon : S.birthPlace.lon };   // the coordinates may be corrected by hand
     else if (hand) place = { name: $('birth-place').value.trim() || `${lat.toFixed(2)}, ${lon.toFixed(2)}`, lat, lon, tz: nearestZone(lat, lon) };
     if (!place) { note('ui.needPlace'); $('birth-place').focus(); return; }
-    const o = birthState.orig, same = o && `${dateTxt} ${timeTxt}` === o.stamp && unknown === o.unknown && place.lat === o.lat && place.lon === o.lon && place.tz === o.tz;
-    const d = same ? new Date(o.date) : fromStamp(`${dateTxt} ${timeTxt}`, place.tz);   // nothing of the moment changed: the stored instant stays, to the second
+    const o = birthState.orig, same = o && `${dateTxt} ${timeTxt}` === o.stamp && unknown === o.unknown && place.tz === o.tz;   // the moment is the local time and the zone: another town in the same zone does not move it
+    const d = same ? new Date(o.date) : fromStamp(`${dateTxt} ${timeTxt}`, place.tz);   // nothing of the moment changed: the stored instant stays, to the second (an autumn hour that comes twice keeps its pass)
     if (!d) { dateError(true); $('birth-date').focus(); return; }
     const name = $('birth-name').value.trim();
     const refused = () => { note('ui.noStorage'); recompute(); };   // the browser keeps nothing: the form stays open, the chart lives for this visit and the screen shows it
     if (S.birthEdit) {                                       // a saved chart edited: the same chart, changed in place, wherever it is used
-      S.charts = store.get('charts', S.charts) || S.charts;  // the list as stored now: another tab may have changed it
-      const k = S.charts.findIndex(c => c.id === S.birthEdit);
-      const c = k >= 0 ? { ...S.charts[k], date: d.toISOString(), place, unknownTime: unknown, name: name || S.charts[k].name }   // a cleared name keeps the old one: a saved chart has a name
-        : { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };   // deleted meanwhile: kept as a new chart, the loaded one untouched
-      if (k >= 0) S.charts[k] = c; else S.charts.push(c);
+      const k = S.charts.findIndex(c => c.id === S.birthEdit);   // the list in memory: another tab's changes reach it through the storage event; a list the browser could not write is never re-read over it
+      const L = S.charts[k], placeNow = JSON.stringify([place.name, +place.lat, +place.lon, place.tz]);
+      const c = k >= 0 ? { ...L,                             // only what the hand changed is written: another tab's edit of the rest stands
+        name: name !== o.name ? name || L.name : L.name,    // a cleared name keeps the old one: a saved chart has a name
+        place: placeNow !== o.place ? place : L.place,
+        date: same ? L.date : d.toISOString(), unknownTime: same ? L.unknownTime : unknown, edited: Date.now() }
+        : { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid(), edited: Date.now() };   // deleted meanwhile: kept as a new chart, the loaded one untouched
+      if (k >= 0) S.charts[k] = c; else { S.charts.push(c); birthState.rowId = c.id; }   // back to the list on its new row
       const kept = store.set('charts', S.charts);
       if (k >= 0 && S.natal && S.natal.id === c.id) { S.natal = { ...c }; store.set('natal', S.natal); natalCache.key = null; }
       if (!kept) { refused(); return; }
-      if (S.natal && S.natal.id === c.id) birthState.rowId = null;   // the chart on show: back to the dial, which shows the change; another chart: back to the list, which does
+      if ((S.natal && S.natal.id === c.id) || (S.mode === 'pair' && S.pair === c.id)) birthState.rowId = null;   // a chart on show (the loaded one, or the pair's second in Synastry): back to the dial, which shows the change; another chart: back to the list, which does
       closeBirth(); recompute(); return;
     }
     if (S.birthForPair) {                                   // a new second chart for the pair: kept and chosen as the second; the first chart stays
-      const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };
+      const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid(), edited: Date.now() };
       upsertChart(c); S.pair = c.id; store.set('pair', S.pair); S.birthNew = false;
       closeBirth(); S.mode = 'pair'; store.set('mode', S.mode); recompute(); return;
     }
     const wasNew = S.birthNew, then = birthState.then;
-    S.natal = { date: d.toISOString(), place, unknownTime: unknown, name: name || undefined, id: name ? (!S.birthNew && S.natal && S.natal.id) || uid() : undefined };
+    S.natal = { date: d.toISOString(), place, unknownTime: unknown, name: name || undefined, id: name ? (!S.birthNew && S.natal && S.natal.id) || uid() : undefined, edited: Date.now() };
     S.birthNew = false;
     if (name) upsertChart(S.natal);                         // a named nativity is kept in the saved charts
     const kept = store.set('natal', S.natal); natalCache.key = null;
@@ -1861,19 +1936,20 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const pad2 = x => String(x).padStart(2, '0');
   const isoDate = p => `${String(p.y).padStart(4, '0')}-${pad2(p.m)}-${pad2(p.d)}`;
   function fmtDate(p) { const y = String(p.y).padStart(4, '0'), m = pad2(p.m), d = pad2(p.d), o = dateOrder(); return o === 'dmy' ? `${d}/${m}/${y}` : o === 'mdy' ? `${m}/${d}/${y}` : `${y}/${m}/${d}`; }
-  /* eight figures run together: year first when only that reading is a date, or when both are and the year is a modern
-     one (20121212 is 2012-12-12; 18111022 is 1811-10-22, never 18 November 1022) */
-  const yearFirst8 = s => { const n = (a, b) => +s.slice(a, b), ymd = realDate(n(0, 4), n(4, 6), n(6, 8)), dm = realDate(n(4, 8), n(2, 4), n(0, 2)) || realDate(n(4, 8), n(0, 2), n(2, 4)); return ymd && (!dm || n(0, 4) >= 1800); };
+  /* eight figures run together: the one reading that is a date. when both are, the later year wins: the other reading is
+     then always a year from 1001 to 1231, and a chart is far likelier cast for the later one (20051105 is 2005-11-05,
+     16051105 is 1605-11-05, 18111022 is 1811-10-22). in the same year, the language's own order (10111011) */
+  const yearFirst8 = s => { const n = (a, b) => +s.slice(a, b), ymd = realDate(n(0, 4), n(4, 6), n(6, 8)), dm = realDate(n(4, 8), n(2, 4), n(0, 2)) || realDate(n(4, 8), n(0, 2), n(2, 4));
+    if (!ymd || !dm) return ymd;
+    return n(0, 4) !== n(4, 8) ? n(0, 4) > n(4, 8) : dateOrder() === 'ymd'; };
   const realDate = (y, m, d) => { const x = new Date(Date.UTC(y, m - 1, d)); return y >= 1000 && y <= 3000 && x.getUTCFullYear() === y && x.getUTCMonth() === m - 1 && x.getUTCDate() === d; };   // 31 February refused, never rolled over
   function parseDate(txt) {
     if (/[^\d\s\/.\-]/.test(String(txt).trim())) return null;   // only / - . and space part a date: 1990/1l/27 is refused, never read as January
     let g = String(txt).trim().split(/[^0-9]+/).filter(Boolean);
-    if (g.length === 1 && g[0].length === 8) { const s = g[0]; g = yearFirst8(s) ? [s.slice(0, 4), s.slice(4, 6), s.slice(6, 8)] : [s.slice(0, 2), s.slice(2, 4), s.slice(4, 8)]; }
-    if (g.length === 4 && g.every(x => x.length === 2)) g = [g[0] + g[1], g[2], g[3]];   // a year the layout split in two (18/09/02/12): joined again
-    if (g.length === 2 && g[0].length === 4 && g[1].length === 4) {                     // day and month run together before the year (2711/1990), or the year before them (1990/1127)
-      const dm = [g[0].slice(0, 2), g[0].slice(2), g[1]], ym = [g[0], g[1].slice(0, 2), g[1].slice(2)];
-      g = realDate(+ym[0], +ym[1], +ym[2]) && !(realDate(+dm[2], +dm[1], +dm[0]) || realDate(+dm[2], +dm[0], +dm[1])) ? ym : dm;
+    if ((g.length === 1 && g[0].length === 8) || (g.length === 2 && g[0].length === 4 && g[1].length === 4)) {   // eight figures, run together or in two fours (2711/1990, 1990/1127): one rule
+      const s = g.join(''); g = yearFirst8(s) ? [s.slice(0, 4), s.slice(4, 6), s.slice(6, 8)] : [s.slice(0, 2), s.slice(2, 4), s.slice(4, 8)];
     }
+    if (g.length === 4 && g[0].length === 2 && g[1].length === 2 && g[2].length <= 2 && g[3].length <= 2) g = [g[0] + g[1], g[2], g[3]];   // a year the layout split in two (18/12/01/27, 18/12/1/27): joined again
     if (g.length !== 3) return null;
     if (g[0].length === 4) { const [y, m, d] = g.map(Number); return g[1].length <= 2 && g[2].length <= 2 && realDate(y, m, d) ? { y, m, d } : null; }   // year first, in any language
     if (g[2].length !== 4 || g[0].length > 2 || g[1].length > 2) return null;
@@ -1893,30 +1969,35 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
   /* a time typed as 24-hour (16:30, 1630, 9:05) or as 12-hour with am or pm, typed (4:30 pm, 4.30p.m., 4pm) or chosen
      beside the field; always returned as 24-hour hh:mm, or '' when it cannot be a time */
-  const ampmOf = txt => { const m = String(txt).match(/([ap])\.?\s*(m\.?)?\s*$/i); return m ? (m[1].toLowerCase() === 'a' ? 'am' : 'pm') : null; };
+  const TIME_RE = /^\s*(?:(\d{1,4})|(\d{1,2})\s*[:.h]\s*(\d{1,2})(\s*h)?|(\d{1,2})\s*h)\s*(?:([ap])\.?\s*(?:m\.?)?)?\s*$/i;
+  function timeParts(txt) {                                 // {h, m, ap} as written, or null: a letter anywhere but am / pm at the end (10:3p, 2p:15, 1o:30) is refused
+    const t = String(txt).match(TIME_RE); if (!t) return null;
+    let h, m;
+    if (t[1] != null) { const d = t[1]; h = d.length <= 2 ? +d : +d.slice(0, -2); m = d.length <= 2 ? 0 : +d.slice(-2); }
+    else if (t[2] != null) { if ((t[6] || t[4]) && t[3].length < 2) return null; h = +t[2]; m = +t[3]; }   // 9:5 is 09:05, but before am / pm or h the minutes have two figures (4:30 pm, 16:30 h): 07:5a and 16:3h are slips
+    else { h = +t[5]; m = 0; }                               // 16h
+    return { h, m, ap: t[6] ? (t[6].toLowerCase() === 'a' ? 'am' : 'pm') : null };
+  }
+  const ampmOf = txt => { const p = timeParts(txt); return p && p.ap; };
   /* the chooser's labels as the language writes them, lower case: am / pm, a. m. / p. m. */
   function ampmLabels() { const sel = $('birth-ampm'); if (!sel) return; for (const o of sel.options) o.textContent = SD.i18n.t('ui.' + (o.value === '24' ? 'h24' : o.value)); }
   function normTime(txt, mode = '24') {
-    if (/[^\d\s:.hapm]/i.test(String(txt))) return '';   // only am / pm and h stand beside the figures: 1o:30 is refused
-    mode = ampmOf(txt) || mode;
-    const d = digitsOf(txt);
-    if (!d.length) return txt.trim();
-    let h = d.length <= 2 ? +d : +d.slice(0, d.length - 2), m = d.length <= 2 ? 0 : +d.slice(-2);
-    const sp = String(txt).match(/^\s*(\d{1,2})\s*[:.h]\s*(\d{1,2})(?!\d)/i); if (sp) { h = +sp[1]; m = +sp[2]; }   // written with its own separator: read by it
+    const p = timeParts(txt); if (!p) return '';
+    let { h, m } = p; mode = p.ap || mode;
     if (mode !== '24') { if (h < 1 || h > 12) return ''; h = h % 12 + (mode === 'pm' ? 12 : 0); }
     if (h > 23 || m > 59) return '';
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
   /* a moment typed in the clock: a date alone means noon; an hour alone (2026-07-12 14) means on the hour */
   const normStamp = txt => {
-    const s = String(txt).trim(), w = s.match(/^(\d{1,4}[^\d\s]\d{1,2}[^\d\s]\d{1,4})(?:[\sT]+(.*))?$/i);   // a date written with its own separators, then the time
-    let p, t;
-    const ap = ampmOf(w ? (w[2] || '') : s);                 // 4:30 pm is 16:30, as in the birth form
-    if (w) { p = parseDate(w[1]); const q = String(w[2] || '').trim().match(/^(\d{1,2})\D+(\d{1,2})/); t = q ? pad2(q[1]) + pad2(q[2]) : digitsOf(w[2] || '').slice(0, 4); }   // so 2026-7-12 9:5 is 09:05
-    else { const d = digitsOf(s); if (d.length < 8) return s; p = parseDate(d.slice(0, 8)); t = d.slice(8, 12); }
-    if (!p) return s;                                         // 2026-13-40 or 31 February: refused, not rolled over
-    if (!t) return `${isoDate(p)} 12:00`;
-    const tm = normTime(t.length <= 2 ? t.padStart(2, '0') + '00' : t, ap || '24');
+    const s = String(txt).trim(), w = s.match(/^([^\sT]+)(?:[\sT]+(.*))?$/i);   // the date up to the first space (or T), then the time: never one run of figures cut across the two
+    if (!w) return s;
+    let dt = w[1], tt = (w[2] || '').trim();
+    if (!tt && /^\d{9,12}$/.test(dt)) { tt = dt.slice(8); dt = dt.slice(0, 8); }   // twelve figures run together: the first eight are the date
+    const p = parseDate(dt);                                  // the birth form's reader: 18/12/1/27 is 1812-01-27, 2026-13-40 and 31 February are refused
+    if (!p) return s;
+    if (!tt) return `${isoDate(p)} 12:00`;
+    const tm = normTime(tt);                                  // the birth form's reader too: 9:5 is 09:05, 4:30 pm is 16:30, 14 is 14:00, 1o:30 is refused
     return tm ? `${isoDate(p)} ${tm}` : s;
   };
   /* while typing, the separators appear on their own: 1990/11/27, 27/11/1990, 11:05, 9:05. the date is laid out as
@@ -1945,7 +2026,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     let prev = el.value;
     el.addEventListener('focus', () => { prev = el.value; free(el.value && shape(digitsOf(el.value), twelveOf()) !== el.value); });   // a value the layout would not make was written by hand: it stays so
     el.addEventListener('input', e => {
-      if (kind === 'time' && $('birth-ampm') && el.id === 'birth-time') { const ap = ampmOf(el.value); if (ap) $('birth-ampm').value = ap; }   // "pm" typed moves into the chooser
+      if (kind === 'time' && $('birth-ampm') && el.id === 'birth-time') {   // "pm" typed moves into the chooser, once the whole reads as a time ending in it (10:3p moves nothing)
+        const sel = $('birth-ampm'), ap = ampmOf(el.value);
+        if (ap) { if (el.dataset.apWas == null) el.dataset.apWas = sel.value; sel.value = ap; }
+        else if (el.dataset.apWas != null) { sel.value = el.dataset.apWas; delete el.dataset.apWas; }   // the typed pm gone, or no longer a time (2p, then 2p:15): the chooser as it was
+      }
       const twelve = twelveOf();
       const v = el.value, pos = el.selectionStart == null ? v.length : el.selectionStart;
       if (!v) { free(false); prev = v; return; }
@@ -1967,7 +2052,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
         const sepCount = (prev.split(' ')[0].match(/\D/g) || []).length;
         let raw = prev + e.data;
         if (/[:.h]/i.test(e.data) && (kind === 'time' || (kind === 'stamp' && prev.includes(' '))) && /:/.test(prev)) raw = (kind === 'stamp' ? prev.slice(0, prev.indexOf(' ') + 1) + digitsOf(prev.slice(prev.indexOf(' ') + 1)) : digitsOf(prev)) + e.data;   // a second colon: the hour as typed
-        else if (kind !== 'time' && !/\s/.test(e.data) && sepCount >= 2 && !prev.includes(' ')) raw = prev;   // a third separator in a date means nothing: dropped
+        else if (kind !== 'time' && !/[\s\p{L}]/u.test(e.data) && sepCount >= 2 && !prev.includes(' ')) raw = prev;   // a third separator in a date means nothing: dropped. a letter stays, to be refused (1990/11/2l)
         free(raw !== prev);
         if (raw !== v) { el.value = raw; try { el.setSelectionRange(raw.length, raw.length); } catch (err) { /* number keyboards */ } }
         prev = raw; return;
@@ -2063,7 +2148,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       recompute();
     }, { passive: false });
     window.addEventListener('keydown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (!$('birth').hidden || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;   // the open form keeps its keys: no zoom behind it
       const c = { x: S.side / 2, y: S.side / 2 };
       if (e.key === '+' || e.key === '=') zoomAt(c, view.z * 1.4);
       if (e.key === '-' || e.key === '_') zoomAt(c, view.z / 1.4);
@@ -2107,6 +2192,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       await Promise.all(['400 20px Geist', '500 20px Geist', '400 20px "Geist Mono"'].map(f => document.fonts.load(f)));
     } catch (e) { /* fonts are a nicety */ }
     if (natalModes.includes(S.mode) && !S.natal) S.mode = 'clock';
+    reconcileNatal();                                       // the loaded chart as the list holds it, or the list as the loaded chart, whichever was edited later
     document.body.classList.toggle('reading', S.reading && !S.wall); document.body.classList.toggle('wall', S.wall);
     bind(); bindMenu(); if (!S.wall) bindGesture(); size(); glossaryTerms(); recompute(); drawNexts(); requestAnimationFrame(slideSeg);
     if (!S.wall && (S.firstVisit || S.place.name === 'here')) locate(false);   // a wallpaper never asks for the position: it takes the address's place or the device's zone
