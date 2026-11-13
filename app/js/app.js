@@ -1689,7 +1689,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-ampm').value = '24'; $('birth-unknown').checked = false; choosePlace(null); }
     const h = $('birth').querySelector('h1'), key = n ? 'ui.editNativity' : 'ui.newNativity';
     h.dataset.i18n = key; h.textContent = SD.i18n.cap1(SD.i18n.t(key));
-    $('birth-clear').hidden = !!S.birthEdit;                  // a saved chart is deleted from the list, never cleared from here
+    $('birth-clear').hidden = !(n && n === S.natal && !S.birthEdit);   // Clear forgets the loaded chart that is in no list; a saved chart is deleted from the list, a blank form has nothing to clear
     delete $('birth-date').dataset.free; delete $('birth-time').dataset.free;
     $('birth-date').classList.remove('bad');
     $('birth-note').textContent = '';
@@ -1737,6 +1737,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     S.birthPlace = pl ? { name: pl.name, label: pl.label || (pl.country ? placeLabel(pl) : undefined), lat: pl.lat, lon: pl.lon, tz: pl.tz } : null;
     $('birth-place').value = pl ? (S.birthPlace.label || SD.i18n.placeName(pl.name)) : '';
     $('birth-lat').value = pl ? pl.lat : ''; $('birth-lon').value = pl ? pl.lon : '';
+    $('birth-lat').dataset.auto = pl ? String(pl.lat) : ''; $('birth-lon').dataset.auto = pl ? String(pl.lon) : '';   // written by the choice, not by hand
     $('birth-chosen').textContent = pl ? `${pl.tz} · ${(+pl.lat).toFixed(3)}, ${(+pl.lon).toFixed(3)}` : '';
     $('birth-results').hidden = true;
   }
@@ -1750,7 +1751,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
         : `<li><button type="button" disabled>${SD.i18n.cap1(SD.i18n.t('ui.noPlace'))}</button></li>`;
       list.hidden = false; list.rows = rows;
     };
-    box.addEventListener('input', () => { S.birthPlace = null; $('birth-chosen').textContent = ''; clearTimeout(timer); timer = setTimeout(() => { if (!gaz.rows && !gaz.loading) loadPlaces().then(show).catch(show); else if (gaz.loading) gaz.loading.then(show).catch(show); show(); }, 90); });
+    box.addEventListener('input', () => { S.birthPlace = null; $('birth-chosen').textContent = '';
+      for (const id of ['birth-lat', 'birth-lon']) { const f = $(id); if (f.dataset.auto && f.value === f.dataset.auto) { f.value = ''; f.dataset.auto = ''; } }   // another town typed: the last one's coordinates go with it; coordinates typed by hand stay
+      clearTimeout(timer); timer = setTimeout(() => { if (!gaz.rows && !gaz.loading) loadPlaces().then(show).catch(show); else if (gaz.loading) gaz.loading.then(show).catch(show); show(); }, 90); });
     box.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = list.querySelector('button[data-i]'); if (b) b.click(); e.preventDefault(); } if (e.key === 'Escape') list.hidden = true; });
     list.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; choosePlace(list.rows[+b.dataset.i]); });
     box.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 150));
@@ -1782,7 +1785,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
         if (!$('menu').hidden) refreshMenu();
         recompute(); return;
       }
-      S.birthEdit = null;                                     // deleted meanwhile: kept as a new chart below
+      const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };   // deleted meanwhile: kept as a new chart, the loaded one untouched
+      S.charts.push(c); const kept = store.set('charts', S.charts);
+      if (!kept) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.noStorage')); return; }
+      S.birthEdit = null; $('birth').hidden = true;
+      if (!$('menu').hidden) refreshMenu();
+      recompute(); return;
     }
     if (S.birthForPair) {                                   // a new second chart for the pair: kept and chosen as the second; the first chart stays
       const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };
@@ -1818,12 +1826,17 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const pad2 = x => String(x).padStart(2, '0');
   const isoDate = p => `${String(p.y).padStart(4, '0')}-${pad2(p.m)}-${pad2(p.d)}`;
   function fmtDate(p) { const y = String(p.y).padStart(4, '0'), m = pad2(p.m), d = pad2(p.d), o = dateOrder(); return o === 'dmy' ? `${d}/${m}/${y}` : o === 'mdy' ? `${m}/${d}/${y}` : `${y}/${m}/${d}`; }
+  /* eight figures run together: year first when only that reading is a date, or when both are and the year is a modern
+     one (20121212 is 2012-12-12; 18111022 is 1811-10-22, never 18 November 1022) */
+  const yearFirst8 = s => { const n = (a, b) => +s.slice(a, b), ymd = realDate(n(0, 4), n(4, 6), n(6, 8)), dm = realDate(n(4, 8), n(2, 4), n(0, 2)) || realDate(n(4, 8), n(0, 2), n(2, 4)); return ymd && (!dm || n(0, 4) >= 1800); };
   const realDate = (y, m, d) => { const x = new Date(Date.UTC(y, m - 1, d)); return y >= 1000 && y <= 3000 && x.getUTCFullYear() === y && x.getUTCMonth() === m - 1 && x.getUTCDate() === d; };   // 31 February refused, never rolled over
   function parseDate(txt) {
     let g = String(txt).trim().split(/[^0-9]+/).filter(Boolean);
-    if (g.length === 1 && g[0].length === 8) {                // eight figures run together: year first when only that can be a date, or when both can and the year is a modern one
-      const s = g[0], n = (a, b) => +s.slice(a, b), ymd = realDate(n(0, 4), n(4, 6), n(6, 8)), dm = realDate(n(4, 8), n(2, 4), n(0, 2)) || realDate(n(4, 8), n(0, 2), n(2, 4));
-      g = ymd && (!dm || n(0, 4) >= 1800) ? [s.slice(0, 4), s.slice(4, 6), s.slice(6, 8)] : [s.slice(0, 2), s.slice(2, 4), s.slice(4, 8)];
+    if (g.length === 1 && g[0].length === 8) { const s = g[0]; g = yearFirst8(s) ? [s.slice(0, 4), s.slice(4, 6), s.slice(6, 8)] : [s.slice(0, 2), s.slice(2, 4), s.slice(4, 8)]; }
+    if (g.length === 4 && g.every(x => x.length === 2)) g = [g[0] + g[1], g[2], g[3]];   // a year the layout split in two (18/09/02/12): joined again
+    if (g.length === 2 && g[0].length === 4 && g[1].length === 4) {                     // day and month run together before the year (2711/1990), or the year before them (1990/1127)
+      const dm = [g[0].slice(0, 2), g[0].slice(2), g[1]], ym = [g[0], g[1].slice(0, 2), g[1].slice(2)];
+      g = realDate(+ym[0], +ym[1], +ym[2]) && !(realDate(+dm[2], +dm[1], +dm[0]) || realDate(+dm[2], +dm[0], +dm[1])) ? ym : dm;
     }
     if (g.length !== 3) return null;
     if (g[0].length === 4) { const [y, m, d] = g.map(Number); return g[1].length <= 2 && g[2].length <= 2 && realDate(y, m, d) ? { y, m, d } : null; }   // year first, in any language
@@ -1873,13 +1886,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
      exceed 23. on leaving the field the date is shown in the language's order (showBirthDate); inside it is always
      yyyy-mm-dd and hh:mm (normDate, normTime). */
   const datePat = d => {
+    if (d.length >= 8) return yearFirst8(d.slice(0, 8)) ? 'dddd/dd/dd' : 'dd/dd/dddd';   // all eight: laid out as they will be read
     const two = k => d.length >= k + 2 ? +d.slice(k, k + 2) : null, a = two(0), b = two(2), c = two(4);
     const dayMonth = a == null || b == null || (a >= 1 && a <= 31 && b >= 1 && b <= 31 && (a <= 12 || b <= 12));   // day and month, in either order, can open it
     const yearMonth = d.length < 4 || (+d.slice(0, 4) >= 1000 && (c == null || (c >= 1 && c <= 12)));   // a year of four figures, then a month
     if (dayMonth !== yearMonth) return dayMonth ? 'dd/dd/dddd' : 'dddd/dd/dd';
-    return (/^(19|20)/.test(d) || d.length < 2) ? 'dddd/dd/dd' : 'dd/dd/dddd';   // both still can: a year when it opens with 19 or 20
+    return (dateOrder() === 'ymd' || /^(19|20)/.test(d) || d.length < 2) ? 'dddd/dd/dd' : 'dd/dd/dddd';   // both still can: English writes the year first; elsewhere a year when it opens with 19 or 20
   };
-  const timePat = (d, top = 23) => (d.length >= 2 && d.length < 4 && +d.slice(0, 2) > top) ? 'd:dd' : 'dd:dd';   // three digits: 905 reads 9:05 (130 reads 1:30 in 12-hour); four are always hh:mm, so 2510 stays 25:10 and is refused
+  const timePat = d => d.length === 3 ? 'd:dd' : 'dd:dd';   // three digits are h:mm and are laid out so (130 shows 1:30, saved 01:30); a fourth re-forms them hh:mm (1305 → 13:05), so 2510 stays 25:10 and is refused   // three digits: 905 reads 9:05 (130 reads 1:30 in 12-hour); four are always hh:mm, so 2510 stays 25:10 and is refused
   const PATTERNS = { date: datePat, time: timePat, stamp: d => datePat(d.slice(0, 8)) + ' ' + timePat(d.slice(8)) };
   function liveFormat(el, kind) {
     /* the caret stays where the hand put it: a digit changed in the middle is changed in place, and the separators
