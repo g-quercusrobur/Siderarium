@@ -54,7 +54,7 @@
     <section>
       <h2 data-i18n="ui.nativity">birth date</h2>
       <p id="natal-summary" class="meta"></p>
-      <div class="rowbtns"><button id="natal-new" data-i18n="ui.newChart">new</button><button id="natal-edit" data-i18n="ui.edit">edit</button><button id="natal-saveas" data-i18n="ui.saveAs">save as</button></div>
+      <div class="rowbtns"><button id="natal-new" data-i18n="ui.newChart">new</button><button id="natal-edit" data-i18n="ui.edit">edit</button><button id="natal-saveas" data-i18n="ui.saveAs" aria-expanded="false" aria-controls="chart-new">save as</button></div>
       <div class="rowbtns"><button id="natal-copy" data-i18n="ui.copyReport">copy chart report</button><button id="natal-report" data-i18n="ui.report">save birth chart report</button></div>
       <div class="rowbtns"><button id="charts-export" data-i18n="ui.exportCharts">export charts</button><button id="charts-import" data-i18n="ui.importCharts">import charts</button><input id="charts-file" type="file" accept="application/json,.json" hidden></div>
       <p id="import-note" class="meta"></p>
@@ -98,15 +98,16 @@
 
   <aside id="readout"></aside>
 
-  <section id="birth" class="panel" hidden aria-label="birth chart">
+  <section id="birth" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="birth-title">
     <article>
       <button id="birth-close" data-i18n="ui.close">close</button>
-      <h1 data-i18n="ui.newNativity">new birth chart</h1>
+      <h1 id="birth-title" tabindex="-1" data-i18n="ui.newNativity">new birth chart</h1>
       <p class="meta" data-i18n="ui.kept">kept on this device only · never sent anywhere</p>
       <div class="form">
         <label><span data-i18n="ui.name">name</span> <input id="birth-name" type="text" autocomplete="off" data-i18n="ui.namePrompt" data-i18n-attr="placeholder" placeholder="a name for this chart"></label>
-        <label><span><span data-i18n="ui.date">date</span> <span class="hint" data-i18n="ui.dateFmt">YYYY/MM/DD</span></span> <input id="birth-date" type="text" inputmode="numeric" data-i18n="ui.dateFmt" data-i18n-attr="placeholder" placeholder="YYYY/MM/DD" autocomplete="off"></label>
-        <label><span data-i18n="ui.time">time</span> <span class="timebox"><input id="birth-time" type="text" inputmode="numeric" placeholder="hh:mm" autocomplete="off"><select id="birth-ampm" aria-label="24-hour or am / pm"><option value="24">24 h</option><option value="am">am</option><option value="pm">pm</option></select></span></label>
+        <label><span><span data-i18n="ui.date">date</span> <span class="hint" data-i18n="ui.dateFmt">YYYY/MM/DD</span></span> <input id="birth-date" type="text" inputmode="numeric" data-i18n="ui.dateFmt" data-i18n-attr="placeholder" placeholder="YYYY/MM/DD" autocomplete="off" aria-describedby="birth-date-err"></label>
+        <p id="birth-date-err" class="field-err" aria-live="polite" hidden></p>
+        <label><span data-i18n="ui.time">time</span> <span class="timebox"><input id="birth-time" type="text" inputmode="numeric" placeholder="hh:mm" autocomplete="off"><select id="birth-ampm" data-i18n="ui.ampmLabel" data-i18n-attr="aria-label" aria-label="24-hour or am / pm"><option value="24">24 h</option><option value="am">am</option><option value="pm">pm</option></select></span></label>
         <label class="check"><input id="birth-unknown" type="checkbox"> <span data-i18n="ui.unknown">time unknown</span></label>
         <label><span data-i18n="ui.placeName">birthplace</span> <input id="birth-place" type="text" data-i18n="ui.placeHint" data-i18n-attr="placeholder" placeholder="type the town, e.g. Piacenza" autocomplete="off" spellcheck="false"></label>
         <ul id="birth-results" class="results" hidden></ul>
@@ -115,7 +116,7 @@
           <label><span data-i18n="ui.lat">latitude</span> <input id="birth-lat" type="text" inputmode="decimal" placeholder="44.9924"></label>
           <label><span data-i18n="ui.lon">longitude</span> <input id="birth-lon" type="text" inputmode="decimal" placeholder="9.0094"></label>
         </div>
-        <p id="birth-note" class="meta"></p>
+        <p id="birth-note" class="meta" aria-live="polite"></p>
         <div class="actions"><button id="birth-save" class="primary" data-i18n="ui.saveBtn">save</button><button id="birth-clear" data-i18n="ui.clear">clear</button></div>
       </div>
       <p data-i18n="ui.birthNote">The time zone and offset are taken from the city for that date.</p>
