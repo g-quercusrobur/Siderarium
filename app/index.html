@@ -101,11 +101,11 @@
   <section id="birth" class="panel" hidden aria-label="birth chart">
     <article>
       <button id="birth-close" data-i18n="ui.close">close</button>
-      <h1 data-i18n="ui.yourNativity">birth chart</h1>
+      <h1 data-i18n="ui.newNativity">new birth chart</h1>
       <p class="meta" data-i18n="ui.kept">kept on this device only · never sent anywhere</p>
       <div class="form">
         <label><span data-i18n="ui.name">name</span> <input id="birth-name" type="text" autocomplete="off" data-i18n="ui.namePrompt" data-i18n-attr="placeholder" placeholder="a name for this chart"></label>
-        <label><span data-i18n="ui.date">date</span> <input id="birth-date" type="text" inputmode="numeric" placeholder="yyyy-mm-dd" autocomplete="off"></label>
+        <label><span><span data-i18n="ui.date">date</span> <span class="hint" data-i18n="ui.dateFmt">YYYY/MM/DD</span></span> <input id="birth-date" type="text" inputmode="numeric" data-i18n="ui.dateFmt" data-i18n-attr="placeholder" placeholder="YYYY/MM/DD" autocomplete="off"></label>
         <label><span data-i18n="ui.time">time</span> <span class="timebox"><input id="birth-time" type="text" inputmode="numeric" placeholder="hh:mm" autocomplete="off"><select id="birth-ampm" aria-label="24-hour or am / pm"><option value="24">24 h</option><option value="am">am</option><option value="pm">pm</option></select></span></label>
         <label class="check"><input id="birth-unknown" type="checkbox"> <span data-i18n="ui.unknown">time unknown</span></label>
         <label><span data-i18n="ui.placeName">birthplace</span> <input id="birth-place" type="text" data-i18n="ui.placeHint" data-i18n-attr="placeholder" placeholder="type the town, e.g. Piacenza" autocomplete="off" spellcheck="false"></label>
