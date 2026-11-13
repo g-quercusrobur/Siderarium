@@ -1,26 +1,26 @@
 {
- "rendered": "2026-11-12 18:11 utc",
+ "rendered": "2026-11-13 00:10 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Thursday · 12 November 2026 · 19:11 CET · Rome",
+   "caption": "Friday · 13 November 2026 · 01:10 CET · Rome",
    "figure": "Uranus trine Pluto",
-   "chord": "Chord A#–D · major third"
+   "chord": "Chord E · unison"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Thursday · 12 November 2026 · 13:11 GMT-5 · New York",
+   "caption": "Thursday · 12 November 2026 · 19:11 GMT-5 · New York",
    "figure": "Mars conjunction Jupiter",
-   "chord": "Chord A#–D · major third"
+   "chord": "Chord E · unison"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Thursday · 12 November 2026 · 18:11 GMT · Greenwich",
+   "caption": "Friday · 13 November 2026 · 00:11 GMT · Greenwich",
    "figure": "Mars conjunction Jupiter",
-   "chord": "Chord A#–D · major third"
+   "chord": "Chord E · unison"
   }
  ]
 }
