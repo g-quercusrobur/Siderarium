@@ -231,7 +231,7 @@
     if (engraveCache.key !== key && !(FAST && engraveCache.canvas && engraveCache.canvas.width === px)) {   // turning the dial: the last engraving, not a new plate each frame
       const cv = engraveCache.canvas || document.createElement('canvas');
       const g = cv.getContext('2d');
-      if (cv.width !== px) cv.width = cv.height = px; else { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, px, px); }   // clear under the identity: under the old transform only part of the plate was wiped, and the next minute's rings were drawn over the rest, a doubled rectangle
+      if (cv.width !== px || cv.height !== px) cv.width = cv.height = px; else { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, px, px); }   // a new canvas is 300 by 150: with a plate of 300 the height must be set too, or the field stops at the horizon. clear under the identity: under the old transform only part of the plate was wiped, and the next minute's rings were drawn over the rest, a doubled rectangle
       g.setTransform(k, 0, 0, k, px / 2 - Lt.cx * k, px / 2 - Lt.cy * k);
       engrave(g, state, Lt, density);
       engraveCache.key = key; engraveCache.canvas = cv;
