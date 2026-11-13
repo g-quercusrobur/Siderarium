@@ -136,7 +136,7 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 .form { display: grid; gap: 14px; margin: 18px 0 22px; }
 .form label { display: grid; gap: 6px; font: 400 13px/1.3 var(--sans); color: var(--ink-2); }
 .form label .hint { margin-left: 6px; font: 400 12px/1.3 var(--mono); letter-spacing: 0.04em; color: var(--ink-3); }   /* the date's order, beside its label: still there once the field is filled */
-.form input.bad { color: #ff8a6a; border-color: #ff8a6a; }   /* a date that cannot be read */
+.form input[type="text"].bad { color: #ff8a6a; border-color: #ff8a6a; }   /* a date that cannot be read (as specific as the field's own rule, so it shows) */
 .form input[type="text"], .form select { font: 400 15px/1.2 var(--mono); color: var(--ink); background: var(--void); border: 1px solid var(--ink-3); padding: 10px 12px; min-height: 44px; width: 100%; max-width: 100%; }
 .form .check { grid-template-columns: auto 1fr; align-items: start; gap: 10px; }
 .form .check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--ink); }
