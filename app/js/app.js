@@ -113,9 +113,10 @@
   /* the stone of the day for the chart on show: read from the sky at the place's local noon of the day displayed, so it
      holds from midnight to midnight and does not flicker with the hour (SD.engine.stoneOfDay) */
   const stoneCache = { key: null, v: null };
+  const chartSig = c => c ? [c.date, c.place && c.place.lat, c.place && c.place.lon, c.place && c.place.tz, c.unknownTime ? 1 : 0].join(',') : '';   // what a chart is made of: an edit changes it, a rename does not
   function stoneOfTheDay(ns) {
     try {
-      const p = placeParts(now(), S.place.tz), key = [S.natal.id || S.natal.date, S.natal.date, p.year, p.month, p.day, S.place.lat, S.place.lon].join('|');
+      const p = placeParts(now(), S.place.tz), key = [chartSig(S.natal), p.year, p.month, p.day, S.place.lat, S.place.lon].join('|');
       if (stoneCache.key !== key) {
         const noon = fromStamp(`${p.year}-${p.month}-${p.day} 12:00`, S.place.tz) || now();
         const day = SD.engine.compute(noon, S.place, { light: true, houses: S.houses });
@@ -130,7 +131,7 @@
   function transitInfo(ns, tr) {
     const day = Math.floor(now().getTime() / 864e5), spans = {}, houses = {};
     for (const a of tr.slice(0, 4)) {
-      const key = [S.natal.id || S.natal.date, a.a, a.b, a.aspect, day].join('|');
+      const key = [chartSig(S.natal), a.a, a.b, a.aspect, day].join('|');
       if (!spanCache.has(key)) { if (spanCache.size > 200) spanCache.clear(); spanCache.set(key, SD.engine.transitSpan(a.a, a.nlon, a.angle, a.orbMax, now())); }
       spans[a.a + '|' + a.b + '|' + a.aspect] = spanCache.get(key);
       if (!S.natal.unknownTime) houses[a.a] = SD.engine.houseIn(ns.cusps, S.state.bodies[a.a].lon);
@@ -155,7 +156,7 @@
         const ASP = Object.fromEntries(SD.corr.ASPECTS.map(x => [x.key, x]));
         const tr = syn.contacts.filter(c => SD.corr.PLANETS[c.a] && (SD.corr.PLANETS[c.b] || c.b === 'ascendant' || c.b === 'midheaven'))   // the drawable contacts, heaviest first
           .map(c => ({ a: c.a, b: c.b, natal: true, nlon: c.b === 'ascendant' ? Bs.asc : c.b === 'midheaven' ? Bs.mc : Bs.bodies[c.b].lon, aspect: c.aspect, n: (ASP[c.aspect] || {}).n, k: (ASP[c.aspect] || {}).k, nature: (ASP[c.aspect] || {}).nature, angle: c.angle, orb: c.orb, power: c.w / 10, exact: 1 - c.orb / c.max, applying: false }));
-        const dayKey = JSON.stringify([S.natal.id, Bc.id, new Date().toISOString().slice(0, 10)]);
+        const dayKey = JSON.stringify([chartSig(S.natal), chartSig(Bc), new Date().toISOString().slice(0, 10)]);
         if (activeCache.key !== dayKey) { activeCache.key = dayKey; activeCache.v = SD.synastry.activeNow(A, Bs, syn, new Date(), noA, noB); }
         S.state = { ...A, natalView: true, natal: Bs, transits: tr, syn, synActive: activeCache.v, pair: { a: S.natal.name || '', b: Bc.name || '', ids: [S.natal.id, Bc.id], noTime: [noA, noB] } };
         S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
@@ -1430,7 +1431,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       b.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); which = w; btn = b; show(); });
     }
     menu.addEventListener('click', e => {
-      if (e.target.closest('button[data-new]')) { menu.hidden = true; S.birthForPair = which === 'second'; openBirth(true); return; }   // a blank form; the loaded chart stays until the new one is saved
+      if (e.target.closest('button[data-new]')) { menu.hidden = true; openBirth(true, which === 'second'); return; }   // a blank form; the loaded chart stays until the new one is saved
       const b = e.target.closest('button[data-id]'); if (!b) return;
       const chart = S.charts.find(c => c.id === b.dataset.id); menu.hidden = true; if (!chart) return;
       if (which === 'second') { S.pair = chart.id; store.set('pair', S.pair); S.mode = 'pair'; }
@@ -1462,7 +1463,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('natal-summary').innerHTML = `${esc(natalSummary())}${S.natal ? ` <button class="copy-btn" aria-label="${esc(i.t('ui.copyReport'))}" title="${esc(i.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}`;
     $('natal-saveas').disabled = !S.natal; $('natal-report').disabled = !S.natal; $('natal-copy').disabled = !S.natal;
     const ul = $('charts');
-    ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${i.t('ui.useChart')}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(c.name)}</span><span class="ops"><button data-act="edit">${i.cap1(i.t('ui.edit'))}</button><button data-act="dup">${i.cap1(i.t('ui.dup'))}</button><button data-act="delete">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
+    ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${c.id}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${esc(i.cap1(i.t('ui.useChart')) + ': ' + c.name)}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(c.name)}</span><span class="ops"><button data-act="edit" aria-label="${esc(i.cap1(i.t('ui.edit')) + ' ' + c.name)}">${i.cap1(i.t('ui.edit'))}</button><button data-act="dup" aria-label="${esc(i.cap1(i.t('ui.dup')) + ' ' + c.name)}">${i.cap1(i.t('ui.dup'))}</button><button data-act="delete" aria-label="${esc(i.cap1(i.t('ui.del')) + ' ' + c.name)}">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
       : `<li class="empty">${i.cap1(i.t('ui.noCharts'))}</li>`;
   }
   const esc = t => String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -1487,7 +1488,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('set-bodies').addEventListener('change', e => { S.luminous = e.target.value === 'lights'; store.set('bodies', e.target.value); S.dirty = true; });
     $('set-relocate').addEventListener('change', e => { S.relocate = e.target.value === '1'; store.set('relocate', S.relocate); natalCache.key = null; recompute(); });
     $('natal-edit').addEventListener('click', () => { openMenu(false); openBirth(); });
-    $('natal-new').addEventListener('click', () => { openMenu(false); S.birthForPair = false; openBirth(true); });   // a blank form; the loaded chart stays until the new one is saved
+    $('natal-new').addEventListener('click', () => { openMenu(false); openBirth(true); });   // a blank form; the loaded chart stays until the new one is saved
     $('natal-report').addEventListener('click', chartReport);
     $('natal-copy').addEventListener('click', copyReport);
     const showKey = e => { e.preventDefault(); openMenu(true); const sec = $('read-title'); if (sec) sec.scrollIntoView({ block: 'start' }); };
@@ -1496,22 +1497,23 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('charts-export').addEventListener('click', exportCharts);
     $('charts-import').addEventListener('click', () => $('charts-file').click());
     $('charts-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) importCharts(f); e.target.value = ''; });
-    $('natal-saveas').addEventListener('click', () => { const row = $('chart-new'); row.hidden = !row.hidden; if (!row.hidden) { $('chart-name').value = S.natal && S.natal.name || ''; $('chart-name').focus(); } });
-    const commitNew = () => { const name = $('chart-name').value.trim(); if (!name) return; saveChartAs(name); $('chart-new').hidden = true; };
+    const saveAsRow = open => { $('chart-new').hidden = !open; $('natal-saveas').setAttribute('aria-expanded', String(open)); if (!open) $('natal-saveas').focus({ preventScroll: true }); };
+    $('natal-saveas').addEventListener('click', () => { const open = $('chart-new').hidden; saveAsRow(open); if (open) { const nm = S.natal && S.natal.name; $('chart-name').value = nm ? SD.i18n.t('ui.copyOf')(nm) : ''; $('chart-name').focus(); $('chart-name').select(); } });   // a new name offered: saving under the same one would make two charts alike
+    const commitNew = () => { const name = $('chart-name').value.trim(); if (!name) return; saveChartAs(name); saveAsRow(false); };
     $('chart-ok').addEventListener('click', commitNew);
-    $('chart-name').addEventListener('keydown', e => { if (e.key === 'Enter') commitNew(); if (e.key === 'Escape') $('chart-new').hidden = true; });
+    $('chart-name').addEventListener('keydown', e => { if (e.key === 'Enter') commitNew(); if (e.key === 'Escape') { e.stopPropagation(); saveAsRow(false); } });
     $('charts').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('span[data-act]')) { e.preventDefault(); e.target.click(); } });
     $('charts').addEventListener('click', e => {
       const b = e.target.closest('[data-act]'); if (!b || (e.target.tagName === 'INPUT' && !e.target.classList.contains('use'))) return;
       const li = b.closest('li'), id = li.dataset.id, chart = S.charts.find(c => c.id === id); if (!chart) return;
       if (b.dataset.act === 'load') { S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null; if (!natalModes.includes(S.mode)) S.mode = 'natal'; store.set('mode', S.mode); recompute(); refreshMenu(); openMenu(false); }
-      else if (b.dataset.act === 'edit') { openMenu(false); S.birthForPair = false; openBirth(chart); }   // the whole chart, in the form
+      else if (b.dataset.act === 'edit') { openMenu(false); openBirth(chart); }   // the whole chart, in the form
       else if (b.dataset.act === 'dup') {               // a copy to edit without touching the original
         const copy = { ...chart, place: chart.place && { ...chart.place }, id: uid(), name: SD.i18n.t('ui.copyOf')(chart.name || '') };
         S.charts.splice(S.charts.indexOf(chart) + 1, 0, copy); store.set('charts', S.charts); refreshMenu();
       } else if (b.dataset.act === 'delete') {
         if (b.dataset.armed) { S.charts = S.charts.filter(c => c.id !== id); store.set('charts', S.charts); refreshMenu(); }
-        else { b.dataset.armed = '1'; b.textContent = SD.i18n.cap1(SD.i18n.t('ui.confirm')); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = SD.i18n.cap1(SD.i18n.t('ui.del')); } }, 3000); }
+        else { const I = SD.i18n; b.dataset.armed = '1'; b.textContent = I.cap1(I.t('ui.confirm')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.confirm'))} ${chart.name}`); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = I.cap1(I.t('ui.del')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.del'))} ${chart.name}`); } }, 3000); }
       }
     });
   }
@@ -1531,13 +1533,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     fill();
     $('city').addEventListener('change', e => { if (!PLACES[e.target.value]) return; S.place = PLACES[e.target.value]; store.set('place', S.place); recompute(); });
     const commit = e => {
+      if (e.target.value.trim() === placeStamp(S.state.date)) { e.target.classList.remove('bad'); return; }   // untouched: the moment stays as it is (an autumn hour that comes twice is not moved to its second pass)
       const txt = normStamp(e.target.value), v = fromPlaceStamp(txt);
       if (v) { e.target.value = placeStamp(v); S.playing = false; S.fixed = v; S.offsetMs = 0; recompute(); e.target.classList.remove('bad'); }   // the stamp as the place reads it: a skipped spring time shows an hour later
       else e.target.classList.add('bad');
     };
     liveFormat($('when'), 'stamp'); $('when').addEventListener('input', e => e.target.classList.remove('bad'));   // red only until the next keystroke
     liveFormat($('birth-date'), 'date'); liveFormat($('birth-time'), 'time');   // the separators form as the digits come (from 1 to 13 Nov 2026 these two calls sat inside the comment above)
-    $('birth-date').addEventListener('input', e => e.target.classList.remove('bad'));
+    $('birth-date').addEventListener('input', () => { if ($('birth-date').classList.contains('bad')) dateError(false); });
     $('birth-date').addEventListener('change', showBirthDate);   // leaving the field: the date read and shown back in the language's order, or marked
     $('birth-date').addEventListener('keydown', e => { if (e.key === 'Enter') showBirthDate(); });
     { let prev = '24';                                      // switching 24 h / am / pm converts the time already typed: 16:30 ⇄ 4:30 pm
@@ -1554,7 +1557,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
       if (pickHeld && performance.now() - pickHeld < 900) { pickHeld = 0; return; }   // only the click that ends a hold is swallowed; a later tap always goes through
       let m = b.dataset.mode;
-      if ((m === 'natal' || m === 'synastry' || m === 'pair') && !S.natal) { openBirth(); return; }
+      if ((m === 'natal' || m === 'synastry' || m === 'pair') && !S.natal) { openBirth(true, false, m); return; }   // no chart yet: a new one, then the view that was asked for
       // a second tap on the lit Natal or Synastry tab opens its list of charts (holding it still works)
       if ((m === 'natal' && (S.mode === 'natal' || S.mode === 'natalchart')) || (m === 'pair' && S.mode === 'pair')) { openPick && openPick(m === 'pair' ? 'second' : 'first', b); return; }
       S.mode = m; store.set('mode', S.mode);                // one tab, one view: whatever was lit goes dark
@@ -1562,10 +1565,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       requestAnimationFrame(() => setTimeout(() => { S.quick = true; recompute(); }, 0));   // the work after the paint; the first frame quick, the full plate on the next
     }));
     if ($('birth-open')) $('birth-open').addEventListener('click', openBirth);   // the button is gone from the place row; the form opens from the Natal tab and the menu
-    $('birth-close').addEventListener('click', () => { $('birth').hidden = true; });
+    $('birth-close').addEventListener('click', closeBirth);
+    $('birth').addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); closeBirth(); } else if (e.key === 'Escape') e.stopPropagation(); });   // Escape leaves the form (after closing the towns' list, if it is open)
     $('birth-save').addEventListener('click', saveBirth);
+    window.addEventListener('storage', e => { if (e.key === 'cw.charts') { S.charts = store.get('charts', []) || []; if (!$('menu').hidden) refreshMenu(); } });   // another tab saved, edited or deleted a chart: this one follows, and never writes back an old list
     bindPlaceSearch();
-    $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) S.mode = 'clock'; $('birth').hidden = true; recompute(); });
+    $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) S.mode = 'clock'; closeBirth(); recompute(); });
     $('wallpaper').addEventListener('click', e => busy(e.currentTarget, exportWallpaper));
     $('update').addEventListener('click', updateApp);
     for (const cv of [canvas, plate]) if (cv && cv.addEventListener) cv.addEventListener('contextrestored', () => { SD.render.resetCaches(); S.dirty = true; });   // a canvas the browser dropped is drawn again
@@ -1658,6 +1663,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       else if (document.fullscreenElement) document.exitFullscreen();
     };
     window.addEventListener('keydown', e => {
+      if (!$('birth').hidden) return;                         // the birth form is open: its keys are its own (it handles Escape itself)
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
       if (e.key === ' ' && e.target.closest && e.target.closest('button, a[href], summary, [role="button"], .popdef, .card-view')) return;   // Space activates the focused control
       if (e.key === 'f') fullScreen();
@@ -1666,7 +1672,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (e.key === ' ') { e.preventDefault(); $('play').click(); }
       if (e.key === 'ArrowRight') { S.offsetMs += (e.shiftKey ? 24 : 1) * 3600e3; recompute(); }
       if (e.key === 'ArrowLeft') { S.offsetMs -= (e.shiftKey ? 24 : 1) * 3600e3; recompute(); }
-      if (e.key === 'Escape') { document.body.classList.remove('bare'); $('about').hidden = true; $('about-open').classList.remove('on'); $('birth').hidden = true; $('glossary').hidden = true; openMenu(false); }
+      if (e.key === 'Escape') { document.body.classList.remove('bare'); $('about').hidden = true; $('about-open').classList.remove('on'); if (!$('birth').hidden) closeBirth(); $('glossary').hidden = true; openMenu(false); }
     });
     window.addEventListener('resize', () => { size(); slideSeg(); });
     $('readout').addEventListener('transitionend', e => { if (e.propertyName === 'width') size(); });   // the stage is only final once the panel has opened
@@ -1675,27 +1681,60 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
 
   /* ---------- the nativity: birth data, kept on this device only ---------- */
   /* the form: blank for a new chart (true), filled to edit a saved chart (the chart itself), or filled with the loaded
-     chart (nothing). a saved chart, the loaded one included, is edited in place: the same chart, wherever it is used */
-  function openBirth(target) {
-    const blank = target === true, saved = blank ? null : target ? target : S.natal && S.natal.id ? S.charts.find(c => c.id === S.natal.id) || null : null;
-    const n = blank ? null : saved || S.natal;
-    S.birthNew = blank; S.birthEdit = saved ? saved.id : null;
+     chart as it stands (nothing). a chart that is in the saved list is edited in place: the same chart, wherever it is
+     used. forPair: a new second chart for the pair. then: the view to show once a new chart is saved. the form is a
+     dialog: the page behind it is inert, focus goes to its heading, and on leaving it goes back where it came from */
+  const birthState = { opener: null, orig: null, then: null, rowId: null };
+  function openBirth(target, forPair = false, then = null) {
+    const blank = target === true, n = blank ? null : (target || S.natal || null);
+    S.birthNew = !n; S.birthForPair = !!forPair;
+    S.birthEdit = n && n.id && S.charts.some(c => c.id === n.id) ? n.id : null;
+    birthState.then = then; birthState.rowId = target && target !== true ? target.id : null;
+    birthState.opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
     if (n) {
       const p = placeParts(new Date(n.date), n.place.tz);
       $('birth-name').value = n.name || '';
       $('birth-date').value = fmtDate({ y: +p.year, m: +p.month, d: +p.day }); $('birth-time').value = n.unknownTime ? '' : `${p.hour}:${p.minute}`; $('birth-ampm').value = '24';
       $('birth-unknown').checked = !!n.unknownTime;
       choosePlace(n.place);
-    } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-ampm').value = '24'; $('birth-unknown').checked = false; choosePlace(null); }
-    const h = $('birth').querySelector('h1'), key = n ? 'ui.editNativity' : 'ui.newNativity';
+      birthState.orig = { stamp: `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`, unknown: !!n.unknownTime, lat: n.place.lat, lon: n.place.lon, tz: n.place.tz, date: n.date };   // to keep the stored instant when nothing of the moment changes
+    } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-ampm').value = '24'; $('birth-unknown').checked = false; choosePlace(null); birthState.orig = null; }
+    const h = $('birth-title'), key = n ? 'ui.editNativity' : 'ui.newNativity';
     h.dataset.i18n = key; h.textContent = SD.i18n.cap1(SD.i18n.t(key));
     $('birth-clear').hidden = !(n && n === S.natal && !S.birthEdit);   // Clear forgets the loaded chart that is in no list; a saved chart is deleted from the list, a blank form has nothing to clear
     delete $('birth-date').dataset.free; delete $('birth-time').dataset.free;
-    $('birth-date').classList.remove('bad');
+    dateError(false);
     $('birth-note').textContent = '';
-    $('birth').hidden = false;
+    $('birth').hidden = false; $('birth').scrollTop = 0;     // always from the top: the heading, the name, the date
+    setInert(true);
+    h.focus({ preventScroll: true });
     loadPlaces().catch(() => {});                           // the list, fetched once, cached with the app
   }
+  function setInert(on) {                                   // the page behind the open form: unreachable by keyboard and by touch
+    let el = $('birth');
+    while (el && el.parentElement) { for (const sib of el.parentElement.children) if (sib !== el && sib.tagName !== 'SCRIPT') sib.inert = on; el = el.parentElement; if (el === document.body) break; }
+  }
+  function backToRow(id) {                                  // a chart edited from the list: the list again, its Edit in hand
+    openMenu(true);
+    const b = [...$('charts').querySelectorAll('li[data-id]')].find(li => li.dataset.id === id);
+    const e = b && b.querySelector('button[data-act="edit"]'); if (e) { e.focus({ preventScroll: true }); e.scrollIntoView({ block: 'nearest' }); }
+  }
+  function closeBirth() {
+    $('birth').hidden = true; setInert(false);
+    S.birthEdit = null; S.birthForPair = false;               // nothing left behind for the next form
+    const row = birthState.rowId, back = birthState.opener; birthState.rowId = null; birthState.opener = null;
+    if (row) { backToRow(row); return; }
+    const to = back && back.isConnected && back.getClientRects().length ? back : $('menu-open');   // the control that opened it, or the way back to the charts
+    to.focus({ preventScroll: true });
+  }
+  /* the date's own error, under the field, announced; the field marked for every reader */
+  function dateError(on) {
+    const el = $('birth-date'), err = $('birth-date-err');
+    el.classList.toggle('bad', on);
+    if (on) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
+    err.textContent = on ? SD.i18n.cap1(SD.i18n.t('ui.badDate')) : ''; err.hidden = !on;
+  }
+
   /* ---------- the birthplace: a gazetteer of every town of a thousand people (GeoNames, CC BY 4.0), searched as you type ----------
      each entry carries its time zone, so the birth is read in the zone of its own place with the rules of its year. */
   const gaz = { rows: null, loading: null };
@@ -1754,56 +1793,52 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     box.addEventListener('input', () => { S.birthPlace = null; $('birth-chosen').textContent = '';
       for (const id of ['birth-lat', 'birth-lon']) { const f = $(id); if (f.dataset.auto && f.value === f.dataset.auto) { f.value = ''; f.dataset.auto = ''; } }   // another town typed: the last one's coordinates go with it; coordinates typed by hand stay
       clearTimeout(timer); timer = setTimeout(() => { if (!gaz.rows && !gaz.loading) loadPlaces().then(show).catch(show); else if (gaz.loading) gaz.loading.then(show).catch(show); show(); }, 90); });
-    box.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = list.querySelector('button[data-i]'); if (b) b.click(); e.preventDefault(); } if (e.key === 'Escape') list.hidden = true; });
+    box.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = list.querySelector('button[data-i]'); if (b) b.click(); e.preventDefault(); } if (e.key === 'Escape' && !list.hidden) { list.hidden = true; e.preventDefault(); } });
     list.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; choosePlace(list.rows[+b.dataset.i]); });
     box.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 150));
   }
   function saveBirth() {
+    const i = SD.i18n, note = k => { $('birth-note').textContent = i.cap1(i.t(k)); };
     const pd = parseDate($('birth-date').value), unknown = $('birth-unknown').checked, timeTxt = unknown ? '12:00' : normTime($('birth-time').value, $('birth-ampm').value);
-    if (!pd) { $('birth-date').classList.add('bad'); $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.badDate')); return; }
+    if (!pd) { dateError(true); $('birth-date').focus(); return; }
     const dateTxt = isoDate(pd);
-    if (!unknown && !/^\d{2}:\d{2}$/.test(timeTxt)) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.badTime')); return; }
-    $('birth-date').value = fmtDate(pd); $('birth-date').classList.remove('bad'); if (!unknown) { $('birth-time').value = timeTxt; $('birth-ampm').value = '24'; }
+    if (!unknown && !/^\d{2}:\d{2}$/.test(timeTxt)) { note('ui.badTime'); $('birth-time').focus(); return; }
+    $('birth-date').value = fmtDate(pd); dateError(false); if (!unknown) { $('birth-time').value = timeTxt; $('birth-ampm').value = '24'; }
     const lat = parseFloat($('birth-lat').value), lon = parseFloat($('birth-lon').value), hand = Number.isFinite(lat) && Number.isFinite(lon);
     let place = null;
     if (S.birthPlace) place = { ...S.birthPlace, lat: hand ? lat : S.birthPlace.lat, lon: hand ? lon : S.birthPlace.lon };   // the coordinates may be corrected by hand
     else if (hand) place = { name: $('birth-place').value.trim() || `${lat.toFixed(2)}, ${lon.toFixed(2)}`, lat, lon, tz: nearestZone(lat, lon) };
-    if (!place) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.needPlace')); return; }
-    const d = fromStamp(`${dateTxt} ${timeTxt}`, place.tz);
-    if (!d) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.badDate')); return; }
+    if (!place) { note('ui.needPlace'); $('birth-place').focus(); return; }
+    const o = birthState.orig, same = o && `${dateTxt} ${timeTxt}` === o.stamp && unknown === o.unknown && place.lat === o.lat && place.lon === o.lon && place.tz === o.tz;
+    const d = same ? new Date(o.date) : fromStamp(`${dateTxt} ${timeTxt}`, place.tz);   // nothing of the moment changed: the stored instant stays, to the second
+    if (!d) { dateError(true); $('birth-date').focus(); return; }
     const name = $('birth-name').value.trim();
+    const refused = () => { note('ui.noStorage'); recompute(); };   // the browser keeps nothing: the form stays open, the chart lives for this visit and the screen shows it
     if (S.birthEdit) {                                       // a saved chart edited: the same chart, changed in place, wherever it is used
+      S.charts = store.get('charts', S.charts) || S.charts;  // the list as stored now: another tab may have changed it
       const k = S.charts.findIndex(c => c.id === S.birthEdit);
-      if (k >= 0) {
-        const c = { ...S.charts[k], date: d.toISOString(), place, unknownTime: unknown, name: name || S.charts[k].name };   // a cleared name keeps the old one: a saved chart has a name
-        S.charts[k] = c;
-        const kept = store.set('charts', S.charts);
-        if (S.natal && S.natal.id === c.id) { S.natal = { ...c }; store.set('natal', S.natal); natalCache.key = null; }
-        activeCache.key = null;                               // a pair's contacts in force are found again from the new data
-        if (!kept) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.noStorage')); return; }
-        S.birthEdit = null; $('birth').hidden = true;
-        if (!$('menu').hidden) refreshMenu();
-        recompute(); return;
-      }
-      const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };   // deleted meanwhile: kept as a new chart, the loaded one untouched
-      S.charts.push(c); const kept = store.set('charts', S.charts);
-      if (!kept) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.noStorage')); return; }
-      S.birthEdit = null; $('birth').hidden = true;
-      if (!$('menu').hidden) refreshMenu();
-      recompute(); return;
+      const c = k >= 0 ? { ...S.charts[k], date: d.toISOString(), place, unknownTime: unknown, name: name || S.charts[k].name }   // a cleared name keeps the old one: a saved chart has a name
+        : { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };   // deleted meanwhile: kept as a new chart, the loaded one untouched
+      if (k >= 0) S.charts[k] = c; else S.charts.push(c);
+      const kept = store.set('charts', S.charts);
+      if (k >= 0 && S.natal && S.natal.id === c.id) { S.natal = { ...c }; store.set('natal', S.natal); natalCache.key = null; }
+      if (!kept) { refused(); return; }
+      if (S.natal && S.natal.id === c.id) birthState.rowId = null;   // the chart on show: back to the dial, which shows the change; another chart: back to the list, which does
+      closeBirth(); recompute(); return;
     }
     if (S.birthForPair) {                                   // a new second chart for the pair: kept and chosen as the second; the first chart stays
       const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid() };
-      upsertChart(c); S.pair = c.id; store.set('pair', S.pair); S.birthForPair = false; S.birthNew = false;
-      $('birth').hidden = true; S.mode = 'pair'; store.set('mode', S.mode); recompute(); return;
+      upsertChart(c); S.pair = c.id; store.set('pair', S.pair); S.birthNew = false;
+      closeBirth(); S.mode = 'pair'; store.set('mode', S.mode); recompute(); return;
     }
+    const wasNew = S.birthNew, then = birthState.then;
     S.natal = { date: d.toISOString(), place, unknownTime: unknown, name: name || undefined, id: name ? (!S.birthNew && S.natal && S.natal.id) || uid() : undefined };
     S.birthNew = false;
     if (name) upsertChart(S.natal);                         // a named nativity is kept in the saved charts
     const kept = store.set('natal', S.natal); natalCache.key = null;
-    if (!kept) { $('birth-note').textContent = SD.i18n.cap1(SD.i18n.t('ui.noStorage')); return; }   // the browser refuses to keep data: say so, keep the form open, the chart lives for this visit only
-    $('birth').hidden = true;
-    if (S.mode !== 'natal' && S.mode !== 'synastry') S.mode = 'synastry';
+    if (!kept) { refused(); return; }
+    closeBirth();
+    if (wasNew) { if (then) S.mode = then; else if (S.mode !== 'natal' && S.mode !== 'synastry') S.mode = 'synastry'; }   // a new chart: the view asked for, else its transits; an edit keeps the view
     store.set('mode', S.mode); recompute();
   }
 
@@ -1831,6 +1866,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const yearFirst8 = s => { const n = (a, b) => +s.slice(a, b), ymd = realDate(n(0, 4), n(4, 6), n(6, 8)), dm = realDate(n(4, 8), n(2, 4), n(0, 2)) || realDate(n(4, 8), n(0, 2), n(2, 4)); return ymd && (!dm || n(0, 4) >= 1800); };
   const realDate = (y, m, d) => { const x = new Date(Date.UTC(y, m - 1, d)); return y >= 1000 && y <= 3000 && x.getUTCFullYear() === y && x.getUTCMonth() === m - 1 && x.getUTCDate() === d; };   // 31 February refused, never rolled over
   function parseDate(txt) {
+    if (/[^\d\s\/.\-]/.test(String(txt).trim())) return null;   // only / - . and space part a date: 1990/1l/27 is refused, never read as January
     let g = String(txt).trim().split(/[^0-9]+/).filter(Boolean);
     if (g.length === 1 && g[0].length === 8) { const s = g[0]; g = yearFirst8(s) ? [s.slice(0, 4), s.slice(4, 6), s.slice(6, 8)] : [s.slice(0, 2), s.slice(2, 4), s.slice(4, 8)]; }
     if (g.length === 4 && g.every(x => x.length === 2)) g = [g[0] + g[1], g[2], g[3]];   // a year the layout split in two (18/09/02/12): joined again
@@ -1851,9 +1887,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* the birth date field on leaving it: shown back in the language's order, or marked when it cannot be read */
   function showBirthDate() {
     const el = $('birth-date'), v = el.value.trim();
-    if (!v) { el.classList.remove('bad'); return; }
+    if (!v) { dateError(false); return; }
     const p = parseDate(v);
-    if (p) { el.value = fmtDate(p); el.classList.remove('bad'); delete el.dataset.free; } else el.classList.add('bad');
+    if (p) { el.value = fmtDate(p); delete el.dataset.free; dateError(false); } else dateError(true);
   }
   /* a time typed as 24-hour (16:30, 1630, 9:05) or as 12-hour with am or pm, typed (4:30 pm, 4.30p.m., 4pm) or chosen
      beside the field; always returned as 24-hour hh:mm, or '' when it cannot be a time */
@@ -1861,6 +1897,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* the chooser's labels as the language writes them, lower case: am / pm, a. m. / p. m. */
   function ampmLabels() { const sel = $('birth-ampm'); if (!sel) return; for (const o of sel.options) o.textContent = SD.i18n.t('ui.' + (o.value === '24' ? 'h24' : o.value)); }
   function normTime(txt, mode = '24') {
+    if (/[^\d\s:.hapm]/i.test(String(txt))) return '';   // only am / pm and h stand beside the figures: 1o:30 is refused
     mode = ampmOf(txt) || mode;
     const d = digitsOf(txt);
     if (!d.length) return txt.trim();
@@ -1874,11 +1911,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const normStamp = txt => {
     const s = String(txt).trim(), w = s.match(/^(\d{1,4}[^\d\s]\d{1,2}[^\d\s]\d{1,4})(?:[\sT]+(.*))?$/i);   // a date written with its own separators, then the time
     let p, t;
+    const ap = ampmOf(w ? (w[2] || '') : s);                 // 4:30 pm is 16:30, as in the birth form
     if (w) { p = parseDate(w[1]); const q = String(w[2] || '').trim().match(/^(\d{1,2})\D+(\d{1,2})/); t = q ? pad2(q[1]) + pad2(q[2]) : digitsOf(w[2] || '').slice(0, 4); }   // so 2026-7-12 9:5 is 09:05
     else { const d = digitsOf(s); if (d.length < 8) return s; p = parseDate(d.slice(0, 8)); t = d.slice(8, 12); }
     if (!p) return s;                                         // 2026-13-40 or 31 February: refused, not rolled over
     if (!t) return `${isoDate(p)} 12:00`;
-    const tm = normTime(t.length <= 2 ? t.padStart(2, '0') + '00' : t);
+    const tm = normTime(t.length <= 2 ? t.padStart(2, '0') + '00' : t, ap || '24');
     return tm ? `${isoDate(p)} ${tm}` : s;
   };
   /* while typing, the separators appear on their own: 1990/11/27, 27/11/1990, 11:05, 9:05. the date is laid out as
@@ -1911,7 +1949,19 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const twelve = twelveOf();
       const v = el.value, pos = el.selectionStart == null ? v.length : el.selectionStart;
       if (!v) { free(false); prev = v; return; }
-      if (pos < v.length) { prev = v; return; }              // an edit inside the line is left exactly as typed; the separators form only at the end
+      if (el.dataset.free && !/\D/.test(v)) free(false);     // only digits left: the layout takes over again
+      if (pos < v.length) {                                   // an edit inside the line is left as typed; the separators form only at the end
+        if (e.inputType === 'deleteContentBackward' && !el.dataset.free && digitsOf(v) === digitsOf(prev)) {   // but a separator deleted there takes the digit before it, as at the end
+          let digits = digitsOf(v), before = digitsOf(v.slice(0, pos)).length;
+          if (before > 0) {
+            digits = digits.slice(0, before - 1) + digits.slice(before); before--;
+            const out = shape(digits, twelveOf()); let c = 0; for (let n = 0; c < out.length && n < before; c++) if (/\d/.test(out[c])) n++;
+            el.value = out; try { el.setSelectionRange(c, c); } catch (err) { /* number keyboards */ }
+            prev = out; return;
+          }
+        }
+        prev = v; return;
+      }
       if ((e.inputType === 'insertText' && e.data && e.data.length > 1) || /^insert(FromPaste|FromDrop|ReplacementText)$/.test(e.inputType || '')) { free(true); prev = v; return; }   // pasted or filled whole
       if (!el.dataset.free && e.inputType === 'insertText' && e.data && /\D/.test(e.data)) {   // a separator or a letter typed by hand
         const sepCount = (prev.split(' ')[0].match(/\D/g) || []).length;
@@ -2032,11 +2082,17 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     }, () => { if (asked) $('here').title = 'location not available on this device or browser'; }, { timeout: 10000, maximumAge: 3600e3 });
   }
 
+  function whenHint() {                                     // the Clock's field says its order in the language
+    const i = SD.i18n, f = `${i.t('ui.dateFmt')} hh:mm`;
+    $('when').placeholder = f; $('when').setAttribute('aria-label', `${i.t('ui.whenAria')}: ${f}`);
+  }
   function setLang(l) {
     const typed = parseDate($('birth-date').value);           // read in the old language's order, before it changes
     S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply(); ampmLabels(); glossaryTerms(); glossaryLang = null;
     if ($('set-lang').value !== l) $('set-lang').value = l;
     if (typed) $('birth-date').value = fmtDate(typed);
+    if (!$('birth-date-err').hidden) dateError(true);         // the error, in the new language
+    whenHint();
     requestAnimationFrame(slideSeg);
     if (!$('menu').hidden) refreshMenu();
     document.querySelectorAll('[data-about]').forEach(el => { el.hidden = el.dataset.about !== l; });
@@ -2045,7 +2101,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
 
   async function start() {
-    SD.i18n.set(S.lang); SD.i18n.apply(); ampmLabels();
+    SD.i18n.set(S.lang); SD.i18n.apply(); ampmLabels(); whenHint();
     document.querySelectorAll('[data-about]').forEach(el => { el.hidden = el.dataset.about !== S.lang; });
     try {
       await Promise.all(['400 20px Geist', '500 20px Geist', '400 20px "Geist Mono"'].map(f => document.fonts.load(f)));

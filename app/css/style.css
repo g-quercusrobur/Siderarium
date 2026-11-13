@@ -88,6 +88,7 @@ body {
 .sheet .list .name:hover { color: var(--ink); }
 .sheet .list .name input { width: 100%; border: 1px solid var(--ink-3); padding: 4px 8px; color: var(--ink); font: 400 13px/1.3 var(--mono); }
 .sheet .list .ops { display: flex; gap: 2px; }
+.sheet .list .name { min-width: 0; overflow-wrap: anywhere; }   /* a long name wraps; the buttons stay on screen */
 .sheet .list .ops button { font: 400 13px/1 var(--sans); padding: 0 8px; min-height: 32px; color: var(--ink-3); }
 .sheet .list .ops button:hover { color: var(--ink); }
 .sheet .list .empty { color: var(--ink-3); font: 400 13px/1.5 var(--sans); padding: 6px 0; }
@@ -137,6 +138,8 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 .form label { display: grid; gap: 6px; font: 400 13px/1.3 var(--sans); color: var(--ink-2); }
 .form label .hint { margin-left: 6px; font: 400 12px/1.3 var(--mono); letter-spacing: 0.04em; color: var(--ink-3); }   /* the date's order, beside its label: still there once the field is filled */
 .form input[type="text"].bad { color: #ff8a6a; border-color: #ff8a6a; }   /* a date that cannot be read (as specific as the field's own rule, so it shows) */
+.form .field-err { margin: -8px 0 0; font: 400 13px/1.4 var(--sans); color: #ff8a6a; }   /* the date's error, right under it */
+#birth-title:focus { outline: none; }   /* focus lands on the heading when the form opens: announced, not drawn */
 .form input[type="text"], .form select { font: 400 15px/1.2 var(--mono); color: var(--ink); background: var(--void); border: 1px solid var(--ink-3); padding: 10px 12px; min-height: 44px; width: 100%; max-width: 100%; }
 .form .check { grid-template-columns: auto 1fr; align-items: start; gap: 10px; }
 .form .check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--ink); }
@@ -191,6 +194,7 @@ body.bare .bar, body.bare #readout { display: none; }
 body.bare #stage { grid-row: 1 / 4; grid-column: 1 / 3; }
 
 @media (max-width: 720px) {
+  .sheet .list .ops button { min-height: 44px; }   /* a finger's height for each chart's Edit, Duplicate, Delete */
   body { grid-template-columns: 1fr; grid-template-areas: "top" "stage" "bottom"; overflow: auto; height: auto; min-height: 100%; }
   #stage { min-height: 0; }
   body.reading { grid-template-areas: "top" "stage" "bottom" "side"; }
@@ -229,13 +233,13 @@ body.wall .dialwrap, body.wall #dial { display: block; width: 100vw; height: 100
 .panel .results .where { color: var(--ink-3); }
 
 /* the chart in use on the clock: a radio before each saved chart */
-.sheet .list .use { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; border: 1px solid var(--ink-3); border-radius: 50%; margin: 0 2px 0 0; cursor: pointer; background: none; }
+.sheet .list .use { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; padding: 0; min-height: 0; flex: none; border: 1px solid var(--ink-3); border-radius: 50%; margin: 0 2px 0 0; cursor: pointer; background: none; }
 .sheet .list .use:checked { border-color: var(--ink); box-shadow: inset 0 0 0 3.5px var(--void), inset 0 0 0 8px var(--ink); }
 .sheet .list .use:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
 
 /* the clickable area over the canvas eyebrow, and the link in the phone caption */
 .what-link { position: absolute; display: block; z-index: 3; cursor: pointer; background: transparent; }
-.form .timebox { display: flex; gap: 6px; align-items: stretch; } .form .timebox input[type="text"] { flex: 1 1 auto; width: auto; min-width: 0; } .form .timebox select { flex: 0 0 5.5em; width: 5.5em; padding: 10px 8px; }   /* the birth time and its 24 h / am / pm */
+.form .timebox { display: flex; gap: 6px; align-items: stretch; } .form .timebox input[type="text"] { flex: 1 1 0; width: 0; min-width: 0; } .form .timebox select { flex: 0 0 5.5em; width: 5.5em; padding: 10px 8px; }   /* the birth time and its 24 h / am / pm */
 .copy-link { position: absolute; display: block; z-index: 3; cursor: pointer; background: transparent; border: 0; padding: 0; border-radius: 4px; }   /* over the icon drawn on the dial */
 .copy-link.done { background: rgba(111, 207, 142, 0.18); }
 .copy-btn { display: inline-flex; vertical-align: -3px; align-items: center; justify-content: center; width: 22px; height: 18px; min-height: 0; margin-left: 2px;   /* sits on the line, not above it (overrides the 44 px touch minimum) */ padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); cursor: pointer; }
