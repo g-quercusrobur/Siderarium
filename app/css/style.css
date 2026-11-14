@@ -396,7 +396,6 @@ body.natal .corner-chart { display: inline-flex; }
   --rule: rgba(235, 231, 220, 0.12);      /* the hairline between sections and between talisman rows */
   --rule-2: rgba(235, 231, 220, 0.24);    /* under column heads; the edge of pills and pop-ups */
   --surface: #111;                        /* pop-ups */
-  --rose-h: #7fa4e0; --rose-s: #ff5a2a;   /* the rose's two layers, exactly as render.js draws them (ROSE_H, ROSE_S) */
   --r-h3: 20px;   --r-h3-lh: 26px;        /* section title */
   --r-std: 17px;  --r-std-lh: 24px;       /* standfirst: the section's answer, in one line */
   --r-h4: 15px;   --r-h4-lh: 20px;        /* sub-section title */
@@ -432,10 +431,11 @@ body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48p
 /* ---------- the head of a rose view (Transits, Synastry): the dial's legend, then one sentence ---------- */
 #readout .rose-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 10px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-2); }
 #readout .rose-key .k { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-#readout .rose-key svg { flex: none; width: 22px; height: 12px; overflow: visible; isolation: isolate; }
-#readout .rose-key .pe { stroke-width: 1.4; }
-#readout .rose-key .pe-h { fill: rgba(127, 164, 224, 0.32); stroke: var(--rose-h); }
-#readout .rose-key .pe-s { fill: rgba(255, 90, 42, 0.32); stroke: var(--rose-s); mix-blend-mode: screen; }   /* the dial blends its two layers with screen: so does the key */
+#readout .rose-key svg { flex: none; width: 20px; height: 20px; overflow: visible; }
+#readout .rose-key .pe { stroke-width: 1; stroke-linejoin: round; }
+#readout .rose-key .pe-o { fill: none; stroke: rgba(251, 248, 240, 0.4); }   /* the whole petal, faint: where the core sits */
+#readout .rose-key .pe-s { fill: rgba(255, 90, 42, 0.66); stroke: rgba(251, 248, 240, 0.82); }   /* the core, as the dial draws it: red enamel, ink wire */
+#readout .rose-key .pe-h { fill: rgba(127, 164, 224, 0.5); stroke: rgba(251, 248, 240, 0.82); }   /* the ring around it: blue enamel between the outline and the seam */
 #readout p.lede { margin: 0 0 8px; color: var(--ink-2); }
 
 /* ---------- pop-up triggers: one kind, a labelled pill, placed under the section's answer ---------- */

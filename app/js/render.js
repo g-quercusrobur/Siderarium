@@ -576,7 +576,9 @@
   /* the guardians: day ruler and hour ruler as their planetary stars, point up, inside a soft light.
      one ruler: one pure figure. two: they overlap, sharing gcd(n1, n2) points. */
   const GUARD_K = { 3: 1, 4: 1, 5: 2, 6: 2, 7: 3, 8: 3, 9: 4 };
-  function drawGuardians(ctx, state, Lt, E) {
+  // part: 'light' the light or the void's pupil alone, 'stars' the two stars alone, otherwise both. the rose's views draw
+  // the light beneath the rose, so a void Moon dims the field around it without blacking out the strife at its core
+  function drawGuardians(ctx, state, Lt, E, part) {
     const d = state.hour.dayRuler, hr = state.hour.hourRuler;
     const cx = Lt.cx, cy = Lt.cy, rg = Lt.R * 0.095;
     const dc = C.PLANETS[d].tincture, hc = C.PLANETS[hr].tincture;
@@ -587,7 +589,7 @@
     let tint = K.mixLight(K.mixLight(dc === '#040507' ? '#9aa0ab' : dc, hc === '#040507' ? '#9aa0ab' : hc, 0.5, 0), '#fff4dc', 0.6, 0);
     if (v === 'unripe') tint = K.mixLight(tint, '#7d889c', 0.7, -0.08);
     const level = { ripe: 1.25, open: 0.9, unripe: 0.45, void: state.moon.tolerable ? 0.28 : 0 }[v];   // void but tolerable (lilly): a low light stays
-    if (PURE) { /* the sigil carries the stars only */ }
+    if (PURE || part === 'stars') { /* the sigil carries the stars only */ }
     else if (level > 0 && v !== 'void') {
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rg * 2.6);
       g.addColorStop(0, K.rgba(tint, 0.55 * E * level)); g.addColorStop(0.35, K.rgba(tint, 0.18 * E * level)); g.addColorStop(1, K.rgba(tint, 0));
@@ -608,6 +610,7 @@
       g.addColorStop(0, `rgba(0,0,0,${deep})`); g.addColorStop(0.5, `rgba(0,0,0,${(deep * 0.88).toFixed(2)})`); g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rg * 2.4, 0, TAU); ctx.fill();
     }
+    if (part === 'light') { ctx.restore(); return; }
     const ghost = v === 'void' ? 0.8 : v === 'unripe' ? 0.7 : 1;   // void: the light goes out, the guardians still hold the room
     const lw = Lt.u * 1.6;
     const star = (key, alpha) => {
@@ -839,18 +842,20 @@
   /* the harmonic rose of a pair, in place of planets. every contact between the two charts is a petal curve of its
      aspect's harmonic (after John Addey: conjunction 1, opposition 2, trine 3, square 4, sextile 6, quincunx 12),
      turned to the first chart's point on the zodiac and sized by its weight, so its petals also reach the second
-     chart's point. summed, harmony is one cool layer and strife one warm layer: the symmetry of the flower is the
-     structure of the pair. the single contacts run beneath, faint, in the blend of their two signs' colours. [SD] */
+     chart's point. summed, strife is a warm core and harmony a cool ring laid on it: the symmetry of the flower is the
+     structure of the pair. a quincunx of a pair is adjustment, neither harmony nor strife, and stays out of the flower.
+     the heaviest single contacts run as fine ink veins, each inside the layer it feeds. [SD] */
   const ROSE_N = { conjunction: 1, opposition: 2, trine: 3, square: 4, sextile: 6, quincunx: 12 };
   const ROSE_H = '#7fa4e0', ROSE_S = '#ff5a2a';
   const rosePetal = (n, th, a) => Math.pow((1 + Math.cos(n * (a - th))) / 2, 1.5 + n * 0.75);   // a raised cosine, sharper as the harmonic rises
-  const roseCache = new WeakMap();
+  const roseCache = new WeakMap(), ROSE_NS = 720, ROSE_VEINS = 16;   // the two sums every half degree of longitude; the heaviest contacts drawn alone
   /* the rose of the transits: the same flower from the sky of now to the birth chart. every transit is a petal curve of its
      aspect's harmonic turned to the transiting planet, so its petals also reach the natal point it touches, sized by its
-     weight; the ten heaviest, the Moon's passing contacts left out. trines and sextiles feed the cool layer, squares and
-     oppositions the warm; a conjunction by its planets: with a malefic warm, with a benefic cool, otherwise half to each. [SD] */
+     weight; the ten heaviest, the Moon's passing contacts left out. trines and sextiles feed the cool layer, squares,
+     oppositions and quincunxes the warm; a conjunction by its planets: with a malefic warm, with a benefic cool,
+     otherwise half to each. [SD] */
   const MALEFIC = new Set(['mars', 'saturn', 'pluto']), BENEFIC = new Set(['venus', 'jupiter']);
-  function transitPetals(state, sCol) {
+  function transitPetals(state) {
     return state.transits.filter(x => x.a !== 'moon' && ROSE_N[x.aspect] && state.bodies[x.a] && Number.isFinite(x.nlon)).slice(0, 10).map(x => {   // the Moon's passing contacts and the faint tail left out: the flower of the period
       const la = state.bodies[x.a].lon, w = x.power;
       let h = 0, s = 0;
@@ -859,58 +864,104 @@
       else if (MALEFIC.has(x.a) || MALEFIC.has(x.b)) s = w;
       else if (BENEFIC.has(x.a) || BENEFIC.has(x.b)) h = w;
       else { h = w / 2; s = w / 2; }
-      return { n: ROSE_N[x.aspect], th: la * Math.PI / 180, w, h, s, col: K.mixLight(sCol(la), sCol(x.nlon), 0.5, 0) };
+      return { n: ROSE_N[x.aspect], th: la * Math.PI / 180, w, h, s };
     });
   }
   const roseKey = state => state.pair ? state.syn : state.transits && state.natal ? state.transits : null;
   function roseOf(state) {
     const syn = roseKey(state); if (!syn) return null;
     if (roseCache.has(syn)) return roseCache.get(syn);
-    const B = state.natal, node = k => k === 'node' ? E_.trueNode : null;
+    const node = k => k === 'node' ? E_.trueNode : null;
     const lonOf = (st, k) => k === 'ascendant' ? st.asc : k === 'midheaven' ? st.mc : node(k) ? node(k)(st.date) : st.bodies[k] && st.bodies[k].lon;
-    const sCol = lon => Number.isFinite(lon) ? C.SIGNS[Math.floor(E_.norm360(lon) / 30)].color : INK;
-    const cs = !state.pair ? transitPetals(state, sCol) : state.syn.contacts.filter(c => ROSE_N[c.aspect] && Number.isFinite(lonOf(state, c.a))).map(c => {
-      const la = lonOf(state, c.a), lb = B ? lonOf(B, c.b) : la;
-      return { n: ROSE_N[c.aspect], th: la * Math.PI / 180, w: c.w, h: c.h, s: c.s, col: K.mixLight(sCol(la), sCol(lb), 0.5, 0) };
-    });
-    const sum = (key, lr) => cs.reduce((t, c) => t + c[key] * rosePetal(c.n, c.th, lr), 0);
-    let mx = 0; for (let i = 0; i < 360; i += 2) { const lr = i * Math.PI / 180; mx = Math.max(mx, sum('h', lr) + sum('s', lr)); }
-    const r = { cs, sum, mx: mx || 1, w0: cs.length ? Math.max(...cs.map(c => c.w)) : 1 };
+    const cs = !state.pair ? transitPetals(state) : state.syn.contacts.filter(c => ROSE_N[c.aspect] && Number.isFinite(lonOf(state, c.a)))
+      .map(c => ({ n: ROSE_N[c.aspect], th: lonOf(state, c.a) * Math.PI / 180, w: c.w, h: c.h, s: c.s }));
+    // the two sums once, every half degree of longitude: strife S and harmony H in each direction, and the busiest whole
+    const N = ROSE_NS, H = new Float32Array(N), S = new Float32Array(N), alone = [];
+    for (const c of cs) {
+      if (!(c.h > 0) && !(c.s > 0)) continue;                 // a pair's quincunx: adjustment, not in the flower
+      const p = new Float32Array(N);
+      for (let i = 0; i < N; i++) { p[i] = rosePetal(c.n, c.th, i * TAU / N); H[i] += c.h * p[i]; S[i] += c.s * p[i]; }
+      alone.push({ c, p });
+    }
+    let mx = 0, hMax = 0, sMax = 0;
+    for (let i = 0; i < N; i++) { mx = Math.max(mx, H[i] + S[i]); hMax = Math.max(hMax, H[i]); sMax = Math.max(sMax, S[i]); }
+    const veins = alone.sort((x, y) => (y.c.h + y.c.s) - (x.c.h + x.c.s)).slice(0, ROSE_VEINS);
+    const r = { cs, H, S, veins, mx: mx || 1, hMax, sMax };
     roseCache.set(syn, r); return r;
   }
-  /* the rose in numbers: the share of weight by harmonic, largest first */
+  /* the rose in numbers: the share of the flower's weight by harmonic, largest first. it counts what the flower draws, so
+     a pair's quincunxes stay out of it as they stay out of the drawing */
   function roseSummary(state) {
-    const ro = roseOf(state); if (!ro || !ro.cs.length) return null;
-    const by = {}, tot = ro.cs.reduce((t, c) => t + c.w, 0) || 1;
-    for (const c of ro.cs) by[c.n] = (by[c.n] || 0) + c.w;
-    return { folds: Object.entries(by).map(([n, w]) => ({ n: +n, share: w / tot })).sort((x, y) => y.share - x.share), n: ro.cs.length };
+    const ro = roseOf(state); if (!ro) return null;
+    const by = {}; let tot = 0, n = 0;
+    for (const c of ro.cs) { const w = c.h + c.s; if (!(w > 0)) continue; by[c.n] = (by[c.n] || 0) + w; tot += w; n++; }
+    if (!n) return null;
+    return { folds: Object.entries(by).map(([k, w]) => ({ n: +k, share: w / tot })).sort((x, y) => y.share - x.share), n };
   }
+  /* the rose drawn stacked: Florence Nightingale's coxcomb made continuous. in every direction the two layers lie one on
+     the other, never over each other: strife is the core, from the hub out, and harmony the ring laid on it, so the
+     outline is the whole weight there, the two together. both are area-true on one scale (from the hub, the core's area
+     grows with the strife in that direction and the ring's with the harmony), no part of the flower belongs to both, and
+     nothing mixes into a third colour. strife takes the core because a shape read whole from the hub is read exactly,
+     where a layer laid on the other thins to a rind at the rim: a choice for reading, not a verdict on the pair. the two
+     enamels are translucent, so the engraving runs through them, and cream ink wires part them, as in cloisonne. [SD] */
   function drawRose(ctx, state, Lt, R0, R1, lw, E) {
-    const ro = roseOf(state); if (!ro || !ro.cs.length) return;
-    const STEPS = FAST ? 180 : 540;
-    const path = f => { const p = new Path2D(); for (let i = 0; i <= STEPS; i++) { const lon = i * 360 / STEPS, v = f(lon * Math.PI / 180), q = polar(Lt, eclAngle(state, lon), R0 + (R1 - R0) * Math.sqrt(Math.max(0, v))); i ? p.lineTo(q.x, q.y) : p.moveTo(q.x, q.y); } p.closePath(); return p; };
-    const layers = [['h', ROSE_H], ['s', ROSE_S]].map(([key, col]) => ({ col, p: path(lr => ro.sum(key, lr) / ro.mx), key }));
+    const ro = roseOf(state); if (!ro) return;
+    const hasS = ro.sMax > 0.01 * ro.mx, hasH = ro.hMax > 0.01 * ro.mx;   // a layer with next to no weight draws nothing
+    if (!hasS && !hasH) return;
+    const { H, S } = ro, N = H.length, A0 = R0 * R0, A1 = R1 * R1 - A0;
+    const rad = w => Math.sqrt(A0 + A1 * clamp(w / ro.mx));  // area-true: from the hub, the area grows with the weight
+    const co = new Float32Array(N), si = new Float32Array(N), rS = new Float32Array(N), rT = new Float32Array(N);
+    let rSmax = R0;
+    for (let i = 0; i < N; i++) {
+      const th = eclAngle(state, i * 360 / N); co[i] = Math.cos(th); si[i] = Math.sin(th);
+      rS[i] = hasS ? rad(S[i]) : R0; rT[i] = rad(S[i] + H[i]); rSmax = Math.max(rSmax, rS[i]);
+    }
+    // a closed curve through the samples, every half degree; while the dial turns, every two degrees
+    const trace = (p, r, st = FAST ? 4 : 1) => { for (let i = 0; i <= N; i += st) { const j = i % N, x = Lt.cx + r[j] * co[j], y = Lt.cy - r[j] * si[j]; i ? p.lineTo(x, y) : p.moveTo(x, y); } p.closePath(); return p; };
+    const edge = trace(new Path2D(), rS), outline = trace(new Path2D(), rT);
     ctx.save(); ctx.lineJoin = 'round';
-    if (PURE) {                                               // the sigil: the two outlines in ink, strife the lighter line
+    if (PURE) {                                               // the sigil: the outline at full weight, the core's edge just under it; they nest and never cross
       ctx.strokeStyle = '#fbf8f0';
-      for (const L of layers) { ctx.lineWidth = L.key === 'h' ? PURE_LW : PURE_LW * 0.55; ctx.stroke(L.p); }
+      if (hasS && hasH) { ctx.lineWidth = PURE_LW * 0.85; ctx.stroke(edge); }
+      ctx.lineWidth = PURE_LW; ctx.stroke(outline);
       ctx.restore(); return;
     }
-    // a veil under the flower, so the field does not fight it
+    // a veil under the flower, so the field does not fight it; lighter at the hub, so the core is not laid on black
     const v = ctx.createRadialGradient(Lt.cx, Lt.cy, 0, Lt.cx, Lt.cy, R1 * 1.05);
-    v.addColorStop(0, 'rgba(0,0,0,0.55)'); v.addColorStop(0.75, 'rgba(0,0,0,0.35)'); v.addColorStop(1, 'rgba(0,0,0,0)');
+    v.addColorStop(0, 'rgba(0,0,0,0.4)'); v.addColorStop(0.75, 'rgba(0,0,0,0.35)'); v.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = v; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, R1 * 1.05, 0, TAU); ctx.fill();
-    if (!FAST) {                                              // each contact alone, the heaviest first, in the blend of its two signs
-      ctx.lineWidth = lw * 0.55;
-      for (const c of ro.cs.slice(0, 18)) { ctx.strokeStyle = K.rgba(c.col, (0.2 + 0.45 * c.w / ro.w0) * E); ctx.stroke(path(lr => 0.85 * (c.w / ro.w0) * rosePetal(c.n, c.th, lr))); }
+    const core = trace(new Path2D(), rS); core.moveTo(Lt.cx + R0, Lt.cy); core.arc(Lt.cx, Lt.cy, R0, 0, TAU); core.closePath();   // even-odd: from the hub to the core's edge
+    const ring = trace(trace(new Path2D(), rT), rS);         // even-odd: from the core's edge to the outline
+    if (!FAST && ro.veins.length) {                           // each heavy contact alone, a fine ink vein beneath the enamel of the layer it feeds:
+      const v0 = Math.max(...ro.veins.map(x => x.c.h + x.c.s));   // its strife from the hub, its harmony from the core's edge, drawn only where it weighs
+      const vein = (p, w, base) => { let on = false;
+        for (let i = 0; i <= N; i += 2) { const j = i % N, x = w(j);
+          if (x > 0.004 * ro.mx) { const r = rad(base(j) + x), px = Lt.cx + r * co[j], py = Lt.cy - r * si[j]; on ? p.lineTo(px, py) : p.moveTo(px, py); on = true; } else on = false; }
+        return p; };
+      ctx.lineWidth = lw * 0.5;
+      for (const { c, p } of ro.veins) {
+        const path = new Path2D();
+        if (hasS && c.s > 0) vein(path, j => c.s * p[j], () => 0);
+        if (hasH && c.h > 0) vein(path, j => c.h * p[j], j => S[j]);
+        ctx.strokeStyle = K.rgba(INK, (0.12 + 0.3 * (c.h + c.s) / v0) * E); ctx.stroke(path);
+      }
     }
-    ctx.globalCompositeOperation = 'screen';
-    for (const L of layers) {
-      const g = ctx.createRadialGradient(Lt.cx, Lt.cy, R0 * 0.6, Lt.cx, Lt.cy, R1);
-      g.addColorStop(0, K.rgba(L.col, 0.05 * E)); g.addColorStop(1, K.rgba(L.col, 0.4 * E));
-      ctx.fillStyle = g; ctx.fill(L.p);
-      ctx.strokeStyle = K.rgba(L.col, 0.95); ctx.lineWidth = lw * 1.1; ctx.stroke(L.p);
+    if (hasS) {                                               // the core, lit from the hub to its own farthest reach
+      const g = ctx.createRadialGradient(Lt.cx, Lt.cy, R0, Lt.cx, Lt.cy, Math.max(rSmax, R0 * 2));
+      g.addColorStop(0, K.rgba(ROSE_S, 0.4 * E)); g.addColorStop(1, K.rgba(ROSE_S, 0.66 * E));
+      ctx.fillStyle = g; ctx.fill(core, 'evenodd');
     }
+    if (hasH) { ctx.fillStyle = K.rgba(ROSE_H, 0.5 * E); ctx.fill(ring, 'evenodd'); }   // the ring, one even enamel: its light owes nothing to the strife beneath it
+    if (!FAST) {                                              // a rim of light just inside each one's outer edge
+      ctx.lineWidth = lw * 5;
+      if (hasS) { ctx.save(); ctx.clip(core, 'evenodd'); ctx.strokeStyle = K.rgba(ROSE_S, 0.34 * E); ctx.stroke(edge); ctx.restore(); }
+      if (hasH) { ctx.save(); ctx.clip(ring, 'evenodd'); ctx.strokeStyle = K.rgba(ROSE_H, 0.26 * E); ctx.stroke(outline); ctx.restore(); }
+    }
+    // the ink wires, as between two enamels: the outline of the whole, and the seam between core and ring
+    ctx.strokeStyle = K.rgba('#fbf8f0', 0.82);
+    if (hasS && hasH) { ctx.lineWidth = Math.max(lw * 0.9, 1.2); ctx.stroke(edge); }
+    ctx.lineWidth = Math.max(lw * 1.05, 1.3); ctx.stroke(outline);
     ctx.restore();
   }
 
@@ -1906,7 +1957,7 @@
       });
     }
     // secondary first, primary on top; a pair of charts draws its own figure instead
-    if (ROSE) drawRose(ctx, state, Lt, Lt.R * 0.07, Lt.R * 0.88, lw, E);
+    if (ROSE) { drawGuardians(ctx, state, Lt, E, 'light'); drawRose(ctx, state, Lt, Lt.R * 0.07, Lt.R * 0.88, lw, E); }   // the guardians' light beneath the rose, their stars over it
     else if (state.pair && state.composite) { const g = drawCompositeFigure(ctx, state, Lt, Rp, lw, E, t); if (g) geos.push(g); }
     else if (state.pair && state.ownFigures) drawPairFigure(ctx, state, Lt, Rp, lw, E);
     else cf.secondary.slice().reverse().forEach(c => geos.push(drawFigure(ctx, state, Lt, c, Rp, 'secondary', lw * 0.7, E, t)));
@@ -1942,7 +1993,7 @@
     if (!ROSE) drawBodies(ctx, state, Lt, pos, E, lw, t, involved, clusters);
     if (!ROSE && state.interaction && state.interaction.figures[0]) drawInteraction(ctx, state, Lt, state.interaction.figures[0], pos, npos, lw, E);
 
-    drawGuardians(ctx, state, Lt, E);
+    drawGuardians(ctx, state, Lt, E, ROSE ? 'stars' : undefined);
 
     // optics after everything inside the sky: pluto occults, neptune diffuses
     if (!ROSE) {
