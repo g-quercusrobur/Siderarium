@@ -1,24 +1,24 @@
 {
- "rendered": "2026-11-14 03:05 utc",
+ "rendered": "2026-11-14 10:14 utc",
  "targets": [
   {
    "name": "rome",
    "place": "rome",
-   "caption": "Saturday · 14 November 2026 · 04:05 CET · Rome",
+   "caption": "Saturday · 14 November 2026 · 11:14 CET · Rome",
    "figure": "Jupiter biquintile Neptune · exact",
    "chord": "Chord E · unison"
   },
   {
    "name": "new-york",
    "place": "new york",
-   "caption": "Friday · 13 November 2026 · 22:05 GMT-5 · New York",
+   "caption": "Saturday · 14 November 2026 · 05:14 GMT-5 · New York",
    "figure": "Jupiter biquintile Neptune · exact",
    "chord": "Chord E · unison"
   },
   {
    "name": "greenwich",
    "place": "greenwich",
-   "caption": "Saturday · 14 November 2026 · 03:05 GMT · Greenwich",
+   "caption": "Saturday · 14 November 2026 · 10:14 GMT · Greenwich",
    "figure": "Jupiter biquintile Neptune · exact",
    "chord": "Chord E · unison"
   }
