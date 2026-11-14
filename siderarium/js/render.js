@@ -873,12 +873,13 @@
     if (roseCache.has(syn)) return roseCache.get(syn);
     const node = k => k === 'node' ? E_.trueNode : null;
     const lonOf = (st, k) => k === 'ascendant' ? st.asc : k === 'midheaven' ? st.mc : node(k) ? node(k)(st.date) : st.bodies[k] && st.bodies[k].lon;
-    const cs = !state.pair ? transitPetals(state) : state.syn.contacts.filter(c => ROSE_N[c.aspect] && Number.isFinite(lonOf(state, c.a)))
+    // a pair's quincunx is adjustment and stays out by its aspect, even where a family reading gives it a share of each
+    const cs = !state.pair ? transitPetals(state) : state.syn.contacts.filter(c => ROSE_N[c.aspect] && c.aspect !== 'quincunx' && Number.isFinite(lonOf(state, c.a)))
       .map(c => ({ n: ROSE_N[c.aspect], th: lonOf(state, c.a) * Math.PI / 180, w: c.w, h: c.h, s: c.s }));
     // the two sums once, every half degree of longitude: strife S and harmony H in each direction, and the busiest whole
     const N = ROSE_NS, H = new Float32Array(N), S = new Float32Array(N), alone = [];
     for (const c of cs) {
-      if (!(c.h > 0) && !(c.s > 0)) continue;                 // a pair's quincunx: adjustment, not in the flower
+      if (!(c.h > 0) && !(c.s > 0)) continue;                 // no weight, nothing to draw
       const p = new Float32Array(N);
       for (let i = 0; i < N; i++) { p[i] = rosePetal(c.n, c.th, i * TAU / N); H[i] += c.h * p[i]; S[i] += c.s * p[i]; }
       alone.push({ c, p });
@@ -920,17 +921,27 @@
     // a closed curve through the samples, every half degree; while the dial turns, every two degrees
     const trace = (p, r, st = FAST ? 4 : 1) => { for (let i = 0; i <= N; i += st) { const j = i % N, x = Lt.cx + r[j] * co[j], y = Lt.cy - r[j] * si[j]; i ? p.lineTo(x, y) : p.moveTo(x, y); } p.closePath(); return p; };
     const edge = trace(new Path2D(), rS), outline = trace(new Path2D(), rT);
-    ctx.save(); ctx.lineJoin = 'round';
+    // the seam, the core's edge as a wire, only where the ring between it and the outline is wide enough to show between
+    // the two wires; where the ring tapers out, the outline is the one line, at its own weight, not two fused into a heavier one
+    const seam = gap => { const st = FAST ? 4 : 1; let k = -1;
+      for (let i = 0; i < N; i += st) if (rT[i] - rS[i] < gap) { k = i; break; }
+      if (k < 0) return edge;                                 // the ring shows all round: the seam is the core's whole edge
+      const p = new Path2D(); let on = false;
+      for (let i = k; i <= k + N; i += st) { const j = i % N;
+        if (rT[j] - rS[j] >= gap) { const x = Lt.cx + rS[j] * co[j], y = Lt.cy - rS[j] * si[j]; on ? p.lineTo(x, y) : p.moveTo(x, y); on = true; } else on = false; }
+      return p; };
+    ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     if (PURE) {                                               // the sigil: the outline at full weight, the core's edge just under it; they nest and never cross
       ctx.strokeStyle = '#fbf8f0';
-      if (hasS && hasH) { ctx.lineWidth = PURE_LW * 0.85; ctx.stroke(edge); }
+      if (hasS && hasH) { ctx.lineWidth = PURE_LW * 0.85; ctx.stroke(seam(PURE_LW * 1.85)); }
       ctx.lineWidth = PURE_LW; ctx.stroke(outline);
       ctx.restore(); return;
     }
-    // a veil under the flower, so the field does not fight it; lighter at the hub, so the core is not laid on black
+    // a veil under the flower, so the field does not fight it; lighter at the hub, so the core is not laid on black. it stops
+    // at the hub's own circle, the flower's one window, so the guardians' light (or a void Moon's pupil) shows there as it is
     const v = ctx.createRadialGradient(Lt.cx, Lt.cy, 0, Lt.cx, Lt.cy, R1 * 1.05);
     v.addColorStop(0, 'rgba(0,0,0,0.4)'); v.addColorStop(0.75, 'rgba(0,0,0,0.35)'); v.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = v; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, R1 * 1.05, 0, TAU); ctx.fill();
+    ctx.fillStyle = v; ctx.beginPath(); ctx.arc(Lt.cx, Lt.cy, R1 * 1.05, 0, TAU); ctx.moveTo(Lt.cx + R0, Lt.cy); ctx.arc(Lt.cx, Lt.cy, R0, 0, TAU); ctx.fill('evenodd');
     const core = trace(new Path2D(), rS); core.moveTo(Lt.cx + R0, Lt.cy); core.arc(Lt.cx, Lt.cy, R0, 0, TAU); core.closePath();   // even-odd: from the hub to the core's edge
     const ring = trace(trace(new Path2D(), rT), rS);         // even-odd: from the core's edge to the outline
     if (!FAST && ro.veins.length) {                           // each heavy contact alone, a fine ink vein beneath the enamel of the layer it feeds:
@@ -952,7 +963,10 @@
       g.addColorStop(0, K.rgba(ROSE_S, 0.4 * E)); g.addColorStop(1, K.rgba(ROSE_S, 0.66 * E));
       ctx.fillStyle = g; ctx.fill(core, 'evenodd');
     }
-    if (hasH) { ctx.fillStyle = K.rgba(ROSE_H, 0.5 * E); ctx.fill(ring, 'evenodd'); }   // the ring, one even enamel: its light owes nothing to the strife beneath it
+    if (hasH) {                                               // the ring, one even enamel: its light owes nothing to the strife beneath it
+      if (!ENGRAVE) { ctx.fillStyle = 'rgba(5,10,32,0.5)'; ctx.fill(ring, 'evenodd'); }   // over a lit field (glow) a dark ground first, or the blue mixes to grey where the light is warm
+      ctx.fillStyle = K.rgba(ROSE_H, 0.5 * E); ctx.fill(ring, 'evenodd');
+    }
     if (!FAST) {                                              // a rim of light just inside each one's outer edge
       ctx.lineWidth = lw * 5;
       if (hasS) { ctx.save(); ctx.clip(core, 'evenodd'); ctx.strokeStyle = K.rgba(ROSE_S, 0.34 * E); ctx.stroke(edge); ctx.restore(); }
@@ -960,8 +974,9 @@
     }
     // the ink wires, as between two enamels: the outline of the whole, and the seam between core and ring
     ctx.strokeStyle = K.rgba('#fbf8f0', 0.82);
-    if (hasS && hasH) { ctx.lineWidth = Math.max(lw * 0.9, 1.2); ctx.stroke(edge); }
-    ctx.lineWidth = Math.max(lw * 1.05, 1.3); ctx.stroke(outline);
+    const wS = Math.max(lw * 0.9, 1.2), wO = Math.max(lw * 1.05, 1.3);
+    if (hasS && hasH) { ctx.lineWidth = wS; ctx.stroke(seam(1.5 * (wS + wO))); }
+    ctx.lineWidth = wO; ctx.stroke(outline);
     ctx.restore();
   }
 
