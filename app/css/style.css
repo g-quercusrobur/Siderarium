@@ -433,7 +433,7 @@ body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48p
 #readout .rose-key .k { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 #readout .rose-key svg { flex: none; width: 20px; height: 20px; overflow: visible; }
 #readout .rose-key .pe { stroke-width: 1; stroke-linejoin: round; }
-#readout .rose-key .pe-o { fill: none; stroke: rgba(251, 248, 240, 0.4); }   /* the whole petal, faint: where the core sits */
+#readout .rose-key .pe-o { fill: none; stroke: rgba(251, 248, 240, 0.4); }   /* the whole flower, faint: where the core sits */
 #readout .rose-key .pe-s { fill: rgba(255, 90, 42, 0.66); stroke: rgba(251, 248, 240, 0.82); }   /* the core, as the dial draws it: red enamel, ink wire */
 #readout .rose-key .pe-h { fill: rgba(127, 164, 224, 0.5); stroke: rgba(251, 248, 240, 0.82); }   /* the ring around it: blue enamel between the outline and the seam */
 #readout p.lede { margin: 0 0 8px; color: var(--ink-2); }

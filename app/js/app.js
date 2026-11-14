@@ -752,7 +752,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* the dial's legend in a rose view: a small rose twice, a soft trefoil around a four-lobed core, with the red core lit in
      one and the blue ring around it in the other, each with its ink wires: the key shows where each layer sits */
   const keyRose = (r0, k, n, ph) => { let d = ''; for (let i = 0; i < 48; i++) { const t = i * Math.PI / 24, r = r0 * (1 - k + k * Math.cos(n * t - ph)); d += `${i ? 'L' : 'M'}${(8 + r * Math.cos(t)).toFixed(1)} ${(8 - r * Math.sin(t)).toFixed(1)}`; } return d + 'Z'; };
-  const KEY_ROSE = keyRose(7.2, 0.2, 3, Math.PI / 2), KEY_CORE = keyRose(4.1, 0.16, 4, 0);
+  const KEY_ROSE = keyRose(7.2, 0.12, 3, Math.PI / 2), KEY_CORE = keyRose(3.8, 0.16, 4, 0);   // the ring at least 1.7 units wide all round: it never pinches shut at 20 px
   const roseKeyHtml = transits => { const K = k => SD.i18n.t('ui.r.roseKey')[k], [s, h] = transits ? ['hard', 'easy'] : ['strife', 'harmony'];
     return `<p class="rose-key"><span class="k"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="pe pe-o" d="${KEY_ROSE}"/><path class="pe pe-s" d="${KEY_CORE}"/></svg>${K(s)}</span><span class="k"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="pe pe-h" fill-rule="evenodd" d="${KEY_ROSE} ${KEY_CORE}"/></svg>${K(h)}</span></p>`; };
 
