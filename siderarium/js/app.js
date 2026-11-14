@@ -749,9 +749,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const hmIn = (d, tz) => fmtIn(d, tz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const timeTag = (d, txt) => `<time class="nolink" datetime="${d.toISOString()}">${txt}</time>`;
   const aspKeyHtml = () => { const R = k => SD.i18n.t('ui.r.' + k); return `<p class="asp-key nolink"><span class="asp asp-flow">${R('aspFlow')}</span><span class="asp asp-tension">${R('aspTension')}</span><span class="asp asp-afflict">${R('aspAfflict')}</span></p>`; };
-  const PETAL = 'M5 7C9 1 17 1 21 7C17 13 9 13 5 7Z';
-  const roseKeyHtml = (a, b) => { const K = k => SD.i18n.t('ui.r.roseKey')[k];
-    return `<p class="rose-key"><span class="k"><svg viewBox="0 0 26 14" aria-hidden="true"><path class="pe pe-h" d="${PETAL}"/></svg>${K(a)}</span><span class="k"><svg viewBox="0 0 26 14" aria-hidden="true"><path class="pe pe-s" d="${PETAL}"/></svg>${K(b)}</span><span class="k"><svg viewBox="0 0 26 14" aria-hidden="true"><path class="pe pe-h" d="M1 7C5 1 13 1 17 7C13 13 5 13 1 7Z"/><path class="pe pe-s" d="M9 7C13 1 21 1 25 7C21 13 13 13 9 7Z"/></svg>${K('overlap')}</span></p>`; };
+  /* the dial's legend in a rose view: a small rose twice, a soft trefoil around a four-lobed core, with the red core lit in
+     one and the blue ring around it in the other, each with its ink wires: the key shows where each layer sits */
+  const keyRose = (r0, k, n, ph) => { let d = ''; for (let i = 0; i < 48; i++) { const t = i * Math.PI / 24, r = r0 * (1 - k + k * Math.cos(n * t - ph)); d += `${i ? 'L' : 'M'}${(8 + r * Math.cos(t)).toFixed(1)} ${(8 - r * Math.sin(t)).toFixed(1)}`; } return d + 'Z'; };
+  const KEY_ROSE = keyRose(7.2, 0.2, 3, Math.PI / 2), KEY_CORE = keyRose(4.1, 0.16, 4, 0);
+  const roseKeyHtml = transits => { const K = k => SD.i18n.t('ui.r.roseKey')[k], [s, h] = transits ? ['hard', 'easy'] : ['strife', 'harmony'];
+    return `<p class="rose-key"><span class="k"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="pe pe-o" d="${KEY_ROSE}"/><path class="pe pe-s" d="${KEY_CORE}"/></svg>${K(s)}</span><span class="k"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="pe pe-h" fill-rule="evenodd" d="${KEY_ROSE} ${KEY_CORE}"/></svg>${K(h)}</span></p>`; };
 
   /* paint: the first paint of a view sets every section; a later one replaces only the sections whose html changed, links
      each one's terms (drawn once a section), restores its open folds and re-points an open pop-up to its new trigger */
@@ -924,7 +927,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       return sec('transits', `<h3>${head}</h3>${std}${shown.length ? aspKeyHtml() + rankList(shown.map(a => item(a, true))) : `<p>${i.cap1(i.t('ui.noContact'))}</p>`}${rest.length ? `<details class="more" data-sec="transits.rest"><summary>${R('moreInOrb')(rest.length)}</summary>${rankList(rest.map(a => item(a, false)), '', shown.length + 1)}</details>` : ''}${inter && !inter.figures.length && shown.length ? `<p class="note">${i.cap1(R('noFigure'))}.</p>` : ''}`);
     };
     const roseHead = () => { const line = roseLine(st, true);
-      return `<div class="r-head nolink" data-sec="transits.howto">${roseKeyHtml('easy', 'hard')}<p class="lede">${R('roseTransitsLine')} ${popBtn('roseTransits', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`; };
+      return `<div class="r-head nolink" data-sec="transits.howto">${roseKeyHtml(true)}<p class="lede">${R('roseTransitsLine')} ${popBtn('roseTransits', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`; };
     const stoneHtml = () => st.stone ? sec('stone', `<h3>${H('stone')}</h3><p class="verdict">${i.cap1(i.stone(st.stone.stone))}${st.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(st.stone.alternative)}` : ''}</p><p class="note">${i.cap1(i.t('cap.stonesOf')(st.stone.planet, P(st.stone.planet)))}, ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${natalPt(st.stone.why.b)}` : ''}</p>${pillRow(popBtn('stone', R('howStone')))}`) : '';
 
     // ---- the parts of each view, in order
@@ -960,7 +963,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const add = (key, html) => { if (html) parts.push([key, html]); };
     // the rose
     { const line = roseLine(st);
-      add('rose', `<div class="r-head nolink" data-sec="pair.rose">${roseKeyHtml('harmony', 'strife')}<p class="lede">${R('roseLine')} ${popBtn('rose', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`); }
+      add('rose', `<div class="r-head nolink" data-sec="pair.rose">${roseKeyHtml(false)}<p class="lede">${R('roseLine')} ${popBtn('rose', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`); }
     // the three ties: the relationship first (it changes them), then each tie's makers, signed
     if (Y) {
       const types = ['partner', 'friend', 'colleague', 'parent', 'sibling', 'other'], cur = pairTypeOf(pr.ids[0], pr.ids[1]);
