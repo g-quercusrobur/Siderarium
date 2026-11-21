@@ -1,0 +1,26 @@
+{
+ "rendered": "2026-11-21 09:38 utc",
+ "targets": [
+  {
+   "name": "rome",
+   "place": "rome",
+   "caption": "Saturday · 21 November 2026 · 10:38 CET · Rome",
+   "figure": "Sun square Mars",
+   "chord": "Chord E half-diminished · D E G A#"
+  },
+  {
+   "name": "new-york",
+   "place": "new york",
+   "caption": "Saturday · 21 November 2026 · 04:38 GMT-5 · New York",
+   "figure": "Sun square Mars",
+   "chord": "Chord E half-diminished · D E G A#"
+  },
+  {
+   "name": "greenwich",
+   "place": "greenwich",
+   "caption": "Saturday · 21 November 2026 · 09:38 GMT · Greenwich",
+   "figure": "Sun square Mars",
+   "chord": "Chord E half-diminished · D E G A#"
+  }
+ ]
+}
