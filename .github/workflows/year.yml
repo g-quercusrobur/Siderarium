@@ -1,7 +1,7 @@
 name: year of posts
 # renders one square image a day for a run of days, with the caption of the moment, and the posting plan (plan.csv, plan.json).
-# the images are published at https://siderarium.com/post-<token>/<date>.jpg, so a scheduler can take the CSV by image address;
-# the same set is attached to the run as a zip for download. started by hand from the Actions tab.
+# nothing is published: the images and the plan are attached to the run as one zip, to download from the run's page.
+# started by hand from the Actions tab.
 on:
   workflow_dispatch:
     inputs:
@@ -23,12 +23,9 @@ on:
 permissions:
   contents: read
 jobs:
-  # the render installs packages from npm: it runs with a read-only token and hands the images over as an artifact
   render:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    outputs:
-      folder: ${{ steps.folder.outputs.name }}
     env:   # what was typed in the form reaches the commands as data, never as part of a command
       START: ${{ inputs.start }}
       DAYS: ${{ inputs.days }}
@@ -55,13 +52,8 @@ jobs:
           npm init -y >/dev/null
           npm install --no-audit --no-fund --ignore-scripts playwright@1.47.2
           npx playwright install --with-deps chromium
-      - name: an unlisted folder name, so the year ahead is reachable by its address but not findable
-        id: folder
-        run: echo "name=post-$(openssl rand -hex 6)" >> "$GITHUB_OUTPUT"
       - name: render the days
         working-directory: siderarium
-        env:
-          POST_BASE: https://siderarium.com/${{ steps.folder.outputs.name }}/
         run: node tools/render-year.js ../year-out "$START" "$DAYS" "$PLACE" "$HOUR" "$POST_LANG"
       - name: attach the folder to this run
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
@@ -69,27 +61,5 @@ jobs:
           name: siderarium-posts
           path: year-out
           if-no-files-found: error
-  # the publishing runs nothing from npm: it only moves the images into gh-pages/post-<token>
-  publish:
-    needs: render
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    env:
-      FOLDER: ${{ needs.render.outputs.folder }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/scripts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
-        with:
-          name: siderarium-posts
-          path: year-out
-      - name: publish to gh-pages/post-<token>
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash .github/scripts/publish.sh post year-out "$FOLDER"
       - name: where it is
-        run: echo "Plan at https://siderarium.com/$FOLDER/plan.csv" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "The images and the plan are in the artifact siderarium-posts, at the bottom of this run's page." >> "$GITHUB_STEP_SUMMARY"

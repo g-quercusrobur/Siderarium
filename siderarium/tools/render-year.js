@@ -7,7 +7,7 @@ const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const [out = 'year-out', start = new Date().toISOString().slice(0, 10), daysArg = '365', place = 'rome', hour = '08:00', lang = 'en', exe, base] = process.argv.slice(2);
 const days = +daysArg;
-const SITE = base || process.env.POST_BASE || 'https://siderarium.com/post/';   // the folder's public address, unlisted when the workflow gives it a token
+const SITE = base || process.env.POST_BASE || '';   // an address to put before each file's name in the plan, if the images are hosted somewhere; by default the plan names the file beside it
 const TAGS = { en: '#siderarium #astrology #planetaryhours #electionalastrology #moonvoidofcourse #astrologicalclock #macrocosmicclock',
                es: '#siderarium #astrología #horasplanetarias #astrologíaelectiva #lunavacíadecurso #relojastrológico' };
 const ZONES = { rome: 'Europe/Rome', 'new york': 'America/New_York', london: 'Europe/London', greenwich: 'UTC', madrid: 'Europe/Madrid', paris: 'Europe/Paris', berlin: 'Europe/Berlin', 'los angeles': 'America/Los_Angeles', tokyo: 'Asia/Tokyo', sydney: 'Australia/Sydney', 'mexico city': 'America/Mexico_City', 'buenos aires': 'America/Argentina/Buenos_Aires' };

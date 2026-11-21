@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
 # Publishes to the gh-pages branch, which GitHub Pages serves at the site's address.
 #
-#   publish.sh site <dir>          the website and the app: everything is replaced, except sky/ and post-<token>/
-#   publish.sh sky  <dir>          the hourly renders: sky/ is replaced
-#   publish.sh post <dir> <name>   a run of daily posts: the folder <name> (post-<12 hex>) is added or replaced
+#   publish.sh site <dir>   the website and the app: everything is replaced, except sky/
+#   publish.sh sky  <dir>   the hourly renders: sky/ is replaced
 #
 # The branch is rebuilt each time as ONE commit with no parent. So a file removed from the repository is removed
 # from the site (nothing stale stays served), and the branch keeps no history: the hourly images do not pile up in
 # it. (A commit pushed away stays on GitHub's side, reachable by its hash, until GitHub clears it.)
 #
-# Three workflows publish here. Each takes the branch as it is, changes only its own part and pushes with a lease:
+# Two workflows publish here. Each takes the branch as it is, changes only its own part and pushes with a lease:
 # if another one published meanwhile the push is refused, and the work is done again on the new state.
 #
 # The renders come from a job that installs packages from npm, and they are served from the app's own address: so
-# only images and their plan files are let through, never a page or a script.
+# only images and their index are let through, never a page or a script.
 #
 # Needs GITHUB_TOKEN (contents: write) and GITHUB_REPOSITORY in the environment.
 set -euo pipefail
 
-what=${1:?site, sky or post}
+what=${1:?site or sky}
 src=$(cd "${2:?the folder to publish}" && pwd)
-name=${3:-}
 : "${GITHUB_TOKEN:?}" "${GITHUB_REPOSITORY:?}"
 remote=${PUBLISH_REMOTE:-"https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"}   # PUBLISH_REMOTE: another remote, to try the script against a scratch repository
 branch=gh-pages
@@ -29,13 +27,10 @@ branch=gh-pages
 odd=""
 case "$what" in
   site)
-    # sky and post-* belong to the other two workflows: the site never brings its own
-    odd=$(find "$src" -mindepth 1 -maxdepth 1 \( -name sky -o -name 'post-*' \) -print) ;;
+    # sky belongs to the other workflow: the site never brings its own
+    odd=$(find "$src" -mindepth 1 -maxdepth 1 -name sky -print) ;;
   sky)
     odd=$(find "$src" -mindepth 1 ! \( -type f \( -name '*.png' -o -name sky.json \) \) -print) ;;
-  post)
-    [[ "$name" =~ ^post-[0-9a-f]{12}$ ]] || { echo "post needs a folder name like post-0123456789ab" >&2; exit 2; }
-    odd=$(find "$src" -mindepth 1 ! \( -type f \( -name '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].jpg' -o -name plan.csv -o -name plan.json \) \) -print) ;;
   *) echo "unknown: $what" >&2; exit 2 ;;
 esac
 [ -z "$odd" ] || { echo "not for publishing as $what:" >&2; echo "$odd" >&2; exit 2; }
@@ -56,20 +51,17 @@ for attempt in 1 2 3 4 5; do
 
   case "$what" in
     site)
-      # keep only what the other two workflows own (the folder sky, the folders post-<12 hex>); the rest is exactly this commit
+      # keep only what the other workflow owns (the folder sky); the rest is exactly this commit
       for e in "$tree"/* "$tree"/.[!.]*; do
         [ -e "$e" ] || [ -L "$e" ] || continue
         b=$(basename "$e")
-        if [ -d "$e" ] && [ ! -L "$e" ] && { [ "$b" = sky ] || [[ "$b" =~ ^post-[0-9a-f]{12}$ ]]; }; then continue; fi
+        if [ -d "$e" ] && [ ! -L "$e" ] && [ "$b" = sky ]; then continue; fi
         rm -rf "$e"
       done
       cp -a "$src"/. "$tree"/
       ;;
     sky)
       rm -rf "$tree/sky"; mkdir "$tree/sky"; cp -a "$src"/. "$tree/sky"/
-      ;;
-    post)
-      rm -rf "${tree:?}/$name"; mkdir "$tree/$name"; cp -a "$src"/. "$tree/$name"/
       ;;
   esac
   touch "$tree/.nojekyll"                                  # served as files, not built by Jekyll
