@@ -73,6 +73,7 @@
     <section>
       <h2 data-i18n="ui.keys">keys</h2>
       <p class="meta" data-i18n="ui.keysNote">space run · ← → hour · shift ← → day · f screen · i readout · s sigil · l listen · esc close</p>
+      <p class="meta" data-i18n="ui.touchNote">on a phone: press the dial for a moment, then turn it to move time; a quick swipe scrolls the page</p>
     </section>
   </aside>
 
@@ -105,12 +106,14 @@
       <p class="meta" data-i18n="ui.kept">kept on this device only · never sent anywhere</p>
       <div class="form">
         <label><span data-i18n="ui.name">name</span> <input id="birth-name" type="text" maxlength="80" autocomplete="off" data-i18n="ui.namePrompt" data-i18n-attr="placeholder" placeholder="a name for this chart"></label>
-        <label><span><span data-i18n="ui.date">date</span> <span class="hint" data-i18n="ui.dateFmt">YYYY/MM/DD</span></span> <input id="birth-date" type="text" inputmode="numeric" data-i18n="ui.dateFmt" data-i18n-attr="placeholder" placeholder="YYYY/MM/DD" autocomplete="off" aria-describedby="birth-date-err"></label>
+        <label><span><span data-i18n="ui.date">date</span> <span class="hint" data-i18n="ui.dateFmt">YYYY/MM/DD</span></span> <input id="birth-date" type="text" inputmode="numeric" data-i18n="ui.dateFmt" data-i18n-attr="placeholder" placeholder="YYYY/MM/DD" autocomplete="off" aria-describedby="birth-date-err birth-date-read"></label>
         <p id="birth-date-err" class="field-err" aria-live="polite" hidden></p>
+        <p id="birth-date-read" class="field-read" aria-live="polite"></p>
         <label><span data-i18n="ui.time">time</span> <span class="timebox"><input id="birth-time" type="text" inputmode="numeric" placeholder="hh:mm" autocomplete="off"><select id="birth-ampm" data-i18n="ui.ampmLabel" data-i18n-attr="aria-label" aria-label="24-hour or am / pm"><option value="24">24 h</option><option value="am">am</option><option value="pm">pm</option></select></span></label>
         <label class="check"><input id="birth-unknown" type="checkbox"> <span data-i18n="ui.unknown">time unknown</span></label>
-        <label><span data-i18n="ui.placeName">birthplace</span> <input id="birth-place" type="text" data-i18n="ui.placeHint" data-i18n-attr="placeholder" placeholder="type the town, e.g. Lucca" autocomplete="off" spellcheck="false"></label>
-        <ul id="birth-results" class="results" hidden></ul>
+        <label><span data-i18n="ui.placeName">birthplace</span> <input id="birth-place" type="text" data-i18n="ui.placeHint" data-i18n-attr="placeholder" placeholder="type the town, e.g. Lucca" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="birth-results"></label>
+        <ul id="birth-results" class="results" role="listbox" data-i18n="ui.placeName" data-i18n-attr="aria-label" aria-label="birthplace" hidden></ul>
+        <p id="birth-place-status" class="sr-only" role="status" aria-live="polite"></p>
         <p id="birth-chosen" class="meta"></p>
         <div class="pair">
           <label><span data-i18n="ui.lat">latitude</span> <input id="birth-lat" type="text" inputmode="decimal" placeholder="43.84"></label>
@@ -261,7 +264,7 @@
               <tr><td>title of the moment</td><td>the Moon's house as a stage of life · the mother letter of the hour · the angel of the hour</td></tr>
               <tr><td>strip below the dial</td><td>the three windows over the next 24 hours, each named with its stage; tap a time to go there</td></tr>
             </table></div>
-            <p>Turn the dial to travel in time: clockwise is forward, one turn is one day. Pinch or ctrl + scroll to zoom; double tap to reset. Run, pause and change speed from the bar below. The sigil layer isolates the figure for copying by hand. Print HD art saves a square at 2048 pixels; Wallpaper saves a portrait at this screen's size. Both carry the notice. On a phone, open the app in the browser and choose "add to home screen"; it then runs offline.</p>
+            <p>Turn the dial to travel in time: clockwise is forward, one turn is one day. On a phone, press the dial for a moment and then turn it; a quick swipe over it scrolls the page. Pinch or ctrl + scroll to zoom; double tap to reset. Run, pause and change speed from the bar below. The sigil layer isolates the figure for copying by hand. Print HD art saves a square at 2048 pixels; Wallpaper saves a portrait at this screen's size. Both carry the notice. On a phone, open the app in the browser and choose "add to home screen"; it then runs offline.</p>
 
             <h2>5 · LIMITATIONS</h2>
             <ul>
@@ -447,7 +450,7 @@
               <tr><td>título del momento</td><td>la casa de la Luna como etapa de la vida · la letra madre de la hora · el ángel de la hora</td></tr>
               <tr><td>banda bajo la esfera</td><td>las tres ventanas en las próximas 24 horas, cada una con su etapa; toca una hora para ir a ella</td></tr>
             </table></div>
-            <p>Gira la esfera para viajar en el tiempo: en el sentido del reloj es hacia delante, una vuelta es un día. Pellizca o ctrl + rueda para ampliar; doble toque para volver. Corre, pausa y cambia la velocidad desde la barra inferior. La capa sigilo aísla la figura para copiarla a mano. Imprimir arte HD guarda un cuadrado de 2048 píxeles; Fondo de pantalla guarda un retrato al tamaño de esta pantalla. Ambos llevan el aviso. En el móvil, abre la aplicación en el navegador y elige «añadir a la pantalla de inicio»; después funciona sin conexión.</p>
+            <p>Gira la esfera para viajar en el tiempo: en el sentido del reloj es hacia delante, una vuelta es un día. En el móvil, mantén pulsada la esfera un momento y luego gírala; un gesto rápido sobre ella desplaza la página. Pellizca o ctrl + rueda para ampliar; doble toque para volver. Corre, pausa y cambia la velocidad desde la barra inferior. La capa sigilo aísla la figura para copiarla a mano. Imprimir arte HD guarda un cuadrado de 2048 píxeles; Fondo de pantalla guarda un retrato al tamaño de esta pantalla. Ambos llevan el aviso. En el móvil, abre la aplicación en el navegador y elige «añadir a la pantalla de inicio»; después funciona sin conexión.</p>
 
             <h2>5 · LIMITACIONES</h2>
             <ul>

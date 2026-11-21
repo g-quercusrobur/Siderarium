@@ -110,8 +110,9 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 .when input { font: 400 13px/1 var(--mono); letter-spacing: 0; color: var(--ink); width: 19.5ch; cursor: text; border: 0; }
 .when input.bad { color: #ff8a6a; }
 .when span { font: 400 12px/1 var(--mono); color: var(--ink-2); }
-#dial { touch-action: none; cursor: grab; }
+#dial { touch-action: pan-y; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* a swipe over the dial scrolls the page; a finger that rests on it turns time (app.js, bindGesture) */
 #dial.turning { cursor: grabbing; }
+#dial.held { filter: brightness(1.16); }   /* the finger has taken hold: the dial lights a little, for the phones that cannot buzz */
 #listen::before { content: ''; display: inline-block; width: 6px; height: 6px; border: 1px solid currentColor; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 #sigil.on::before, #listen.on::before { background: currentColor; }
 
@@ -139,6 +140,10 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 .form label .hint { margin-left: 6px; font: 400 12px/1.3 var(--mono); letter-spacing: 0.04em; color: var(--ink-3); }   /* the date's order, beside its label: still there once the field is filled */
 .form input[type="text"].bad { color: #ff8a6a; border-color: #ff8a6a; }   /* a date that cannot be read (as specific as the field's own rule, so it shows) */
 .form .field-err { margin: -8px 0 0; font: 400 13px/1.4 var(--sans); color: #ff8a6a; }   /* the date's error, right under it */
+.form .field-read { margin: -8px 0 0; min-height: 1.4em; font: 400 13px/1.4 var(--sans); color: var(--ink-3); }   /* the date as it was read, in words; its line is kept while empty so the form does not jump as the last figure is typed */
+.form .field-err:not([hidden]) + .field-read { display: none; }
+.form input:disabled, .form select:disabled { opacity: 0.38; cursor: not-allowed; }   /* the time and its am / pm while "time unknown" is ticked */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }   /* said, not shown: what the towns' list holds */
 #birth-title:focus { outline: none; }   /* focus lands on the heading when the form opens: announced, not drawn */
 .form input[type="text"], .form select { font: 400 15px/1.2 var(--mono); color: var(--ink); background: var(--void); border: 1px solid var(--ink-3); padding: 10px 12px; min-height: 44px; width: 100%; max-width: 100%; }
 .form .check { grid-template-columns: auto 1fr; align-items: start; gap: 10px; }
@@ -231,6 +236,8 @@ body.wall .dialwrap, body.wall #dial { display: block; width: 100vw; height: 100
 .panel .results li:last-child button { border-bottom: 0; }
 .panel .results button:hover, .panel .results button:focus-visible { color: var(--ink); background: rgba(235, 231, 220, 0.06); outline: none; }
 .panel .results .where { color: var(--ink-3); }
+.panel .results button.active { color: var(--ink); background: rgba(235, 231, 220, 0.13); box-shadow: inset 2px 0 0 var(--ink); }   /* the row the arrow keys are on */
+.panel .results button:disabled { cursor: default; }
 
 /* the chart in use on the clock: a radio before each saved chart */
 .sheet .list .use { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; padding: 0; min-height: 0; flex: none; border: 1px solid var(--ink-3); border-radius: 50%; margin: 0 2px 0 0; cursor: pointer; background: none; }

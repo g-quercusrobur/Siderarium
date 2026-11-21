@@ -71,9 +71,10 @@ figure figcaption { margin-top: 10px; font-family: var(--mono); font-size: 12px;
 .phone img { border-radius: 26px; border: 1px solid var(--line); }
 
 /* the views */
-.views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
-.view { display: grid; gap: 12px; }
+.views { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 40px; }
+.view { display: grid; gap: 12px; align-content: start; }   /* the titles stay in one line across the row, whatever the length of the texts */
 .view img { aspect-ratio: 1 / 1; object-fit: cover; object-position: top; border: 1px solid var(--line); border-radius: 4px; }
+.view img.left { object-position: left top; }   /* the clock's picture is a wide screen with the dial at its left: the square is cut from that side */
 .view h3 { font-size: 16px; }
 .view p { font-size: 14px; color: var(--ink-2); }
 
@@ -100,19 +101,29 @@ footer .mark { font-size: 15px; color: var(--ink); }
 footer a:hover { color: var(--ink); }
 footer .line { display: flex; flex-wrap: wrap; gap: 18px; }
 
+@media (max-width: 1100px) { .views { grid-template-columns: repeat(2, 1fr); } }   /* four in a row are too small to read here: two and two */
 @media (max-width: 900px) {
   .two, .two.flip { grid-template-columns: 1fr; }
   .two.flip > :first-child { order: 0; }
   .steps, .views, .cards { grid-template-columns: 1fr; }
   .row { grid-template-columns: 1fr; gap: 6px; }
 }
+/* the bar's links go while they would push the button past the edge (measured: the page scrolled sideways up to 731 px), not only on phones */
+@media (max-width: 760px) { .bar nav a:not(.btn) { display: none; } }
 @media (max-width: 640px) {
   body { font-size: 16px; }
-  .bar nav a:not(.btn) { display: none; }
   .hero { min-height: 86vh; }
   .hero .wrap { padding-top: 26vh; }
   .hero .cta .btn { flex: 1 1 100%; }
   .views { gap: 28px; }
+}
+/* under 390 px the mark and the button do not fit side by side at full size (at 320 the page scrolled sideways and the mark ran under the button):
+   the mark shrinks with the screen, from its full size at 390 to 13 px at 320, and the gaps and the button's padding tighten. nothing changes from 390 up */
+@media (max-width: 389px) {
+  .bar { gap: 10px; }
+  .brand { gap: 8px; flex: none; }
+  .mark { font-size: clamp(13px, calc(13px + (100vw - 320px) * 0.057), 17px); letter-spacing: clamp(2.6px, calc(2.6px + (100vw - 320px) * 0.04), 5.44px); }
+  .bar .btn.small { padding: 0 10px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .hero .sky iframe { display: none; } }
 .doc pre.lic { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; line-height: 1.55; color: var(--ink-3); background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 16px; margin: 0; overflow-wrap: anywhere; }

@@ -1481,7 +1481,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       pickHeld = performance.now();
       const i = SD.i18n, onId = which === 'first' ? (S.natal && S.natal.id) : S.pair;
       const list = which === 'second' && S.natal ? S.charts.filter(c => c.id !== S.natal.id) : S.charts;
-      menu.innerHTML = (list.length ? list.map(c => `<button type="button" data-id="${esc(c.id)}"${onId === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t('ui.noCharts'))}</div>`)
+      menu.innerHTML = (list.length ? list.map(c => `<button type="button" data-id="${esc(c.id)}"${onId === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t(which === 'second' ? 'ui.noOther' : 'ui.noCharts'))}</div>`)   // the second place with nothing to offer: the list may hold the first chart, so it is not "no saved charts"
         + `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>`;   // and a way to add one, for either place
       const r = btn.getBoundingClientRect();
       menu.hidden = false;
@@ -1631,7 +1631,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     };
     liveFormat($('when'), 'stamp'); $('when').addEventListener('input', e => e.target.classList.remove('bad'));   // red only until the next keystroke
     liveFormat($('birth-date'), 'date'); liveFormat($('birth-time'), 'time');   // the separators form as the digits come (from 1 to 13 Nov 2026 these two calls sat inside the comment above)
-    $('birth-date').addEventListener('input', () => { if ($('birth-date').classList.contains('bad')) dateError(false); });
+    $('birth-date').addEventListener('input', () => { if ($('birth-date').classList.contains('bad')) dateError(false); readBirthDate(); });   // and the date in words as soon as it reads as one
+    $('birth-unknown').addEventListener('change', syncUnknown);
     $('birth-date').addEventListener('change', showBirthDate);   // leaving the field: the date read and shown back in the language's order, or marked
     $('birth-date').addEventListener('keydown', e => { if (e.key === 'Enter') showBirthDate(); });
     { let prev = '24';                                      // the chooser after the time: 4:30 then pm is 4:30 pm (16:30); 12:30 then am is 00:30
@@ -1656,6 +1657,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if ((m === 'natal' && (S.mode === 'natal' || S.mode === 'natalchart')) || (m === 'pair' && S.mode === 'pair')) { openPick && openPick(m === 'pair' ? 'second' : 'first', b); return; }
       S.mode = m; store.set('mode', S.mode);                // one tab, one view: whatever was lit goes dark
       document.querySelectorAll('[data-mode]').forEach(x => x.classList.toggle('on', x.dataset.mode === m));   // the tab answers at once
+      if (m === 'pair' && openPick && !S.charts.some(c => c.id !== S.natal.id)) openPick('second', b);   // Synastry with no other chart to pair: its menu at once, which says so and offers a new one
       requestAnimationFrame(() => setTimeout(() => { S.quick = true; recompute(); }, 0));   // the work after the paint; the first frame quick, the full plate on the next
     }));
     if ($('birth-open')) $('birth-open').addEventListener('click', openBirth);   // the button is gone from the place row; the form opens from the Natal tab and the menu
@@ -1804,6 +1806,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       choosePlace(n.place);
       birthState.orig = { stamp: `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`, unknown: !!n.unknownTime, tz: n.place.tz, date: n.date, name: n.name || '', place: JSON.stringify([n.place.name, +n.place.lat, +n.place.lon, n.place.tz]) };   // what the form opened with: what the hand left alone is not written back
     } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-ampm').value = '24'; $('birth-unknown').checked = false; choosePlace(null); birthState.orig = null; }
+    syncUnknown(); readBirthDate();
     const h = $('birth-title'), key = n ? 'ui.editNativity' : 'ui.newNativity';
     h.dataset.i18n = key; h.textContent = SD.i18n.cap1(SD.i18n.t(key));
     $('birth-clear').hidden = !(n && n === S.natal && !S.birthEdit);   // Clear forgets the loaded chart that is in no list; a saved chart is deleted from the list, a blank form has nothing to clear
@@ -1840,10 +1843,18 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (on) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
     err.textContent = on ? SD.i18n.cap1(SD.i18n.t('ui.badDate')) : ''; err.hidden = !on;
   }
+  /* the date as it was read, in words under the field: 07/03/1985 is two different days by the order of its figures,
+     "7 March 1985" only one. empty while the field does not read as a date */
+  function readBirthDate() {
+    const p = parseDate($('birth-date').value), el = $('birth-date-read'); let t = '';
+    if (p) try { t = new Intl.DateTimeFormat(SD.i18n.locale(), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(p.y, p.m - 1, p.d))); } catch (e) { /* the field still shows the date in figures */ }
+    if (el.textContent !== t) el.textContent = t;
+  }
+  function syncUnknown() { const off = $('birth-unknown').checked; $('birth-time').disabled = off; $('birth-ampm').disabled = off; }   // no time to give: the field and its chooser stand aside (saveBirth reads neither then, so what was typed before is not saved)
 
   /* ---------- the birthplace: a gazetteer of every town of a thousand people (GeoNames, CC BY 4.0), searched as you type ----------
      each entry carries its time zone, so the birth is read in the zone of its own place with the rules of its year. */
-  const gaz = { rows: null, loading: null };
+  const gaz = { rows: null, loading: null };              // neither: the last fetch did not bring the list (offline, a broken answer), which is said as such, never as "no such place"
   const fold = t => String(t).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
   /* the names a hand types for cities the gazetteer lists by their English or local name: Italian and Spanish first,
      then a few English and local ones it lacks. found as the name itself, so Roma is Rome and not Roma in Lesotho,
@@ -1890,6 +1901,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       }
       const top = new Map(); for (const r of rows) { const k = r.name + '|' + r.cc, o = top.get(k); if (!o || r.pop > o.pop) top.set(k, r); }   // the largest town of that name in that country
       for (const [name, cc, ...al] of PLACE_ALIASES) { const r = top.get(name + '|' + cc); if (r) r.alias = al.map(fold); }
+      if (!rows.length) throw new Error('no places');      // an answer that is not the list (a portal's page under the same address) is a failed load, not an empty world
       gaz.rows = rows; gaz.loading = null; return rows;
     }).catch(e => { gaz.loading = null; throw e; });
     return gaz.loading;
@@ -1918,24 +1930,54 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('birth-lat').value = pl ? pl.lat : ''; $('birth-lon').value = pl ? pl.lon : '';
     $('birth-lat').dataset.auto = pl ? String(pl.lat) : ''; $('birth-lon').dataset.auto = pl ? String(pl.lon) : '';   // written by the choice, not by hand
     $('birth-chosen').textContent = pl ? `${pl.tz} · ${(+pl.lat).toFixed(3)}, ${(+pl.lon).toFixed(3)}` : '';
-    $('birth-results').hidden = true;
+    closePlaces();
   }
+  function closePlaces() {                                // the towns' list put away, and the box told so
+    const box = $('birth-place');
+    $('birth-results').hidden = true; box.setAttribute('aria-expanded', 'false'); box.removeAttribute('aria-activedescendant');
+    $('birth-place-status').textContent = '';              // nothing on show, nothing left to be read
+  }
+  /* the birthplace box is a combobox over the towns' list (WAI-ARIA 1.2, list autocomplete): the focus stays in the box,
+     the arrows walk the rows (and wrap), Enter takes the row they are on, or the first; Escape puts the list away, and
+     only a second Escape leaves the form. the rows cannot be tabbed into: Tab goes on to the next field. what the list
+     holds is also said aloud (so many places, loading, not found, could not be loaded) through a polite live region.
+     a list that failed to load is asked for again at the next keystroke and when the browser is back online */
   function bindPlaceSearch() {
-    const box = $('birth-place'), list = $('birth-results'); let timer = null;
-    const show = () => {
-      const q = box.value; if (!q.trim()) { list.hidden = true; return; }
-      if (!gaz.rows) { list.innerHTML = `<li><button type="button" disabled>${SD.i18n.cap1(SD.i18n.t(gaz.loading ? 'ui.placesLoading' : 'ui.noPlace'))}</button></li>`; list.hidden = false; return; }
-      const rows = searchPlaces(q);
-      list.innerHTML = rows.length ? rows.map((r, i) => `<li><button type="button" data-i="${i}">${esc(r.name)}<span class="where">${esc((r.region ? ', ' + r.region : '') + ', ' + r.country)}</span></button></li>`).join('')
-        : `<li><button type="button" disabled>${SD.i18n.cap1(SD.i18n.t('ui.noPlace'))}</button></li>`;
-      list.hidden = false; list.rows = rows;
+    const box = $('birth-place'), list = $('birth-results'), status = $('birth-place-status'); let timer = null, active = -1;
+    const T = k => SD.i18n.cap1(SD.i18n.t(k)), say = t => { if (status.textContent !== t) status.textContent = t; };
+    const opts = () => [...list.querySelectorAll('button[data-i]')];
+    const mark = n => {                                   // the row the arrows are on: lit, and named to the box, which keeps the focus
+      const o = opts(); active = o.length ? (n + o.length) % o.length : -1;
+      o.forEach((b, k) => { b.classList.toggle('active', k === active); b.setAttribute('aria-selected', k === active ? 'true' : 'false'); });
+      if (active >= 0) { box.setAttribute('aria-activedescendant', o[active].id); o[active].scrollIntoView({ block: 'nearest' }); } else box.removeAttribute('aria-activedescendant');
     };
+    const show = () => {
+      const q = box.value; active = -1; box.removeAttribute('aria-activedescendant');
+      if (!q.trim()) { closePlaces(); return; }
+      const rows = gaz.rows ? searchPlaces(q) : [], key = !gaz.rows ? (gaz.loading ? 'ui.placesLoading' : 'ui.placesFailed') : rows.length ? null : 'ui.noPlace';   // not loaded is not "not found"
+      list.innerHTML = key ? `<li role="presentation"><button type="button" role="option" aria-disabled="true" aria-selected="false" tabindex="-1" disabled>${T(key)}</button></li>`
+        : rows.map((r, i) => `<li role="presentation"><button type="button" role="option" id="birth-opt-${i}" data-i="${i}" tabindex="-1" aria-selected="false">${esc(r.name)}<span class="where">${esc((r.region ? ', ' + r.region : '') + ', ' + r.country)}</span></button></li>`).join('');
+      list.hidden = false; list.rows = rows; box.setAttribute('aria-expanded', 'true');
+      say(key ? T(key) : SD.i18n.t('ui.placesFound')(rows.length));
+    };
+    const late = () => { if (document.activeElement === box || !list.hidden) show(); };   // an answer that comes after the hand has left the box does not open the list behind it
+    const refresh = () => { if (!gaz.rows && !gaz.loading) loadPlaces().then(late, late); else if (gaz.loading) gaz.loading.then(late, late); show(); };   // no list yet, and none on its way: asked for again
     box.addEventListener('input', () => { S.birthPlace = null; $('birth-chosen').textContent = '';
       for (const id of ['birth-lat', 'birth-lon']) { const f = $(id); if (f.dataset.auto && f.value === f.dataset.auto) { f.value = ''; f.dataset.auto = ''; } }   // another town typed: the last one's coordinates go with it; coordinates typed by hand stay
-      clearTimeout(timer); timer = setTimeout(() => { if (!gaz.rows && !gaz.loading) loadPlaces().then(show).catch(show); else if (gaz.loading) gaz.loading.then(show).catch(show); show(); }, 90); });
-    box.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = list.querySelector('button[data-i]'); if (b) b.click(); e.preventDefault(); } if (e.key === 'Escape' && !list.hidden) { list.hidden = true; e.preventDefault(); } });
+      clearTimeout(timer); timer = setTimeout(refresh, 90); });
+    box.addEventListener('keydown', e => {
+      if (e.isComposing) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (list.hidden) { if (!box.value.trim()) return; clearTimeout(timer); refresh(); }   // put away with Escape: the arrows bring it back
+        const o = opts(); if (o.length) mark(e.key === 'ArrowDown' ? active + 1 : active < 0 ? o.length - 1 : active - 1);
+        e.preventDefault();                                 // the caret stays where it is
+      } else if (e.key === 'Enter') { const o = opts(), b = list.hidden ? null : o[active] || o[0]; if (b) b.click(); e.preventDefault(); }   // only from a list on show: a list put away holds the last search
+      else if (e.key === 'Escape' && !list.hidden) { closePlaces(); e.preventDefault(); }
+    });
     list.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; choosePlace(list.rows[+b.dataset.i]); if (e.detail === 0) box.focus({ preventScroll: true }); });   // chosen from the keyboard: back to the box, whose button is gone (a tap leaves the phone's keyboard down)
-    box.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 150));
+    const away = () => setTimeout(() => { const a = document.activeElement; if (a !== box && !list.contains(a)) closePlaces(); }, 150);   // put away once the focus is in neither: a row being pressed keeps its list
+    box.addEventListener('blur', away); list.addEventListener('focusout', away);
+    window.addEventListener('online', () => { if (!$('birth').hidden && !gaz.rows && !gaz.loading) { loadPlaces().then(late, late); late(); } });   // the connection is back while the form is open: the list is asked for again
   }
   function saveBirth() {
     const i = SD.i18n, note = k => { $('birth-note').dataset.i18n = k; $('birth-note').textContent = i.cap1(i.t(k)); };   // keyed, so a change of language translates it
@@ -2034,6 +2076,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (!v) { dateError(false); return; }
     const p = parseDate(v);
     if (p) { el.value = fmtDate(p); delete el.dataset.free; dateError(false); } else dateError(true);
+    readBirthDate();
   }
   /* a time typed as 24-hour (16:30, 1630, 9:05) or as 12-hour with am or pm, typed (4:30 pm, 4.30p.m., 4pm) or chosen
      beside the field; always returned as 24-hour hh:mm, or '' when it cannot be a time */
@@ -2150,11 +2193,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* ---------- the gesture: turn the dial to travel in time ----------
      clockwise = forward. one full turn = one day. the wheel moves ten minutes a notch. */
   function bindGesture() {
-    /* one finger or the mouse turns the dial (time). two fingers pinch to zoom and pan.
-       ctrl/⌘ + wheel, or a trackpad pinch, zooms at the pointer. the plain wheel moves time.
-       double click or double tap returns to the whole dial. */
-    const pts = new Map();
-    let drag = null, pinch = null, lastTap = 0;
+    /* the mouse or the pen turns the dial (time) at once. a finger turns it only after resting on it for a moment:
+       a swipe across the dial is the page being scrolled, and must not move time (the usability audit, November 2026).
+       two fingers pinch to zoom and pan. ctrl/⌘ + wheel, or a trackpad pinch, zooms at the pointer. the plain wheel
+       moves time. double click or double tap returns to the whole dial. */
+    const pts = new Map(), HOLD_MS = 180, HOLD_SLOP = 8;
+    let drag = null, pinch = null, lastTap = 0, hold = null;   // hold: a finger down on the dial, not yet a turn
     const local = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left - (S.ox || 0), y: e.clientY - r.top }; };
     const toDial = p => ({ x: (p.x - view.x) / view.z, y: (p.y - view.y) / view.z });
     const clampView = () => {
@@ -2166,12 +2210,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     };
     const zoomAt = (p, z) => { const w = toDial(p); view.z = z; view.x = p.x - w.x * view.z; view.y = p.y - w.y * view.z; clampView(); };
     const angleAt = p => { const Lt = SD.render.layout(S.side, S.side < 560), q = toDial(p); return { a: Math.atan2(q.y - Lt.cy, q.x - Lt.cx), d: Math.hypot(q.y - Lt.cy, q.x - Lt.cx), R: Lt.Rb }; };
-    const endTurn = () => { if (!drag) return; drag = null; S.dragging = false; canvas.classList.remove('turning'); recompute(); };
+    const endTurn = () => { if (!drag) return; drag = null; S.dragging = false; canvas.classList.remove('turning', 'held'); recompute(); };
+    const beginTurn = (a, touch) => { drag = { last: a, base: S.offsetMs, turned: 0, touch }; S.playing = false; S.dragging = true; canvas.classList.add('turning'); };
+    const dropHold = () => { if (hold) { clearTimeout(hold.timer); hold = null; } };
     canvas.addEventListener('pointerdown', e => {
       canvas.setPointerCapture(e.pointerId);
       pts.set(e.pointerId, local(e));
       if (pts.size === 2) {                                  // second finger: leave time alone, start the pinch
-        endTurn();
+        dropHold(); endTurn();
         const [a, b] = [...pts.values()];
         pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z, w: toDial({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) };
         view.pinching = true; return;
@@ -2179,13 +2225,20 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const now = performance.now();
       if (now - lastTap < 300) { view.z = 1; clampView(); lastTap = 0; return; }   // double tap: the whole dial
       lastTap = now;
-      const p = angleAt(local(e)); if (p.d > p.R) return;
-      drag = { last: p.a, base: S.offsetMs, turned: 0 };
-      S.playing = false; S.dragging = true; canvas.classList.add('turning');
+      const at = local(e), p = angleAt(at); if (p.d > p.R) return;
+      if (e.pointerType !== 'touch') { beginTurn(p.a, false); return; }
+      dropHold();                                            // a finger: nothing moves yet. still there after a moment, it has taken hold of the dial
+      const id = e.pointerId;
+      hold = { id, at, timer: setTimeout(() => {
+        hold = null; const now = pts.get(id); if (!now || pts.size !== 1) return;
+        beginTurn(angleAt(now).a, true); canvas.classList.add('held');   // from here the touch is the dial's: the page no longer scrolls under it
+        try { navigator.vibrate && navigator.vibrate(8); } catch (x) { /* no haptics */ }
+      }, HOLD_MS) };
     });
     canvas.addEventListener('pointermove', e => {
       if (!pts.has(e.pointerId)) return;
       pts.set(e.pointerId, local(e));
+      if (hold && hold.id === e.pointerId) { const q = pts.get(e.pointerId); if (Math.hypot(q.x - hold.at.x, q.y - hold.at.y) > HOLD_SLOP) dropHold(); }   // moved before the hold: a swipe, the browser's to scroll with
       if (pinch && pts.size >= 2) {
         const [a, b] = [...pts.values()], mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
         view.z = pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
@@ -2199,16 +2252,21 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       S.offsetMs = drag.base + drag.turned / (2 * Math.PI) * 864e5;   // one turn, one day; the slider under the dial follows
       recompute();
     });
-    const up = e => {
+    const up = e => {                                        // lifted, or taken by the browser for its own scroll (pointercancel): either way nothing is left armed
       pts.delete(e.pointerId);
+      if (hold && hold.id === e.pointerId) dropHold();
       if (pinch && pts.size < 2) { pinch = null; view.pinching = false; S.dirty = true; }
       if (!pts.size) endTurn();
     };
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('dblclick', () => { view.z = 1; clampView(); });
-    // some phone browsers start their own page zoom on two fingers despite touch-action; the dial keeps the gesture
-    canvas.addEventListener('touchmove', e => { if (e.touches.length >= 2) e.preventDefault(); }, { passive: false });
-    canvas.addEventListener('touchstart', e => { if (e.touches.length >= 2) e.preventDefault(); }, { passive: false });
+    /* the dial lets the browser scroll the page up and down under one finger (touch-action: pan-y) and keeps the touch
+       for itself in two cases: two fingers (some phone browsers start their own page zoom despite touch-action), and one
+       finger once its hold has armed the turn */
+    const mine = e => { if (e.touches.length >= 2 || (drag && drag.touch)) e.preventDefault(); };
+    canvas.addEventListener('touchmove', mine, { passive: false });
+    canvas.addEventListener('touchstart', mine, { passive: false });
+    canvas.addEventListener('contextmenu', e => { if ((drag && drag.touch) || hold) e.preventDefault(); });   // a long press is the turn, not the browser's menu
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) { zoomAt(local(e), view.z * Math.exp(-e.deltaY * 0.005)); return; }   // trackpad pinch arrives as ctrl + wheel
@@ -2251,6 +2309,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if ($('set-lang').value !== l) $('set-lang').value = l;
     if (typed) $('birth-date').value = fmtDate(typed);
     if (!$('birth-date-err').hidden) dateError(true);         // the error, in the new language
+    readBirthDate();                                          // and the date in words
     whenHint();
     requestAnimationFrame(slideSeg);
     if (!$('menu').hidden) refreshMenu();

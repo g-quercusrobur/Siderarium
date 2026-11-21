@@ -2,6 +2,7 @@
   "name": "Siderarium",
   "short_name": "Siderarium",
   "description": "Siderarium: macrocosmic clock visually tracking the astrological energy of the moment.",
+  "id": "/app/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
