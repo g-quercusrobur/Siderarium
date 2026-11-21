@@ -176,7 +176,7 @@ body.small #stage { justify-content: flex-start; }
 .hint1 { display: flex; align-items: flex-start; justify-content: center; gap: 6px; width: 100%; padding: 0 8px; font: 400 13px/20px var(--sans); color: var(--ink-3); }
 .hint1[hidden] { display: none; }
 .hint1 .t { flex: 0 1 auto; min-width: 0; text-wrap: pretty; }
-body.small .hint1 { padding: 8px 8px 0; } body.small .hint1 .t { flex: 1 1 auto; }   /* with the caption beneath: it starts where the caption does, its × at the edge */
+body.small .hint1 { margin-top: 8px; } body.small .hint1 .t { flex: 1 1 auto; }   /* with the caption beneath: it starts where the caption does, its × at the edge (a margin, so the line measures the same in both layouts) */
 .hint1 #hint1-add { position: relative; min-height: 0; padding: 0; border: 0; font: inherit; letter-spacing: 0; color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--ink-3); text-underline-offset: 3px; }
 .hint1 #hint1-add::after { content: ''; position: absolute; inset: -6px -4px; }   /* a taller target than the words */
 .hint1 #hint1-add:hover { color: var(--ink); }
@@ -351,7 +351,7 @@ button.ready { color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3p
   .top .seg button { font-size: 13.5px; letter-spacing: 0; }
   #nexts, #nexts button { font-size: 14.5px; }
   .when input { font-size: 15px; } #zone { font-size: 13px; }
-  .hint1 { font-size: 14px; padding: 0 0 0 8px; } .hint1 #hint1-close { width: 44px; height: 44px; font-size: 20px; line-height: 44px; } .hint1 .t { padding: 12px 0 4px; } .hint1 #hint1-add::after { inset: -12px -4px; }   /* a finger's × and a finger's height for the link */
+  .hint1 { font-size: 14px; padding: 0 0 0 8px; } body.small .hint1 { margin-top: 0; } .hint1 #hint1-close { width: 44px; height: 44px; font-size: 20px; line-height: 44px; } .hint1 .t { padding: 12px 0 4px; } .hint1 #hint1-add::after { inset: -12px -4px; }   /* a finger's × and a finger's height for the link */
   body.small #caption .eyebrow { font-size: 13px; }
   body.small #caption .eyebrow a.what { font-size: 14px; }
   body.small #caption .moment, body.small #caption .detail { font-size: 15px; }
