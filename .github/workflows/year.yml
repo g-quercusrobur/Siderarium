@@ -1,0 +1,95 @@
+name: year of posts
+# renders one square image a day for a run of days, with the caption of the moment, and the posting plan (plan.csv, plan.json).
+# the images are published at https://siderarium.com/post-<token>/<date>.jpg, so a scheduler can take the CSV by image address;
+# the same set is attached to the run as a zip for download. started by hand from the Actions tab.
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'first day, yyyy-mm-dd'
+        required: true
+      days:
+        description: 'how many days'
+        default: '365'
+      place:
+        description: 'rome, new york, london, madrid, paris, berlin, los angeles, tokyo, sydney, mexico city, buenos aires'
+        default: 'rome'
+      hour:
+        description: 'local hour of the image, hh:mm'
+        default: '08:00'
+      lang:
+        description: 'en or es'
+        default: 'en'
+permissions:
+  contents: read
+jobs:
+  # the render installs packages from npm: it runs with a read-only token and hands the images over as an artifact
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      folder: ${{ steps.folder.outputs.name }}
+    env:   # what was typed in the form reaches the commands as data, never as part of a command
+      START: ${{ inputs.start }}
+      DAYS: ${{ inputs.days }}
+      PLACE: ${{ inputs.place }}
+      HOUR: ${{ inputs.hour }}
+      POST_LANG: ${{ inputs.lang }}
+    steps:
+      - name: the form, checked
+        run: |
+          [[ "$START" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "start: yyyy-mm-dd"; exit 1; }
+          [[ "$DAYS" =~ ^[0-9]{1,3}$ ]] || { echo "days: a number up to 999"; exit 1; }
+          [[ "$PLACE" =~ ^[a-z\ ]{2,20}$ ]] || { echo "place: a city of the list"; exit 1; }
+          [[ "$HOUR" =~ ^[0-9]{2}:[0-9]{2}$ ]] || { echo "hour: hh:mm"; exit 1; }
+          [[ "$POST_LANG" =~ ^(en|es)$ ]] || { echo "lang: en or es"; exit 1; }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: 20
+      - name: playwright
+        working-directory: siderarium/tools
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --ignore-scripts playwright@1.47.2
+          npx playwright install --with-deps chromium
+      - name: an unlisted folder name, so the year ahead is reachable by its address but not findable
+        id: folder
+        run: echo "name=post-$(openssl rand -hex 6)" >> "$GITHUB_OUTPUT"
+      - name: render the days
+        working-directory: siderarium
+        env:
+          POST_BASE: https://siderarium.com/${{ steps.folder.outputs.name }}/
+        run: node tools/render-year.js ../year-out "$START" "$DAYS" "$PLACE" "$HOUR" "$POST_LANG"
+      - name: attach the folder to this run
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: siderarium-posts
+          path: year-out
+          if-no-files-found: error
+  # the publishing runs nothing from npm: it only moves the images into gh-pages/post-<token>
+  publish:
+    needs: render
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      FOLDER: ${{ needs.render.outputs.folder }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: siderarium-posts
+          path: year-out
+      - name: publish to gh-pages/post-<token>
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/publish.sh post year-out "$FOLDER"
+      - name: where it is
+        run: echo "Plan at https://siderarium.com/$FOLDER/plan.csv" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,131 @@
+<!doctype html><meta charset="utf-8"><body style="background:#222">
+<script>
+const VOID='#02030a', GREEN='#2b5e44', GREEN_HI='#3d7f5c', GOLD='#d4a93a', GOLD_HI='#f0d27a';
+// the heptagram {7/3} as one closed path: vertex i joins vertex i+3
+function starPath(cx, cy, r) { const v = []; for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 7; v.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  const seq = []; let i = 0; for (let k = 0; k < 7; k++) { seq.push(v[i]); i = (i + 3) % 7; } return seq; }
+function segX(p, q, r, s) { const d = (q[0]-p[0])*(s[1]-r[1]) - (q[1]-p[1])*(s[0]-r[0]); if (Math.abs(d) < 1e-9) return null;
+  const t = ((r[0]-p[0])*(s[1]-r[1]) - (r[1]-p[1])*(s[0]-r[0])) / d, u = ((r[0]-p[0])*(q[1]-p[1]) - (r[1]-p[1])*(q[0]-p[0])) / d;
+  if (t <= 0.02 || t >= 0.98 || u <= 0.02 || u >= 0.98) return null; return { t, u, x: p[0] + t * (q[0]-p[0]), y: p[1] + t * (q[1]-p[1]) }; }
+/* interlaced star: every crossing alternates over and under along the path (gauss parity makes it consistent).
+   drawn as the full star, then at each "under" visit a short gap in the void, then the "over" strand redrawn across it. */
+function interlacedStar(ctx, cx, cy, r, lw, col, gap) {
+  const P = starPath(cx, cy, r), n = 7, E = i => [P[i], P[(i + 1) % n]];
+  const visits = [];   // one per (edge, crossing)
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const [p, q] = E(i), [rr, s] = E(j); const x = segX(p, q, rr, s); if (x) { visits.push({ edge: i, t: x.t, x: x.x, y: x.y, id: visits.length }); visits.push({ edge: j, t: x.u, x: x.x, y: x.y, id: visits.length - 1 }); } }
+  const order = visits.slice().sort((a, b) => a.edge - b.edge || a.t - b.t);
+  order.forEach((v, k) => { v.over = k % 2 === 0; });
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.stroke();
+  const byId = {}; visits.forEach(v => { (byId[v.id] = byId[v.id] || []).push(v); });
+  for (const id in byId) { const [a, b] = byId[id]; const over = a.over ? a : b;  // the strand that passes over
+    const [p, q] = E(over.edge); const dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L; const h = lw * 1.9;
+    ctx.strokeStyle = VOID; ctx.lineWidth = lw + gap * 2; ctx.beginPath(); ctx.moveTo(over.x - ux * h, over.y - uy * h); ctx.lineTo(over.x + ux * h, over.y + uy * h); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(over.x - ux * h * 1.15, over.y - uy * h * 1.15); ctx.lineTo(over.x + ux * h * 1.15, over.y + uy * h * 1.15); ctx.stroke(); }
+}
+function lensPath(ctx, cx, cy, R, k = 0.5) { const d = R * k, h = Math.sqrt(R * R - d * d), a = Math.atan2(h, d);
+  ctx.beginPath(); ctx.arc(cx + d, cy, R, Math.PI - a, Math.PI + a); ctx.arc(cx - d, cy, R, -a, a); ctx.closePath(); }
+/* a calligraphic vesica: the band is wide at the sides and fine at the points, as a broad nib draws it */
+function nibLens(ctx, cx, cy, R, wMax, wMin, col) {
+  const d = R / 2, h = Math.sqrt(R * R - d * d), a = Math.atan2(h, d);
+  ctx.fillStyle = col; ctx.beginPath();
+  const side = (sgn, out) => { const c = cx + sgn * d; const N = 64; const pts = [];
+    for (let k = 0; k <= N; k++) { const th = Math.PI * (sgn > 0 ? 1 : 0) + (sgn > 0 ? -a + 2 * a * k / N : -a + 2 * a * k / N); const w = wMin + (wMax - wMin) * Math.cos(th - (sgn > 0 ? Math.PI : 0)) ** 1.6; const rr = R + (out ? w / 2 : -w / 2); pts.push([c + rr * Math.cos(th), cy + rr * Math.sin(th)]); } return pts; };
+  // right circle's left arc (the left side of the lens), then the left circle's right arc
+  const A = side(1, true), B = side(1, false).reverse(), C = side(-1, true), D = side(-1, false).reverse();
+  A.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); B.forEach(p => ctx.lineTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); C.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); D.forEach(p => ctx.lineTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+}
+
+/* the two arcs of the lens drawn separately, each run a little past the points, as a compass leaves them */
+function lensArcs(ctx, cx, cy, R, k, over) { const d = R * k, h = Math.sqrt(R * R - d * d), a = Math.atan2(h, d);
+  ctx.beginPath(); ctx.arc(cx + d, cy, R, Math.PI - a - over, Math.PI + a + over); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx - d, cy, R, -a - over, a + over); ctx.stroke(); }
+/* the compass tails: the two circles run on past the lens's points, each end a stroke of its own */
+function lensTails(ctx, cx, cy, R, k, over) { const d = R * k, h = Math.sqrt(R * R - d * d), a = Math.atan2(h, d);
+  for (const [c, s, e] of [[cx + d, Math.PI - a - over, Math.PI - a], [cx + d, Math.PI + a, Math.PI + a + over], [cx - d, -a - over, -a], [cx - d, a, a + over]]) { ctx.beginPath(); ctx.arc(c, cy, R, s, e); ctx.stroke(); } }
+/* the heart of the star: the central heptagon with the seven small triangles about it, filled */
+function starHeart(ctx, cx, cy, r) { const P = starPath(cx, cy, r), n = 7, E = i => [P[i], P[(i + 1) % n]]; const X = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const [p, q] = E(i), [rr, ss] = E(j); const x = segX(p, q, rr, ss); if (x) X.push([x.x, x.y]); }
+  X.sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+  ctx.beginPath(); X.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); }
+/* the innermost heptagon of the star, the seven crossings nearest the centre, filled: the sun sits on black */
+function innerHeptagon(ctx, cx, cy, r) { const P = starPath(cx, cy, r), n = 7, E = i => [P[i], P[(i + 1) % n]]; const X = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const [p, q] = E(i), [rr, ss] = E(j); const x = segX(p, q, rr, ss); if (x) X.push([x.x, x.y]); }
+  X.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy)); const H = X.slice(0, 7);
+  H.sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+  ctx.beginPath(); H.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); }
+function bezant(ctx, cx, cy, u) { ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(cx, cy, 9 * u, 0, 7); ctx.fill();
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 1.8 * u; ctx.beginPath(); ctx.arc(cx, cy, 17 * u, 0, 7); ctx.stroke(); }
+function draw(variant, S, inset = 1) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = S; const ctx = cv.getContext('2d');
+  ctx.fillStyle = VOID; ctx.fillRect(0, 0, S, S);
+  const cx = S / 2, cy = S / 2, u = S / 512 * inset;
+  if (variant === 'D') {                                 // double tressure: a heavy vesica with a hairline within, the star interlaced, a bezant in an annulet
+    lensPath(ctx, cx, cy, 214 * u); ctx.strokeStyle = GREEN; ctx.lineWidth = 10 * u; ctx.lineJoin = 'round'; ctx.stroke();
+    lensPath(ctx, cx, cy, 196 * u); ctx.strokeStyle = GREEN; ctx.lineWidth = 2.2 * u; ctx.stroke();
+    interlacedStar(ctx, cx, cy, 98 * u, 8 * u, GREEN_HI, 5 * u);
+    bezant(ctx, cx, cy, u);
+  } else if (variant === 'D2') {                         // double tressure, plain star, bezant in an annulet
+    lensPath(ctx, cx, cy, 214 * u); ctx.strokeStyle = GREEN; ctx.lineWidth = 10 * u; ctx.lineJoin = 'round'; ctx.stroke();
+    lensPath(ctx, cx, cy, 196 * u); ctx.strokeStyle = GREEN; ctx.lineWidth = 2.2 * u; ctx.stroke();
+    const P = starPath(cx, cy, 98 * u); ctx.strokeStyle = GREEN_HI; ctx.lineWidth = 9 * u; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.stroke();
+    bezant(ctx, cx, cy, u);
+  } else if (variant === 'D3') {                         // double tressure, heavier interlaced star
+    lensPath(ctx, cx, cy, 214 * u); ctx.strokeStyle = GREEN; ctx.lineWidth = 10 * u; ctx.lineJoin = 'round'; ctx.stroke();
+    lensPath(ctx, cx, cy, 196 * u); ctx.strokeStyle = GREEN; ctx.lineWidth = 2.2 * u; ctx.stroke();
+    interlacedStar(ctx, cx, cy, 104 * u, 12 * u, GREEN_HI, 3.2 * u);
+    bezant(ctx, cx, cy, u);
+  } else if (variant === 'G') {                          // a broader mandorla (circles closer), double tressure, plain star, bezant
+    lensPath(ctx, cx, cy, 200 * u, 0.36); ctx.strokeStyle = GREEN; ctx.lineWidth = 10 * u; ctx.lineJoin = 'round'; ctx.stroke();
+    lensPath(ctx, cx, cy, 183 * u, 0.36); ctx.strokeStyle = GREEN; ctx.lineWidth = 2.2 * u; ctx.stroke();
+    const P = starPath(cx, cy, 108 * u); ctx.strokeStyle = GREEN_HI; ctx.lineWidth = 9.5 * u; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.stroke();
+    bezant(ctx, cx, cy, u);
+  } else if (variant === 'H') {                          // G refined: compass overshoot at the points, chamfered star, filled heart, inner glow
+    const R = 200 * u, kk = 0.36, over = 0.075;
+    // glow inside the mandorla: the hairline's light, clipped to the inside
+    ctx.save(); lensPath(ctx, cx, cy, 195 * u, kk); ctx.clip();
+    ctx.shadowColor = 'rgba(61,127,92,0.95)'; ctx.shadowBlur = 46 * u; ctx.strokeStyle = GREEN_HI; ctx.lineWidth = 3 * u;
+    lensPath(ctx, cx, cy, 195 * u, kk); ctx.stroke(); ctx.stroke(); ctx.stroke(); ctx.stroke();      // the glow hugs the heavy line's inner edge, stronger
+    ctx.restore();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = GREEN; ctx.lineWidth = 10 * u; lensArcs(ctx, cx, cy, R, kk, 0.42);               // the heavy line runs on past the points: two circles crossing, one weight, one colour
+    ctx.lineCap = 'butt';
+    // the star: chamfered points, a glow, the heart filled
+    const P = starPath(cx, cy, 108 * u);
+    const starP = new Path2D(); P.forEach((p, i) => i ? starP.lineTo(p[0], p[1]) : starP.moveTo(p[0], p[1])); starP.closePath();
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    // the glow around the star: outside the outline only, strong
+    ctx.save(); const outside = new Path2D(); outside.rect(0, 0, W, H); outside.addPath(starP); ctx.clip(outside, 'evenodd');
+    ctx.shadowColor = 'rgba(61,127,92,0.95)'; ctx.shadowBlur = 36 * u; ctx.strokeStyle = GREEN_HI; ctx.lineWidth = 9.5 * u; ctx.lineJoin = 'bevel'; ctx.lineCap = 'butt';
+    ctx.stroke(starP); ctx.stroke(starP); ctx.stroke(starP);
+    ctx.restore();
+    // inside the star: almost none
+    ctx.save(); ctx.clip(starP);
+    ctx.shadowColor = 'rgba(61,127,92,0.3)'; ctx.shadowBlur = 10 * u; ctx.strokeStyle = GREEN_HI; ctx.lineWidth = 9.5 * u; ctx.lineJoin = 'bevel'; ctx.lineCap = 'butt';
+    ctx.stroke(starP);
+    ctx.restore();
+    ctx.strokeStyle = GREEN_HI; ctx.lineWidth = 9.5 * u; ctx.lineJoin = 'bevel';
+    ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.stroke();
+    ctx.fillStyle = GREEN_HI; starHeart(ctx, cx, cy, 108 * u);
+    ctx.fillStyle = VOID; innerHeptagon(ctx, cx, cy, 108 * u);                                       // the sun enclosed in a black heptagon
+    bezant(ctx, cx, cy, u);
+  } else if (variant === 'E') {                          // calligraphic: the vesica as a nib stroke, the star interlaced, the bezant
+    nibLens(ctx, cx, cy, 212 * u, 16 * u, 2.5 * u, GREEN);
+    interlacedStar(ctx, cx, cy, 98 * u, 8 * u, GREEN_HI, 5 * u);
+    bezant(ctx, cx, cy, u);
+  } else if (variant === 'F') {                          // calligraphic vesica with the hairline within, star interlaced, bezant
+    nibLens(ctx, cx, cy, 214 * u, 15 * u, 2.5 * u, GREEN);
+    lensPath(ctx, cx, cy, 190 * u); ctx.strokeStyle = GREEN; ctx.lineWidth = 2 * u; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.globalAlpha = 1;
+    interlacedStar(ctx, cx, cy, 96 * u, 8 * u, GREEN_HI, 5 * u);
+    bezant(ctx, cx, cy, u);
+  }
+  return cv;
+}
+const sheet = document.createElement('canvas'); sheet.width = 512 * 3 + 80; sheet.height = 512 + 150; const sc = sheet.getContext('2d');
+sc.fillStyle = '#0b0c12'; sc.fillRect(0, 0, sheet.width, sheet.height);
+['G', 'H', 'H'].forEach((v, i) => { if (i < 2) sc.drawImage(draw(v, 512), 20 + i * 532, 20); else { const big = draw('H', 1024); sc.drawImage(big, 256, 256, 512, 512, 20 + i * 532, 20, 512, 512); } sc.drawImage(draw(v, 96), 20 + i * 532 + 150, 552); sc.drawImage(draw(v, 48), 20 + i * 532 + 270, 576); sc.fillStyle = '#ebe7dc'; sc.font = '19px sans-serif'; sc.fillText(i === 0 ? 'G · before' : i === 1 ? 'H · compass overshoot, chamfered star, filled heart, inner glow' : 'H at 1024 (crop)', 20 + i * 532, 565 + 60); });
+window.ICONS = { sheet: sheet.toDataURL('image/png') };
+for (const v of ['G', 'H']) window.ICONS[v] = { i192: draw(v, 192).toDataURL('image/png'), i512: draw(v, 512).toDataURL('image/png'), m512: draw(v, 512, 0.8).toDataURL('image/png'), a180: draw(v, 180).toDataURL('image/png'), i64: draw(v, 64).toDataURL('image/png'), i32: draw(v, 32).toDataURL('image/png') };
+document.body.appendChild(sheet);
+</script></body>

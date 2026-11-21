@@ -1,0 +1,38 @@
+name: pages
+# publishes the website (site/) at the root and the app (siderarium/) under /app. only from main.
+on:
+  push:
+    branches: [main]
+    paths: ['siderarium/**', 'site/**', '.github/workflows/pages.yml', '.github/scripts/publish.sh']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages-site
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # to push the gh-pages branch, nothing else
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          persist-credentials: false
+      - name: stage the website at the root and the app under /app
+        run: |
+          rsync -a site/ dist/
+          # the app as it is served: no notes, no tools, no samples
+          rsync -a --exclude samples --exclude tools --exclude '*.md' siderarium/ dist/app/
+      - name: nothing but the site in what is published
+        run: |
+          # every file must be one of the site's kinds; no hidden file, no notes, no tools
+          bad=$(find dist \( -type f ! \( -name '*.html' -o -name '*.css' -o -name '*.js' -o -name '*.png' -o -name '*.jpg' -o -name '*.woff2' -o -name manifest.webmanifest -o -name CNAME -o -name robots.txt -o -name sitemap.xml -o -name LICENSE.txt -o -name SOURCES.txt -o -name places.txt \) -o -name '.*' -o -name lab.html -o -name tools -o -name samples \) -print)
+          if [ -n "$bad" ]; then echo "not for publishing:"; echo "$bad"; exit 1; fi
+      # gh-pages is rebuilt as one commit: files removed from the repository leave the site, and the hourly
+      # renders (sky/) and the runs of posts (post-*/) already there are kept as they are
+      - name: publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/publish.sh site dist

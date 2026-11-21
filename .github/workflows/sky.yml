@@ -1,0 +1,59 @@
+name: sky
+# renders the sky of now, every hour, into gh-pages/sky/: a phone wallpaper and a 2048 square per place in tools/wallpapers.json.
+# a phone automation (macrodroid, tasker, ios shortcuts) can fetch the png and set it as wallpaper.
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sky
+  cancel-in-progress: false
+jobs:
+  # the render installs packages from npm: it runs with a read-only token and hands the images over as an artifact
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: 20
+      - name: playwright
+        working-directory: siderarium/tools
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --ignore-scripts playwright@1.47.2
+          npx playwright install --with-deps chromium
+      - name: render
+        working-directory: siderarium
+        run: node tools/render-sky.js ../sky-out
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: sky
+          path: sky-out
+          retention-days: 1
+          if-no-files-found: error
+  # the publishing runs nothing from npm: it only moves the images into gh-pages/sky
+  publish:
+    needs: render
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: sky
+          path: sky-out
+      - name: publish to gh-pages/sky
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/publish.sh sky sky-out
