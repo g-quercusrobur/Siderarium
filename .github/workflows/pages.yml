@@ -30,6 +30,25 @@ jobs:
           # every file must be one of the site's kinds; no hidden file, no notes, no tools
           bad=$(find dist \( -type f ! \( -name '*.html' -o -name '*.css' -o -name '*.js' -o -name '*.png' -o -name '*.jpg' -o -name '*.woff2' -o -name manifest.webmanifest -o -name CNAME -o -name robots.txt -o -name sitemap.xml -o -name LICENSE.txt -o -name SOURCES.txt -o -name places.txt \) -o -name '.*' -o -name lab.html -o -name tools -o -name samples \) -print)
           if [ -n "$bad" ]; then echo "not for publishing:"; echo "$bad"; exit 1; fi
+      - name: the charts stay in the browser
+        run: |
+          # the promise: what a visitor saves never leaves the device. three checks, and the deploy stops if one fails.
+          # 1. the app's scripts open no channel of their own
+          chan=$(grep -rnoE 'XMLHttpRequest|sendBeacon|WebSocket|EventSource|RTCPeerConnection|importScripts' dist/app --include='*.js' || true)
+          if [ -n "$chan" ]; then echo "a network channel in the app:"; echo "$chan"; exit 1; fi
+          # 2. they fetch exactly two things: the list of places, and (the service worker) the app's own files
+          n=$(grep -rhoE 'fetch *\(' dist/app --include='*.js' | wc -l)
+          grep -qF "fetch('data/places.txt')" dist/app/js/app.js || { echo "the places fetch changed: look at it, then update this check"; exit 1; }
+          grep -qF "fetch(req, { cache: 'no-cache' })" dist/app/sw.js || { echo "the service worker's fetch changed: look at it, then update this check"; exit 1; }
+          grep -qF "if (url.origin !== location.origin) return;" dist/app/sw.js || { echo "the service worker must answer for this address only"; exit 1; }
+          [ "$n" = 2 ] || { echo "the app fetches $n things; the promise covers 2: look at the new one, then update this check"; grep -rnE 'fetch *\(' dist/app --include='*.js' | cut -c1-160; exit 1; }
+          # 3. and the page's own policy forbids anything else, whatever a script says
+          for d in "default-src 'self'" "script-src 'self'" "connect-src 'self'" "img-src 'self' data: blob:" "object-src 'none'" "form-action 'self'"; do
+            grep -qF "$d" dist/app/index.html || { echo "the app's content policy lost: $d"; exit 1; }
+          done
+          # nothing is loaded from another address
+          ext=$(grep -rnoE '(src|action)="(https?:)?//[^"]+|url\(.?(https?:)?//[^)]+' dist/app --include='*.html' --include='*.css' || true)
+          if [ -n "$ext" ]; then echo "loaded from another address:"; echo "$ext"; exit 1; fi
       # gh-pages is rebuilt as one commit: files removed from the repository leave the site, and the hourly
       # renders (sky/) and the runs of posts (post-*/) already there are kept as they are
       - name: publish

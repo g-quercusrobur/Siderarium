@@ -43,6 +43,8 @@ body {
 .seg button + button { border-left: 1px solid var(--ink-3); }
 .seg button.on { background: none; color: var(--void); }
 .seg button.on:hover { color: var(--void); }
+.seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }   /* inside the button: the bar clips anything outside it */
+.seg button.on:focus-visible { outline-color: var(--void); }   /* the tab on show is cream: its ring is black */
 .seg .tog { margin-left: 4px; border-left: 1px solid var(--ink-3); color: var(--ink-2); }
 .seg .tog.on { color: var(--ink); background: rgba(235, 231, 220, 0.1); }
 .dialwrap { position: relative; }
@@ -74,7 +76,7 @@ body {
 .sheet .row[hidden] { display: none; }   /* the 'save as' name row stays shut until asked for: the grid above overrode the hidden attribute */
 .sheet .row select, .sheet .row input { min-height: 36px; max-width: 200px; }
 .sheet .row input { border: 1px solid var(--ink-3); padding: 0 10px; color: var(--ink); font: 400 13px/1 var(--mono); width: 100%; }
-.sheet .about-row { padding: 16px 0 14px; }
+.sheet .about-row { display: grid; gap: 8px; padding: 16px 0 14px; }   /* two buttons, not one block */
 .sheet .about-row .big { width: 100%; min-height: 48px; border: 0; border-radius: 2px; background: var(--ink); color: var(--void); font: 500 15px/1 var(--sans); letter-spacing: 0.02em; }
 .sheet .about-row .big:hover, .sheet .about-row .big.on { background: #fff; color: var(--void); }
 .sheet .rowbtns { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
@@ -157,8 +159,11 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 .float-now { position: absolute; top: 14px; right: calc(var(--ox, 0px) + 14px); z-index: 3; min-height: 40px; padding: 0 18px; border: 0; border-radius: 2px; background: var(--ink); color: var(--void); font: 500 13px/1 var(--sans); letter-spacing: 0.06em; box-shadow: 0 2px 14px rgba(0, 0, 0, 0.5); }
 .float-now:hover { color: var(--void); background: #fff; }
 #dial { display: block; }
-#caption { display: none; }
-body.small #caption { display: block; width: 100%; padding: 12px 8px 4px; font: 400 13px/1.55 var(--sans); color: var(--ink-2); }
+/* on a wide screen the title of the moment is painted on the dial; the same words stay in the page for a screen reader,
+   out of sight (the .sr-only recipe). its link and its copy button have their twins over the dial (#what-link, #copy-link) */
+#caption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+body:not(.small) #caption :is(a.what, .copy-btn) { display: none; }
+body.small #caption { position: relative; height: auto; margin: 0; overflow: visible; clip-path: none; white-space: normal; display: block; width: 100%; padding: 12px 8px 4px; font: 400 13px/1.55 var(--sans); color: var(--ink-2); }
 body.small #caption .eyebrow { font: 500 12px/1.6 var(--sans); letter-spacing: 0.08em; color: var(--ink); margin: 0 0 6px; }
 body.small #caption .h1 { font: 500 24px/1.15 var(--sans); letter-spacing: -0.01em; color: var(--ink); margin: 0 0 6px; }
 body.small #caption .deck { font: 500 17px/1.35 var(--sans); color: var(--ink); margin: 0 0 6px; }
@@ -167,6 +172,17 @@ body.small #caption .reason { font: 400 15px/1.45 var(--sans); color: var(--ink)
 body.small #caption .moment { font: 400 13.5px/1.5 var(--sans); color: var(--ink-2); margin: 0 0 8px; }
 body.small #caption .detail { font: 400 13.5px/1.55 var(--sans); color: var(--ink-2); margin: 0 0 6px; }
 body.small #stage { justify-content: flex-start; }
+/* the first visit, one quiet line under the dial: what this is, and the way to a birth chart (app.js, hintSync) */
+.hint1 { display: flex; align-items: flex-start; justify-content: center; gap: 6px; width: 100%; padding: 0 8px; font: 400 13px/20px var(--sans); color: var(--ink-3); }
+.hint1[hidden] { display: none; }
+.hint1 .t { flex: 0 1 auto; min-width: 0; text-wrap: pretty; }
+body.small .hint1 { padding: 8px 8px 0; } body.small .hint1 .t { flex: 1 1 auto; }   /* with the caption beneath: it starts where the caption does, its × at the edge */
+.hint1 #hint1-add { position: relative; min-height: 0; padding: 0; border: 0; font: inherit; letter-spacing: 0; color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--ink-3); text-underline-offset: 3px; }
+.hint1 #hint1-add::after { content: ''; position: absolute; inset: -6px -4px; }   /* a taller target than the words */
+.hint1 #hint1-add:hover { color: var(--ink); }
+.hint1 #hint1-close { flex: none; width: 24px; height: 20px; min-height: 0; padding: 0; font: 400 17px/20px var(--sans); color: var(--ink-3); }   /* as tall as the line: on a wide screen the line's height comes off the dial */
+.hint1 #hint1-close:hover { color: var(--ink); }
+body.bare .hint1 { display: none; }
 #ahead { display: grid; gap: 4px; }
 #strip { width: 100%; height: 44px; display: block; }   /* 34 px + 30% */
 #preview { width: 100%; min-height: 20px; padding: 0; accent-color: var(--ink); background: none; cursor: pointer; }
@@ -198,7 +214,10 @@ body.bare { grid-template-areas: "stage stage" "stage stage" "stage stage"; }
 body.bare .bar, body.bare #readout { display: none; }
 body.bare #stage { grid-row: 1 / 4; grid-column: 1 / 3; }
 
-@media (max-width: 720px) {
+/* the phone layout: one column, the page scrolls. a narrow window, or a low one no wider than a phone on its side (844 × 390,
+   667 × 375): there the fixed bars of the wide layout left the dial a 220 px pane. every phone rule in this file, the wide
+   rules' "(min-width: 951px), (min-width: 721px) and (min-height: 501px)" and PHONE / LOW in js/app.js say the same two cases */
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) {
   .sheet .list .ops button { min-height: 44px; }   /* a finger's height for each chart's Edit, Duplicate, Delete */
   body { grid-template-columns: 1fr; grid-template-areas: "top" "stage" "bottom"; overflow: auto; height: auto; min-height: 100%; }
   #stage { min-height: 0; }
@@ -207,7 +226,7 @@ body.bare #stage { grid-row: 1 / 4; grid-column: 1 / 3; }
   body.reading #readout { width: 100%; border-left: 0; border-top: 1px solid var(--ink-3); }
   .bar { padding: 10px 16px; }
   .top { gap: 10px; }
-  .brand .tag { display: none; }
+  .brand { justify-items: start; } .brand .tag { font-size: 13px; text-align: left; }   /* the tagline stays on a phone: two lines within the height the menu button gives the row, so the tabs do not move */
   .float-now { top: 10px; right: 10px; min-height: 44px; }
   .corner-speaker { width: 44px; height: 44px; right: 4px; bottom: 4px; }
   .dialwrap .corner-sigil { width: 44px; height: 44px; left: 4px; bottom: 4px; }   /* mirrors the sound button */
@@ -220,12 +239,13 @@ body.bare #stage { grid-row: 1 / 4; grid-column: 1 / 3; }
   .bar button { min-height: 44px; }
   select, .when { min-height: 44px; }
   .sheet { width: 100vw; border-left: 0; }
+  .sheet .row select, .sheet .row input, .sheet .rowbtns button, .sheet-head button, .sheet .list .name { min-height: 44px; }   /* a finger's height for every control of the menu, not only the charts' buttons */
   #nexts button { min-height: 30px; }
 }
 
 /* live wallpaper: the sky alone, the window edge to edge */
 body.wall { display: block; overflow: hidden; cursor: none; }
-body.wall .bar, body.wall #readout, body.wall #ahead, body.wall #caption, body.wall #now-float, body.wall #listen-corner, body.wall #sigil, body.wall #chart-toggle, body.wall #chart-pick, body.wall #install-sheet, body.wall #menu, body.wall #birth { display: none !important; }
+body.wall .bar, body.wall #readout, body.wall #ahead, body.wall #caption, body.wall #now-float, body.wall #listen-corner, body.wall #sigil, body.wall #chart-toggle, body.wall #chart-pick, body.wall #hint1, body.wall #install-sheet, body.wall #menu, body.wall #birth { display: none !important; }
 body.wall #stage { position: fixed; inset: 0; padding: 0; display: block; }
 body.wall .dialwrap, body.wall #dial { display: block; width: 100vw; height: 100vh; }
 
@@ -235,6 +255,7 @@ body.wall .dialwrap, body.wall #dial { display: block; width: 100vw; height: 100
 .panel .results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(235, 231, 220, 0.08); padding: 8px 10px; min-height: 36px; color: var(--ink-2); font: 400 14px/1.3 var(--sans); cursor: pointer; }
 .panel .results li:last-child button { border-bottom: 0; }
 .panel .results button:hover, .panel .results button:focus-visible { color: var(--ink); background: rgba(235, 231, 220, 0.06); outline: none; }
+.panel .results button:focus-visible, .panel .results button.active { outline: 1px solid var(--ink); outline-offset: -2px; }   /* a ring, drawn inside the row: a 6% tint alone did not show where the keyboard was */
 .panel .results .where { color: var(--ink-3); }
 .panel .results button.active { color: var(--ink); background: rgba(235, 231, 220, 0.13); box-shadow: inset 2px 0 0 var(--ink); }   /* the row the arrow keys are on */
 .panel .results button:disabled { cursor: default; }
@@ -287,6 +308,7 @@ a.g:hover { text-decoration-style: solid; color: var(--ink); }
 .chart-pick button.on { color: var(--ink); }
 .chart-pick button.on::before { content: "● "; font-size: 9px; vertical-align: middle; }
 .chart-pick button:hover, .chart-pick button:focus-visible { color: var(--ink); background: rgba(235, 231, 220, 0.06); outline: none; }
+.chart-pick button:focus-visible { outline: 1px solid var(--ink); outline-offset: -2px; }
 .chart-pick .empty { padding: 9px 14px; color: var(--ink-3); font: 400 13px/1.4 var(--sans); }
 .chart-pick button.new { border-top: 1px solid rgba(235, 231, 220, 0.14); margin-top: 4px; padding-top: 11px; color: var(--ink); }
 
@@ -324,11 +346,12 @@ button.ready { color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3p
 @media (prefers-reduced-motion: reduce) { button.busy, .share-btn.busy svg { animation: none; } }
 
 /* ---------- phone legibility (UX audit): no running text under 14 px, labels at 13 px at least ---------- */
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) {
   .bar button, .bottom button { font-size: 15px; }
   .top .seg button { font-size: 13.5px; letter-spacing: 0; }
   #nexts, #nexts button { font-size: 14.5px; }
   .when input { font-size: 15px; } #zone { font-size: 13px; }
+  .hint1 { font-size: 14px; padding: 0 0 0 8px; } .hint1 #hint1-close { width: 44px; height: 44px; font-size: 20px; line-height: 44px; } .hint1 .t { padding: 12px 0 4px; } .hint1 #hint1-add::after { inset: -12px -4px; }   /* a finger's × and a finger's height for the link */
   body.small #caption .eyebrow { font-size: 13px; }
   body.small #caption .eyebrow a.what { font-size: 14px; }
   body.small #caption .moment, body.small #caption .detail { font-size: 15px; }
@@ -342,7 +365,7 @@ button.ready { color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3p
 .gbody dd.plate img { width: 100%; height: auto; aspect-ratio: 11 / 19; object-fit: cover; border: 1px solid rgba(235, 231, 220, 0.18); border-radius: 4px; background: #111; cursor: zoom-in; }
 .gbody dd.plate .meaning { white-space: pre-line; margin: 10px 0 0; color: var(--ink-2); }
 .gbody dd.plate .gd { margin: 0; color: var(--ink); }
-@media (max-width: 720px) { .gbody dd.plate { grid-template-columns: 1fr; } .gbody dd.plate img { width: min(240px, 70vw); } }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { .gbody dd.plate { grid-template-columns: 1fr; } .gbody dd.plate img { width: min(240px, 70vw); } }
 .plate-view { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.92); display: grid; place-items: center; padding: 16px; cursor: zoom-out; }
 .plate-view img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 0 40px rgba(0, 0, 0, 0.8); }
 .plate-view[hidden] { display: none; }
@@ -352,7 +375,7 @@ button.ready { color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3p
 body.natal .corner-chart { display: inline-flex; }
 .corner-chart.on { color: var(--void); background: var(--ink); border-color: var(--ink); }
 .corner-chart:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
-@media (max-width: 720px) { .dialwrap .corner-chart { width: 44px; height: 44px; min-height: 44px; right: 4px; top: 4px; } }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { .dialwrap .corner-chart { width: 44px; height: 44px; min-height: 44px; right: 4px; top: 4px; } }
 /* the tabs that open a list of charts carry a small chevron, so the second tap is discoverable */
 .seg button.has-pick::after { content: ''; display: inline-block; width: 5px; height: 5px; margin-left: 6px; border-right: 1.3px solid currentColor; border-bottom: 1.3px solid currentColor; transform: translateY(-3px) rotate(45deg); opacity: 0.7; }
 @media (max-width: 400px) { .seg button.has-pick::after { margin-left: 3px; width: 4px; height: 4px; } }
@@ -373,7 +396,7 @@ body.natal .corner-chart { display: inline-flex; }
 .install-head h2 { margin: 0; font: 500 19px/1.25 var(--sans); color: var(--ink); }
 .install-head button { border: 1px solid var(--ink-3); border-radius: 2px; min-height: 40px; padding: 0 14px; font: 400 14px var(--sans); }
 .install-native { min-height: 48px; border: 0; border-radius: 2px; background: var(--ink); color: var(--void); font: 500 16px/1 var(--sans); }
-@media (min-width: 721px) { .install-sheet { align-items: center; } }
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { .install-sheet { align-items: center; } }
 
 /* a tarot card as a lightbox: shown at once, the plate beside (or above, on a phone) its meaning */
 .card-view { position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, 0.86); overflow-y: auto; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
@@ -384,7 +407,7 @@ body.natal .corner-chart { display: inline-flex; }
 .cv-text .gd { margin: 0 0 12px; font: 400 15px/1.5 var(--sans); color: var(--ink); }
 .cv-text .meaning { margin: 0; font: 400 15px/1.6 var(--sans); color: var(--ink-2); white-space: pre-line; }
 .cv-close { position: absolute; top: 12px; right: 12px; border: 1px solid var(--ink-3); border-radius: 2px; min-height: 40px; padding: 0 14px; background: #0c0c0c; font: 400 14px var(--sans); }
-@media (max-width: 720px) { .card-view { place-items: start center; } .cv-card { grid-template-columns: 1fr; padding-top: 64px; } .cv-card img { width: min(260px, 72vw); } .cv-text h2 { padding-right: 0; } }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { .card-view { place-items: start center; } .cv-card { grid-template-columns: 1fr; padding-top: 64px; } .cv-card img { width: min(260px, 72vw); } .cv-text h2 { padding-right: 0; } }
 
 /* ---------- aspects in the reading: three colours, chosen to read on black ----------
    pure red on black is dim (5.3:1, and 4.2:1 to a protanope), so the red is a coral at 7.5:1; the orange sits a step
@@ -411,14 +434,14 @@ body.natal .corner-chart { display: inline-flex; }
   --r-sub: 14px;  --r-sub-lh: 20px;       /* second lines, notes, keys, legends */
   --r-cap: 12px;  --r-cap-lh: 16px;       /* tracked capitals: column heads and group rows, nothing else */
 }
-@media (min-width: 721px) {
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) {
   :root { --r-h3: 18px; --r-h3-lh: 24px; --r-std: 16px; --r-std-lh: 22px; --r-h4: 14px; --r-body: 14px; --r-body-lh: 22px;
     --r-row-lh: 21px; --r-sub: 13px; --r-sub-lh: 19px; --r-cap: 11.5px; }
 }
 
 /* ---------- the column ---------- */
 body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48px; font: 400 var(--r-body)/var(--r-body-lh) var(--sans); letter-spacing: 0; color: var(--ink-2); font-synthesis: none; }   /* never narrower than a phone's measure; the font here outranks the old phone rule */
-@media (max-width: 720px) { body.reading #readout { width: 100%; padding: 20px 16px 48px; } }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { body.reading #readout { width: 100%; padding: 20px 16px 48px; } }
 
 /* ---------- sections: a hairline between them, nothing else ---------- */
 #readout > :is(section.rs, .r-head) + section.rs { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--rule); }
@@ -453,7 +476,7 @@ body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48p
 #readout button.pill::after { content: ''; position: absolute; inset: -9px -4px; }   /* a 44 px tall target */
 #readout button.pill:hover, #readout button.pill[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-2); }
 #readout :is(p:not(.pills), td) > button.pill { margin: -1px 0 -1px 4px; }   /* at the end of a sentence: the line keeps its height */
-@media (min-width: 721px) { #readout button.pill { height: 24px; border-radius: 12px; font-size: 12.5px; } }
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { #readout button.pill { height: 24px; border-radius: 12px; font-size: 12.5px; } }
 
 /* ---------- aspect tones: a 7 px dot, the letters stay in the ink ---------- */
 #readout .asp-flow { --tone: var(--asp-flow); }
@@ -576,19 +599,19 @@ body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48p
 .popdef .pfoot { margin: 12px 0 0; text-align: right; }
 .popdef .pfoot button { min-height: 0; padding: 8px 0; border: 0; background: none; font: 400 13px/1 var(--sans); letter-spacing: 0; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
 .pop-scrim { display: none; }
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) {
   .popdef.sheet { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 72dvh; padding: 20px 16px max(24px, env(safe-area-inset-bottom, 0px));
     border-width: 1px 0 0; border-radius: 12px 12px 0 0; line-height: 24px; box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.7); hyphens: auto; -webkit-hyphens: auto; }
   .popdef.sheet .pt { margin-bottom: 10px; font-size: 17px; line-height: 24px; }
   .pop-scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgba(0, 0, 0, 0.6); }
 }
-@media (min-width: 721px) { .popdef { font-size: 14px; line-height: 21px; } .popdef.sheet { width: 26rem; max-height: min(70vh, 34rem); } }
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { .popdef { font-size: 14px; line-height: 21px; } .popdef.sheet { width: 26rem; max-height: min(70vh, 34rem); } }
 
 /* the older readout, pop-up and talisman rules this block replaced were removed (November 2026; DESIGN.md, "The readout system") */
 /* the Transits tab: no 72-hour strip, that is the clock's */
 body.transits #ahead { display: none; }
 
-@media (min-width: 721px) { body.small #stage { overflow: hidden auto; } }
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { body.small #stage { overflow: hidden auto; } }
 /* line breaks (after the redesign's check): a date never splits; the impediment's dot stays with its words; cells wrap without a lone last word; one rule under the last talisman row is the section's own */
 #readout time { white-space: nowrap; }
 #readout .tal-why span.asp::before { display: inline; padding: 0 3.5px; font-size: 7px; line-height: 0; }

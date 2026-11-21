@@ -222,7 +222,7 @@
     for (const k of ['label', 'state', 'els', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
     const copyBtn = `<button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>`;
     const capHtml = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p>${c.els ? `<h2 class="h1 els" style="color:${c.elInk}">${c.els}</h2>` : `<h2 class="h1 state-${c.stateKey}">${c.opLabel ? `<span class="op">${c.opLabel}</span> ` : ''}${c.state}</h2>`}<p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}${c.brief && c.copy ? ' ' + copyBtn : ''}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : c.brief ? '' : `<p class="moment">${c.l1}${c.copy ? ' ' + copyBtn : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p>${c.stone ? `<p class="detail stone-line">${c.stone}</p>` : ''}<p class="detail">${c.detail4}</p>`}`;
-    if (capHtml !== S.capHtml) { const back = focusOf($('caption')); S.capHtml = capHtml; $('caption').innerHTML = capHtml; linkTerms($('caption')); if (back) back($('caption')); if (SD.app_pop) SD.app_pop.repoint(); }
+    if (capHtml !== S.capHtml) { const back = focusOf($('caption')); S.capHtml = capHtml; $('caption').innerHTML = capHtml; linkTerms($('caption')); capStops(); if (back) back($('caption')); if (SD.app_pop) SD.app_pop.repoint(); }
     if (!busy) scanIfNeeded();
     drawStrip();
     if (!busy) updateReadout();                            // the heavy parts wait until the clock rests
@@ -230,6 +230,29 @@
     updateControls();
   }
 
+  let fillCity = () => {};                                  // the city list, filled once the controls are bound and again in a new language
+  /* the stylesheet's phone layout, word for word (css/style.css): a narrow window, or a low one no wider than a phone on its side */
+  const mq = q => window.matchMedia ? window.matchMedia(q) : { matches: false };
+  const PHONE = mq('(max-width: 720px), (max-height: 500px) and (max-width: 950px)'), LOW = mq('(max-height: 500px) and (max-width: 950px)');
+  /* the caption on a wide screen is painted on the dial and kept in the page for a screen reader only (css, #caption):
+     its links and buttons are then no tab stops, for a ring nobody could see; each one's stop comes back with the caption */
+  function capStops() {
+    const hid = !document.body.classList.contains('small');
+    for (const el of $('caption').querySelectorAll('a, button')) {
+      if (hid) { if (el.dataset.tab0 === undefined) { el.dataset.tab0 = el.getAttribute('tabindex') || ''; el.tabIndex = -1; } }
+      else if (el.dataset.tab0 !== undefined) { if (el.dataset.tab0) el.setAttribute('tabindex', el.dataset.tab0); else el.removeAttribute('tabindex'); delete el.dataset.tab0; }
+    }
+  }
+  /* the first visit: one line under the dial that says what this is and how to add a birth chart, in Clock and Chart, while
+     no chart is saved or loaded. its × is remembered (cw.hint1, and only a true there hides it); a chart, once there is one,
+     puts it away for good. returns true when the line came or went, so the dial can be measured again */
+  function hintSync() {
+    const el = $('hint1'), has = S.charts.length > 0 || !!S.natal;
+    if (has && store.get('hint1', null) !== true) store.set('hint1', true);
+    const show = !has && !S.wall && (S.mode === 'clock' || S.mode === 'chart') && store.get('hint1', null) !== true && !S.hintOff;
+    if (el.hidden === !show) return false;
+    el.hidden = !show; return true;
+  }
   function size() {
     if (S.wall) {                                           // the whole window, no wheel: a live wallpaper
       const W = window.innerWidth, H = window.innerHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -239,9 +262,11 @@
       S.side = Math.min(W, H); S.dpr = dpr; S.dirty = true; return;
     }
     const box = $('stage').getBoundingClientRect();
-    const small = box.width < 560;
-    const reserve = small ? 0 : 110;                        // room for the 24-hour strip under the dial
-    const side = Math.floor(Math.min(box.width - 16, small ? box.width : box.height - reserve - 16));
+    const low = LOW.matches;                                // a phone on its side: the stacked page, and a dial no taller than the window, so it can be seen whole
+    const small = low || box.width < 560;
+    const hint = $('hint1'), room = box.height - 110 - 16;     // what the 24-hour strip under the dial leaves it
+    // the first-visit line takes its height from a roomy dial, as the strip does; a dial under 560 has its caption beneath it and a stage that scrolls, so there nothing has to give
+    const side = Math.floor(Math.min(box.width - 16, low ? window.innerHeight - 16 : small ? box.width : room - (!hint.hidden && room >= 560 ? hint.offsetHeight + 6 : 0)));
     $('ahead').style.width = side + 'px';
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = small ? side : Math.floor(box.width - 16);     // on desktop the canvas spans the stage: the aura runs beside the square
@@ -253,6 +278,7 @@
     plate.width = canvas.width; plate.height = canvas.height;
     S.dirty = true;
     document.body.classList.toggle('small', side < 560);
+    capStops();
     const st = $('strip'); st.width = Math.round(side * dpr); st.height = Math.round(44 * dpr);
     drawStrip();
   }
@@ -814,6 +840,17 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   const painted = { view: null, keys: '', html: new Map() };
   const restoreOpen = el => { const all = [...el.querySelectorAll('details[data-sec]')]; if (el.matches && el.matches('details[data-sec]')) all.push(el); for (const d of all) if (openSecs.has(d.dataset.sec)) d.open = true; };
   const linkSection = el => { glossaryTerms(); try { SD.glossary.link(el, SD.i18n.locale().startsWith('es') ? 'es' : 'en', { marks: true }); } catch (e) { /* the glossary is a nicety */ } };
+  /* one tab stop for each glossary word in the whole reading: its drawn mention, else its first, among those not folded
+     away; the repeats stay links for a pointer or a finger. the linker keeps one a section; this keeps one a reading, so
+     the keyboard crosses the column in tens of stops, not hundreds */
+  const oneStop = () => {
+    const by = new Map();
+    for (const a of $('readout').querySelectorAll('a.g:not(.card)')) { const k = a.dataset.g; if (!by.has(k)) by.set(k, []); by.get(k).push(a); }
+    for (const list of by.values()) {
+      const seen = list.filter(a => !a.closest('details:not([open])')), keep = seen.find(a => a.hasAttribute('data-first')) || seen[0] || list[0];
+      for (const a of list) if (a === keep) a.removeAttribute('tabindex'); else a.tabIndex = -1;
+    }
+  };
   let toggleBound = false;
   const focusOf = host => {                                 // the focused control inside host, found again after a repaint
     const a = document.activeElement; if (!a || a === document.body || !host.contains(a)) return null;
@@ -828,10 +865,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (!toggleBound) {                                      // 'toggle' does not bubble: caught on the way down, kept for the next visit
       toggleBound = true;
       ro.addEventListener('toggle', e => { const d = e.target; if (!d.dataset || !d.dataset.sec) return; if (d.open) openSecs.add(d.dataset.sec); else openSecs.delete(d.dataset.sec); store.set('openSecs', [...openSecs]); }, true);
+      ro.addEventListener('toggle', e => { if (e.target.tagName === 'DETAILS') oneStop(); }, true);   // a fold opened or shut: a word's one stop is never left inside a shut fold
     }
-    let full = view !== painted.view || keys !== painted.keys;
+    let full = view !== painted.view || keys !== painted.keys, changed = full;
     if (!full) for (const [k, html] of parts) {
       if (painted.html.get(k) === html) continue;
+      changed = true;
       const old = ro.querySelector(`:scope > [data-sec="${view}.${k}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
       const el = t.content.firstElementChild; if (!old || !el) { full = true; break; }
       const back = focusOf(old); old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(k, html); if (back) back(el);
@@ -842,6 +881,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       Object.assign(painted, { view, keys, html: new Map(parts) }); ro.dataset.view = view;
       for (const el of ro.children) { linkSection(el); restoreOpen(el); }
     }
+    if (changed) oneStop();
     if (SD.app_pop) SD.app_pop.repoint();
   }
   /* one section painted alone, the same way (the talismans' search repaints its section as it goes) */
@@ -850,7 +890,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     const ro = $('readout'); if (painted.view !== view || !painted.html.has(key) || painted.html.get(key) === html) return;
     const old = ro.querySelector(`:scope > [data-sec="${view}.${key}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
     const el = t.content.firstElementChild; if (!old || !el) return;
-    const back = focusOf(old); old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(key, html); if (back) back(el);
+    const back = focusOf(old); old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(key, html); oneStop(); if (back) back(el);
     if (SD.app_pop) SD.app_pop.repoint();
   }
 
@@ -1268,14 +1308,16 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     $('play').classList.toggle('on', S.playing);
     $('play').textContent = SD.i18n.cap1(SD.i18n.t(S.playing ? 'ui.pause' : 'ui.run'));
     $('speed').textContent = S.speed < 1 ? `${S.speed * 60}m/s` : `${S.speed}h/s`;
+    $('speed').setAttribute('aria-label', `${SD.i18n.cap1(SD.i18n.t('ui.speedLabel'))}: ${$('speed').textContent}`);   // the name keeps the figure the button shows
     $('here').classList.toggle('on', S.place.name === 'here');
     if (PLACES[S.place.name] && $('city').value !== S.place.name) $('city').value = S.place.name;
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (S.mode === 'natalchart' && b.dataset.mode === 'natal')));
-    { const ct = $('chart-toggle'), on = S.mode === 'natalchart', i = SD.i18n; ct.classList.toggle('on', on); ct.setAttribute('aria-pressed', on ? 'true' : 'false'); ct.setAttribute('aria-label', i.t(on ? 'ui.asArt' : 'ui.asChart')); ct.title = i.t(on ? 'ui.asArt' : 'ui.asChart'); }
+    { const ct = $('chart-toggle'), on = S.mode === 'natalchart', i = SD.i18n; ct.classList.toggle('on', on); ct.setAttribute('aria-pressed', on ? 'true' : 'false'); ct.dataset.i18n = on ? 'ui.asArt' : 'ui.asChart'; ct.setAttribute('aria-label', i.cap1(i.t(ct.dataset.i18n))); ct.title = i.cap1(i.t(ct.dataset.i18n)); }
     document.body.classList.toggle('natal', S.mode === 'natal' || S.mode === 'natalchart');
     document.body.classList.toggle('pair', S.mode === 'pair');
     document.body.classList.toggle('transits', S.mode === 'synastry');   // the Transits tab: no 72-hour strip, that is the clock's
-    $('sigil').classList.toggle('on', S.sigil);
+    $('sigil').classList.toggle('on', S.sigil); $('sigil').setAttribute('aria-pressed', String(!!S.sigil));
+    if (hintSync()) size();
     slideSeg();
   }
   /* the segmented control: an indicator slides under the lit view (two of them in natal chart) */
@@ -1620,7 +1662,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     });
     const SPEEDS = [0.25, 1, 4, 24];
     $('speed').addEventListener('click', () => { S.speed = SPEEDS[(SPEEDS.indexOf(S.speed) + 1) % SPEEDS.length]; updateControls(); });
-    const fill = () => { const pn = SD.i18n.placeName; $('city').innerHTML = ZONES.map(z => `<option value="${z.name}">${offsetOf(z.tz)} · ${pn(z.name)}</option>`).join('') + (PLACES[S.place.name] ? '' : `<option value="" selected>${esc(pn(S.place.name))}</option>`); };
+    const fill = fillCity = () => { const pn = SD.i18n.placeName; $('city').innerHTML = ZONES.map(z => `<option value="${z.name}">${offsetOf(z.tz)} · ${pn(z.name)}</option>`).join('') + (PLACES[S.place.name] ? '' : `<option value="" selected>${esc(pn(S.place.name))}</option>`); };
     fill();
     $('city').addEventListener('change', e => { if (!PLACES[e.target.value]) return; if (S.place.name === 'here') store.del('talismans'); locSeq++; S.place = PLACES[e.target.value]; store.set('place', S.place); recompute(); });   // a city instead of the position: the position leaves the device's storage, and one still being read is not taken
     const commit = e => {
@@ -1689,6 +1731,8 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });
     $('save').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(2048)));
     $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
+    $('hint1-add').addEventListener('click', e => openBirth(true, false, null, e.currentTarget));   // the menu's "new", one tap from the first screen
+    $('hint1-close').addEventListener('click', () => { if (!store.set('hint1', true)) S.hintOff = true; updateControls(); const b = document.querySelector('.seg button.on'); if (b) b.focus({ preventScroll: true }); });   // a browser that keeps nothing still puts it away for this visit
     $('readout').addEventListener('click', e => { const a = e.target.closest('[data-tal]'); if (!a) return; e.preventDefault(); openMoment(new Date(a.dataset.tal)); });
     $('readout').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (!g) return; e.preventDefault();   // the links out of the reading: to the Clock, or to choose the second chart
       if (g.dataset.go === 'clock') { const b = document.querySelector('.seg [data-mode="clock"]') || document.querySelector('[data-mode="clock"]'); if (b) { b.click(); window.scrollTo({ top: 0, behavior: 'instant' }); b.focus({ preventScroll: true }); } }
@@ -1710,7 +1754,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       key = key || btn.dataset.def;
       const same = defOpen && defOpen.key === key && defOpen.btn === btn; closeDef(); if (same) return;
       const c = popContent(key, btn); if (!c || !c.text) return;
-      const i = SD.i18n, txt = String(c.text), sheet = window.innerWidth <= 720 && txt.split(/\s+/).length > 60;
+      const i = SD.i18n, txt = String(c.text), sheet = PHONE.matches && txt.split(/\s+/).length > 60;
       const box = document.createElement('div'); box.className = 'popdef' + (sheet ? ' sheet' : ''); box.id = 'popdef'; box.tabIndex = -1;
       box.setAttribute('role', sheet ? 'dialog' : 'note'); box.setAttribute('aria-labelledby', 'popdef-t'); if (sheet) box.setAttribute('aria-modal', 'true');
       const t = document.createElement('span'); t.className = 'pt'; t.id = 'popdef-t'; t.textContent = i.cap1(c.title); box.appendChild(t);
@@ -2294,9 +2338,9 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       if (seq !== locSeq) return;                           // a city was chosen, or "here" pressed again, while this one was on its way
       S.place = { name: 'here', lat: coarse(p.coords.latitude), lon: coarse(p.coords.longitude), tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
       store.set('place', S.place);
-      const sel = $('city'); if (![...sel.options].some(o => o.value === '')) sel.insertAdjacentHTML('beforeend', '<option value="">here</option>');
+      const sel = $('city'); if (![...sel.options].some(o => o.value === '')) sel.insertAdjacentHTML('beforeend', `<option value="">${esc(SD.i18n.placeName('here'))}</option>`);
       sel.value = ''; recompute();
-    }, () => { if (asked) $('here').title = 'location not available on this device or browser'; }, { timeout: 10000, maximumAge: 3600e3 });
+    }, () => { if (asked) { $('here').dataset.i18nTitle = 'ui.noLocation'; $('here').title = SD.i18n.cap1(SD.i18n.t('ui.noLocation')); } }, { timeout: 10000, maximumAge: 3600e3 });
   }
 
   function whenHint() {                                     // the Clock's field says its order in the language
@@ -2305,7 +2349,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
   function setLang(l) {
     const typed = parseDate($('birth-date').value);           // read in the old language's order, before it changes
-    S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply(); ampmLabels(); glossaryTerms(); glossaryLang = null;
+    S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply(); ampmLabels(); fillCity(); glossaryTerms(); glossaryLang = null;
     if ($('set-lang').value !== l) $('set-lang').value = l;
     if (typed) $('birth-date').value = fmtDate(typed);
     if (!$('birth-date-err').hidden) dateError(true);         // the error, in the new language
@@ -2327,7 +2371,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     if (natalModes.includes(S.mode) && !S.natal) S.mode = 'clock';
     reconcileNatal();                                       // the loaded chart as the list holds it, or the list as the loaded chart, whichever was edited later
     document.body.classList.toggle('reading', S.reading && !S.wall); document.body.classList.toggle('wall', S.wall);
-    bind(); bindMenu(); if (!S.wall) bindGesture(); size(); glossaryTerms();
+    bind(); bindMenu(); if (!S.wall) bindGesture(); hintSync(); size(); glossaryTerms();
     try { recompute(); } catch (e) { S.fixed = null; S.live = true; S.offsetMs = 0; S.mode = 'clock'; recompute(); }   // a moment or a view that cannot be computed falls back to the clock of now
     drawNexts(); requestAnimationFrame(slideSeg);
     // a wallpaper never asks for the position: it takes the address's place or the device's zone. nor does a first visit

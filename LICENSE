@@ -1,21 +1,46 @@
-MIT License
+Siderarium
+Copyright (c) 2026 Hippocrene Design Works LLC. All rights reserved.
 
-Copyright (c) 2021 Johannes Beetz
+This repository is public so that the website and the app at https://siderarium.com can be served from
+it, and so that what they do with a visitor's data can be inspected. It is not open source, and no
+licence to its contents is offered here.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. What is covered
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   Everything under siderarium/, site/ and .github/, except the third-party parts listed in section 3:
+   the code, the texts in every language, the dial and its visual design, the images made from it, the
+   rules of interpretation and the method of weighting, the design notes, and the name Siderarium and
+   its mark. All of it is proprietary to Hippocrene Design Works LLC.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. What is allowed
+
+   You may read these files, and you may use the website and the app as they are served, under the
+   terms at https://siderarium.com/terms.html. GitHub's Terms of Service let its users view a public
+   repository and fork it on GitHub; nothing here adds to that.
+
+   No other right is granted. In particular, without the prior written permission of Hippocrene Design
+   Works LLC you may not copy, modify, publish, distribute, host, sell or sublicense these files or any
+   part of them, make derivative works from them, or use the name Siderarium or its mark.
+
+3. What belongs to others, under their own licences
+
+   - The files in the root of the repository that are not listed in section 1 (the Python "mosaic"
+     project this repository was forked from: the *.py files, HED/, assets/, color_collections/,
+     requirements.txt and README-mosaic.md) are Copyright (c) 2021 Johannes Beetz, under the MIT
+     licence in LICENSE-mosaic-MIT.txt. That licence applies to those files only. Siderarium does not
+     use them.
+   - siderarium/js/vendor/astronomy.browser.min.js is Astronomy Engine, Copyright (c) 2019-2023 Don
+     Cross, under the MIT licence.
+   - The typefaces in siderarium/fonts/ and site/fonts/ are Geist and Geist Mono by Vercel, under the
+     SIL Open Font License 1.1 (LICENSE.txt beside them).
+   - siderarium/data/places.txt is derived from GeoNames, under the Creative Commons Attribution 4.0
+     licence.
+
+   Their full notices are at https://siderarium.com/credits.html.
+
+4. No warranty
+
+   These files are provided as they are, without warranty of any kind. To the extent the law allows,
+   Hippocrene Design Works LLC is not liable for any loss arising from their use.
+
+Requests for permission: siderarium@gmail.com

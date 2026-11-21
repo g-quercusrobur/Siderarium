@@ -22,20 +22,20 @@
 <body>
   <header class="bar top">
     <span class="brand"><span class="mark">SIDERARIUM</span><span class="tag" data-i18n="ui.tagline">the macrocosmic clock</span></span>
-    <nav class="seg" aria-label="view">
+    <nav class="seg" data-i18n="ui.view" data-i18n-attr="aria-label" aria-label="view">
       <span class="seg-ind" aria-hidden="true"></span>
       <button data-mode="clock" data-i18n="ui.clock">clock</button>
       <button data-mode="chart" data-i18n="ui.chart">chart</button>
-      <button data-mode="natal" class="has-pick" data-i18n="ui.natal" title="tap again to choose a chart">natal</button>
+      <button data-mode="natal" class="has-pick" data-i18n="ui.natal" data-i18n-title="ui.pickHint" title="tap again to choose a chart">natal</button>
       <button data-mode="synastry" data-i18n="ui.synastry">transits</button>
-      <button data-mode="pair" class="has-pick" data-i18n="ui.pair" title="tap again to choose the second chart">synastry</button>
+      <button data-mode="pair" class="has-pick" data-i18n="ui.pair" data-i18n-title="ui.pickHint2" title="tap again to choose the second chart">synastry</button>
     </nav>
     <nav class="group">
       <button id="menu-open" data-i18n="ui.menu" aria-haspopup="dialog" aria-controls="menu">menu</button>
     </nav>
   </header>
 
-  <aside id="menu" class="sheet" hidden aria-label="menu">
+  <aside id="menu" class="sheet" hidden data-i18n="ui.menu" data-i18n-attr="aria-label" aria-label="menu">
     <div class="sheet-head"><span class="mark" data-i18n="ui.menu">menu</span><button id="menu-close" data-i18n="ui.close">close</button></div>
     <section id="install-row" class="install-row" hidden>
       <button id="install-btn" class="big primary" data-i18n="ui.install.btn">Install Siderarium</button>
@@ -80,22 +80,46 @@
   <main id="stage">
     <button id="now-float" class="float-now" data-i18n="ui.now" hidden>now</button>
     <div class="dialwrap">
-    <canvas id="dial" aria-label="the sky of the moment, as a dial"></canvas>
-    <button id="update" class="corner-update" data-i18n="ui.update" data-i18n-attr="aria-label" aria-label="update the app" title="update"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.2 12a7.2 7.2 0 1 1-2.1-5.1"/><path d="M19.4 4.2v3.6h-3.6"/></svg></button>
-    <button id="sigil" class="corner-sigil" aria-label="show the sigil" title="s"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M12 3 L20.5 18 L3.5 18 Z"/><circle cx="12" cy="13" r="3.2"/></svg></button>
-    <button id="chart-toggle" class="corner-chart" aria-pressed="false" aria-label="show as a chart" title="chart"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><path d="M12 3.5v3.5M12 17v3.5M3.5 12H7M17 12h3.5M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg></button>
-    <div id="chart-pick" class="chart-pick" hidden role="menu" aria-label="choose a chart"></div>
-    <a id="what-link" class="what-link" href="#read-title" hidden aria-label="what the title means"></a>
-    <button id="copy-link" class="copy-link" hidden aria-label="copy chart report" title="copy chart report"></button>
+    <canvas id="dial" role="img" data-i18n="ui.dialLabel" data-i18n-attr="aria-label" aria-label="the sky of the moment, as a dial"></canvas>
+    <button id="update" class="corner-update" data-i18n="ui.update" data-i18n-attr="aria-label title" aria-label="update the app" title="update the app"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.2 12a7.2 7.2 0 1 1-2.1-5.1"/><path d="M19.4 4.2v3.6h-3.6"/></svg></button>
+    <button id="sigil" class="corner-sigil" aria-pressed="false" data-i18n="ui.sigilShow" data-i18n-attr="aria-label" aria-label="show the sigil" title="s"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 L20.5 18 L3.5 18 Z"/><circle cx="12" cy="13" r="3.2"/></svg></button>
+    <button id="chart-toggle" class="corner-chart" aria-pressed="false" data-i18n="ui.asChart" data-i18n-attr="aria-label title" aria-label="show as a chart" title="show as a chart"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><path d="M12 3.5v3.5M12 17v3.5M3.5 12H7M17 12h3.5M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg></button>
+    <div id="chart-pick" class="chart-pick" hidden role="menu" data-i18n="ui.pickLabel" data-i18n-attr="aria-label" aria-label="choose a chart"></div>
+    <a id="what-link" class="what-link" href="#read-title" hidden data-i18n="ui.whatLabel" data-i18n-attr="aria-label" aria-label="what the title means"></a>
+    <button id="copy-link" class="copy-link" hidden data-i18n="ui.copyReport" data-i18n-attr="aria-label title" aria-label="copy chart report" title="copy chart report"></button>
     <button id="listen-corner" class="corner-speaker" data-i18n="ui.listenChord" data-i18n-attr="aria-label" aria-label="listen to the chord" title="l"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 9.5v5h3.2l4.3 3.3V6.2L7.2 9.5H4z"/><path class="w1" d="M15 9.6a3.4 3.4 0 0 1 0 4.8"/><path class="w2" d="M17.6 7a7 7 0 0 1 0 10"/><line class="x" x1="4" y1="20" x2="20" y2="4" stroke-width="1.8"/></svg></button>
     </div>
+    <p id="hint1" class="hint1" hidden><span class="t"><span data-i18n="ui.hint1.text">The sky of now, as a clock. Add a birth chart to read it against a person:</span> <button id="hint1-add" type="button" data-i18n="ui.hint1.add">add a birth chart</button></span><button id="hint1-close" type="button" data-i18n="ui.hint1.dismiss" data-i18n-attr="aria-label title" aria-label="dismiss this note" title="dismiss this note"><span aria-hidden="true">×</span></button></p>
     <div id="caption"></div>
-    <section id="ahead" aria-label="the next 72 hours">
-      <canvas id="strip" aria-label="ideation, manifestation, destruction and the veil over the next 72 hours"></canvas>
-      <input id="preview" type="range" min="0" max="4320" step="10" value="0" aria-label="preview the next 72 hours">
+    <section id="ahead" data-i18n="ui.aheadLabel" data-i18n-attr="aria-label" aria-label="the next 72 hours">
+      <canvas id="strip" role="img" data-i18n="ui.stripLabel" data-i18n-attr="aria-label" aria-label="ideation, manifestation, destruction and the veil over the next 72 hours"></canvas>
+      <input id="preview" type="range" min="0" max="4320" step="10" value="0" data-i18n="ui.previewLabel" data-i18n-attr="aria-label" aria-label="preview the next 72 hours">
       <div id="nexts"></div>
     </section>
   </main>
+
+  <footer class="bar bottom">
+    <nav class="group time">
+      <button data-step="-24" data-i18n="ui.stepLabel.m24" data-i18n-attr="aria-label">−1d</button>
+      <button data-step="-1" data-i18n="ui.stepLabel.m1" data-i18n-attr="aria-label">−1h</button>
+      <button id="live" data-i18n="ui.now">now</button>
+      <button data-step="1" data-i18n="ui.stepLabel.p1" data-i18n-attr="aria-label">+1h</button>
+      <button data-step="24" data-i18n="ui.stepLabel.p24" data-i18n-attr="aria-label">+1d</button>
+      <button id="play" data-i18n="ui.run" data-i18n-title="ui.spaceKey" title="space">run</button>
+      <button id="speed" data-i18n="ui.speedLabel" data-i18n-attr="title" title="running speed">1h/s</button>
+      <label class="when"><input id="when" type="text" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="moment, in the place's own time: year-month-day hour:minute" placeholder="yyyy-mm-dd hh:mm"><span id="zone"></span></label><button id="when-go" data-i18n="ui.go">go</button>
+    </nav>
+    <nav class="group place">
+      <button id="here" data-place="here" data-i18n="ui.here">here</button>
+      <select id="city" data-i18n="ui.cityLabel" data-i18n-attr="aria-label" aria-label="one city for each time zone"></select>
+    </nav>
+    <nav class="group">
+      <button id="save" data-i18n="ui.save">save 2048</button>
+      <button id="save-hd" data-i18n="ui.saveHd">save 4096</button>
+      <button id="wallpaper" data-i18n="ui.wallpaper">wallpaper</button>
+      <button id="share" data-i18n="ui.shareBtn">share</button>
+    </nav>
+  </footer>
 
   <aside id="readout"></aside>
 
@@ -126,8 +150,8 @@
     </article>
   </section>
 
-  <section id="glossary" class="panel" hidden aria-label="glossary">
-    <div class="close-row"><button id="glossary-close" aria-label="close" data-i18n="ui.close">close</button></div>
+  <section id="glossary" class="panel" hidden data-i18n="ui.glossary" data-i18n-attr="aria-label" aria-label="glossary">
+    <div class="close-row"><button id="glossary-close" data-i18n="ui.close">close</button></div>
     <article>
       <h1 data-i18n="ui.glossary">Glossary</h1>
       <p class="meta" data-i18n="ui.glossaryNote">Every word on the dial, explained plainly. Tap a word anywhere in the readout to come here.</p>
@@ -135,8 +159,8 @@
       <div id="glossary-body" class="gbody"></div>
     </article>
   </section>
-  <section id="about" class="panel" hidden aria-label="about siderarium">
-    <div class="close-row"><button id="about-close" aria-label="close" data-i18n="ui.close">close</button></div>
+  <section id="about" class="panel" hidden data-i18n="ui.about" data-i18n-attr="aria-label" aria-label="about siderarium">
+    <div class="close-row"><button id="about-close" data-i18n="ui.close">close</button></div>
     <article data-about="en">
       <h1>Siderarium: a macrocosmic clock of the present moment</h1>
             <p class="meta">macrocosmic clock visually tracking the astrological energy of the moment · working paper · v0.8 · october 2026</p>
@@ -478,29 +502,6 @@
             <p class="meta"><a href="https://siderarium.com/terms.html" target="_blank" rel="noopener">Condiciones de uso</a> · <a href="https://siderarium.com/privacy.html" target="_blank" rel="noopener">Privacidad</a> · <a href="https://siderarium.com/credits.html" target="_blank" rel="noopener">Créditos y licencias</a>: Astronomy Engine (MIT), GeoNames (CC BY 4.0), Geist y Geist Mono (SIL Open Font License).</p>
     </article>
   </section>
-
-  <footer class="bar bottom">
-    <nav class="group time">
-      <button data-step="-24" data-i18n="ui.stepLabel.m24" data-i18n-attr="aria-label">−1d</button>
-      <button data-step="-1" data-i18n="ui.stepLabel.m1" data-i18n-attr="aria-label">−1h</button>
-      <button id="live" data-i18n="ui.now">now</button>
-      <button data-step="1" data-i18n="ui.stepLabel.p1" data-i18n-attr="aria-label">+1h</button>
-      <button data-step="24" data-i18n="ui.stepLabel.p24" data-i18n-attr="aria-label">+1d</button>
-      <button id="play" data-i18n="ui.run" title="space">run</button>
-      <button id="speed" title="running speed" aria-label="running speed">1h/s</button>
-      <label class="when"><input id="when" type="text" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="moment, in the place's own time: year-month-day hour:minute" placeholder="yyyy-mm-dd hh:mm"><span id="zone"></span></label><button id="when-go" data-i18n="ui.go">go</button>
-    </nav>
-    <nav class="group place">
-      <button id="here" data-place="here" data-i18n="ui.here">here</button>
-      <select id="city" aria-label="one city for each time zone"></select>
-    </nav>
-    <nav class="group">
-      <button id="save" data-i18n="ui.save">save 2048</button>
-      <button id="save-hd" data-i18n="ui.saveHd">save 4096</button>
-      <button id="wallpaper" data-i18n="ui.wallpaper">wallpaper</button>
-      <button id="share" data-i18n="ui.shareBtn">share</button>
-    </nav>
-  </footer>
 
   <div id="install-sheet" class="install-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="install-title">
     <div class="install-card">

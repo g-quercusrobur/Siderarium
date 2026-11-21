@@ -54,6 +54,9 @@
         glossary: 'Glossary', glossaryNote: 'Every word on the dial, explained plainly. Tap a word anywhere in the readout to come here.',
         useChart: 'use this chart on the clock', charts: 'saved charts', saveAs: 'save as', rename: 'rename', del: 'delete', confirm: 'confirm', load: 'load', name: 'name', namePrompt: 'a name for this chart', ok: 'OK', go: 'go', noCharts: 'no saved charts yet', noOther: 'no other chart yet: add the second person',
         keys: 'keys', keysNote: 'space run · ← → hour · shift ← → day · f full screen · s sigil · l listen · esc close', touchNote: 'on a phone: press the dial for a moment, then turn it to move time; a quick swipe scrolls the page',
+        /* said, not shown: the names of the controls that carry no words, and the first-visit line under the dial */
+        pickHint2: 'tap again to choose the second chart', pickLabel: 'choose a chart', dialLabel: 'the sky of the moment, as a dial', sigilShow: 'show the sigil', whatLabel: 'what the title means', aheadLabel: 'the next 72 hours', stripLabel: 'ideation, manifestation, destruction and the veil over the next 72 hours', previewLabel: 'preview the next 72 hours', spaceKey: 'space', speedLabel: 'running speed', cityLabel: 'one city for each time zone', noLocation: 'location not available on this device or browser',
+        hint1: { text: 'The sky of now, as a clock. Add a birth chart to read it against a person:', add: 'add a birth chart', dismiss: 'dismiss this note' },
         stepLabel: { m24: 'back one day', m1: 'back one hour', p1: 'forward one hour', p24: 'forward one day' }, tal: { h: 'planetary talismans timing',
           lead: place => `The next moments ${place ? 'in ' + place : 'here'} to make each planet’s talisman. Tap a time to open the clock there, with its sound.`, how: 'By the tradition’s rules: the planet’s own hour; the planet rising or culminating in its own sign or exaltation, direct, out of the Sun’s burning, free of Mars and Saturn; the Moon waxing and unimpeded. The times hold for this place only, in its local time.', searching: 'searching…', noneShort: y => `none in the next ${y} years`, howPill: 'How the times are chosen', sourcesPill: 'Sources and what is never listed', cautionPill: 'Ficino’s caution',
           reading: 'reading the coming years…', firstRate: 'In its own sign or exaltation', lesserHead: 'Sooner, with a lesser dignity: its own terms or triplicity',
@@ -142,6 +145,8 @@
         glossary: 'Glosario', glossaryNote: 'Cada palabra de la esfera, explicada en llano. Toca una palabra en la lectura para venir aquí.',
         useChart: 'usar esta carta en el reloj', charts: 'cartas guardadas', saveAs: 'guardar como', rename: 'renombrar', del: 'borrar', confirm: 'confirmar', load: 'cargar', name: 'nombre', namePrompt: 'un nombre para esta carta', ok: 'OK', go: 'ir', noCharts: 'aún no hay cartas guardadas', noOther: 'aún no hay otra carta: añade a la segunda persona',
         keys: 'teclas', keysNote: 'espacio correr · ← → hora · mayús ← → día · f pantalla completa · s sigilo · l escuchar · esc cerrar', touchNote: 'en el móvil: mantén pulsada la esfera un momento y gírala para mover el tiempo; un gesto rápido desplaza la página',
+        pickHint2: 'toca otra vez para elegir la segunda carta', pickLabel: 'elegir una carta', dialLabel: 'el cielo del momento, como una esfera', sigilShow: 'mostrar el sigilo', whatLabel: 'qué significa el título', aheadLabel: 'las próximas 72 horas', stripLabel: 'ideación, manifestación, destrucción y el velo en las próximas 72 horas', previewLabel: 'vista previa de las próximas 72 horas', spaceKey: 'espacio', speedLabel: 'velocidad de avance', cityLabel: 'una ciudad por cada huso horario', noLocation: 'ubicación no disponible en este dispositivo o navegador',
+        hint1: { text: 'El cielo de ahora, como un reloj. Añade una carta natal para leerlo en relación con una persona:', add: 'añadir una carta natal', dismiss: 'quitar esta nota' },
         stepLabel: { m24: 'un día atrás', m1: 'una hora atrás', p1: 'una hora adelante', p24: 'un día adelante' }, tal: { h: 'momentos para los talismanes planetarios',
           lead: place => `Los próximos momentos ${place ? 'en ' + place : 'aquí'} para hacer el talismán de cada planeta. Toca una hora para abrir el reloj en ese momento, con su sonido.`, how: 'Según las reglas de la tradición: la hora del propio planeta; el planeta saliendo o culminando en su domicilio o exaltación, directo, fuera de la combustión del Sol, libre de Marte y Saturno; la Luna creciente y sin impedimentos. Las horas valen solo para este lugar, en su hora local.', searching: 'buscando…', noneShort: y => `ninguno en los próximos ${y} años`, howPill: 'Cómo se eligen las horas', sourcesPill: 'Fuentes y lo que nunca se lista', cautionPill: 'La cautela de Ficino',
           reading: 'leyendo los próximos años…', firstRate: 'En su domicilio o exaltación', lesserHead: 'Antes, con una dignidad menor: sus propios términos o su triplicidad',
@@ -227,13 +232,14 @@
     event: k => d().events[k] || k,
     ordinal: n => d().ordinal(n),
     decanOrd: n => d().decanOrd[n - 1],
-    /* apply data-i18n="ui.key" to the static page: text, or an attribute named in data-i18n-attr */
+    /* apply data-i18n="ui.key" to the static page: text, or the attributes named in data-i18n-attr (one or several, spaced) */
     apply(root = document) {
+      const say = k => { const v = I.t(k); return Array.isArray(v) ? v : I.cap1(v); };
       root.querySelectorAll('[data-i18n]').forEach(el => {
-        const v = I.t(el.dataset.i18n), attr = el.dataset.i18nAttr;
-        const out = Array.isArray(v) ? v : I.cap1(v);
-        if (attr) el.setAttribute(attr, out); else el.textContent = out;
+        const out = say(el.dataset.i18n), attr = el.dataset.i18nAttr;
+        if (attr) for (const a of attr.split(' ')) el.setAttribute(a, out); else el.textContent = out;   // one string may be a control's name and its title
       });
+      root.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = say(el.dataset.i18nTitle); });   // a title of its own beside a translated text: the tabs that open a list, run
     }
   };
   SD.i18n = I;
