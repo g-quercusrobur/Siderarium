@@ -1,0 +1,12 @@
+[
+ {"id":"chicago-pile","name":"chicago pile-1","label":"first sustained chain reaction","iso":"1942-12-02T21:25:00Z","lat":41.7925,"lon":-87.6009,"tz":"America/Chicago"},
+ {"id":"bicycle-day","name":"basel","label":"hofmann's lsd self-experiment","iso":"1943-04-19T15:20:00Z","lat":47.5596,"lon":7.5886,"tz":"Europe/Zurich"},
+ {"id":"trinity","name":"trinity site","label":"first nuclear detonation","iso":"1945-07-16T11:29:45Z","lat":33.6773,"lon":-106.4754,"tz":"America/Denver"},
+ {"id":"hiroshima","name":"hiroshima","label":"atomic bombing","iso":"1945-08-05T23:15:00Z","lat":34.3955,"lon":132.4536,"tz":"Asia/Tokyo"},
+ {"id":"sputnik","name":"baikonur","label":"sputnik 1 launch","iso":"1957-10-04T19:28:34Z","lat":45.920,"lon":63.342,"tz":"UTC","zoneLabel":"utc"},
+ {"id":"apollo-11","name":"houston","label":"first step on the moon","iso":"1969-07-21T02:56:15Z","lat":29.5593,"lon":-95.0900,"tz":"America/Chicago"},
+ {"id":"arpanet","name":"ucla","label":"first arpanet message","iso":"1969-10-30T06:30:00Z","lat":34.0689,"lon":-118.4452,"tz":"America/Los_Angeles"},
+ {"id":"chernobyl","name":"chernobyl","label":"reactor 4 explosion","iso":"1986-04-25T21:23:40Z","lat":51.3890,"lon":30.0990,"tz":"Europe/Kiev"},
+ {"id":"berlin-wall","name":"berlin","label":"the wall opens","iso":"1989-11-09T17:53:00Z","lat":52.5200,"lon":13.4050,"tz":"Europe/Berlin"},
+ {"id":"wtc","name":"new york","label":"first impact, world trade center","iso":"2001-09-11T12:46:40Z","lat":40.7115,"lon":-74.0134,"tz":"America/New_York"}
+]

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /post-
+Sitemap: https://siderarium.com/sitemap.xml

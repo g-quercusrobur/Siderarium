@@ -1,0 +1,5 @@
+[
+  { "name": "rome", "place": "rome", "w": 1080, "h": 2340 },
+  { "name": "new-york", "place": "new york", "w": 1080, "h": 2340 },
+  { "name": "greenwich", "place": "greenwich", "w": 1080, "h": 2340 }
+]

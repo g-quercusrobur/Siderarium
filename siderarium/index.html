@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Siderarium">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/siderarium-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/siderarium-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/siderarium-192.png">
+<link rel="apple-touch-icon" href="icons/siderarium-180.png">
+<title>Siderarium app · the macrocosmic clock</title>
+<meta name="description" content="The macrocosmic clock, live: the sky of this moment as a mandala, planetary hours and angels, the Moon void of course, the veil.">
+<link rel="canonical" href="https://siderarium.com/app/">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="bar top">
+    <span class="brand"><span class="mark">SIDERARIUM</span><span class="tag" data-i18n="ui.tagline">the macrocosmic clock</span></span>
+    <nav class="seg" data-i18n="ui.view" data-i18n-attr="aria-label" aria-label="view">
+      <span class="seg-ind" aria-hidden="true"></span>
+      <button data-mode="clock" data-i18n="ui.clock">clock</button>
+      <button data-mode="chart" data-i18n="ui.chart">chart</button>
+      <button data-mode="natal" class="has-pick" data-i18n="ui.natal" data-i18n-title="ui.pickHint" title="tap again to choose a chart">natal</button>
+      <button data-mode="synastry" data-i18n="ui.synastry">transits</button>
+      <button data-mode="pair" class="has-pick" data-i18n="ui.pair" data-i18n-title="ui.pickHint2" title="tap again to choose the second chart">synastry</button>
+    </nav>
+    <nav class="group">
+      <button id="menu-open" data-i18n="ui.menu" aria-haspopup="dialog" aria-controls="menu">menu</button>
+    </nav>
+  </header>
+
+  <aside id="menu" class="sheet" hidden data-i18n="ui.menu" data-i18n-attr="aria-label" aria-label="menu">
+    <div class="sheet-head"><span class="mark" data-i18n="ui.menu">menu</span><button id="menu-close" data-i18n="ui.close">close</button></div>
+    <section id="install-row" class="install-row" hidden>
+      <button id="install-btn" class="big primary" data-i18n="ui.install.btn">Install Siderarium</button>
+    </section>
+    <section class="about-row">
+      <button id="about-open" class="big" data-i18n="ui.about">About Siderarium</button>
+      <button id="glossary-open" class="big" data-i18n="ui.glossary">Glossary</button>
+    </section>
+    <section>
+      <h2 data-i18n="ui.settings">settings</h2>
+      <label class="row"><span data-i18n="ui.language">language</span><select id="set-lang"><option value="en">english</option><option value="es">español</option></select></label>
+      <label class="row"><span data-i18n="ui.houses">houses</span><select id="set-houses"><option value="regiomontanus">regiomontanus</option><option value="equal" data-i18n="ui.housesOpt.equal">equal</option><option value="placidus">placidus</option></select></label>
+      <label class="row"><span data-i18n="ui.field">field</span><select id="set-field"><option value="engraved" data-i18n="ui.fieldOpt.engraved">engraved</option><option value="guilloche" data-i18n="ui.fieldOpt.guilloche">guilloché</option><option value="glow" data-i18n="ui.fieldOpt.glow">glow</option></select></label>
+      <label class="row"><span data-i18n="ui.bodiesLabel">planets</span><select id="set-bodies"><option value="metal" data-i18n="ui.bodiesOpt.metal">bodies</option><option value="lights" data-i18n="ui.bodiesOpt.lights">lights</option></select></label>
+    </section>
+    <section>
+      <h2 data-i18n="ui.nativity">birth date</h2>
+      <p id="natal-summary" class="meta"></p>
+      <div class="rowbtns"><button id="natal-new" data-i18n="ui.newChart">new</button><button id="natal-edit" data-i18n="ui.edit">edit</button><button id="natal-saveas" data-i18n="ui.saveAs" aria-expanded="false" aria-controls="chart-new">save as</button></div>
+      <div class="rowbtns"><button id="natal-copy" data-i18n="ui.copyReport">copy chart report</button><button id="natal-report" data-i18n="ui.report">save birth chart report</button></div>
+      <div class="rowbtns"><button id="charts-export" data-i18n="ui.exportCharts">export charts</button><button id="charts-import" data-i18n="ui.importCharts">import charts</button><input id="charts-file" type="file" accept="application/json,.json" hidden></div>
+      <p id="import-note" class="meta"></p>
+      <div id="chart-new" class="row" hidden><input id="chart-name" type="text" maxlength="80" autocomplete="off" data-i18n="ui.namePrompt" data-i18n-attr="placeholder" placeholder="a name for this chart"><button id="chart-ok" data-i18n="ui.ok">ok</button></div>
+      <label class="row"><span data-i18n="ui.seenFrom">seen from</span><select id="set-relocate"><option value="0" data-i18n="ui.birthplace">birthplace</option><option value="1" data-i18n="ui.currentPlace">current place</option></select></label>
+      <h2 data-i18n="ui.charts">saved charts</h2>
+      <ul id="charts" class="list"></ul>
+      <p class="meta" data-i18n="ui.chartsHelp"></p>
+    </section>
+    <section id="read-title">
+      <h2 data-i18n="ui.rt.h">reading the title</h2>
+      <p class="meta"><b data-i18n="ui.rt.timeH">Time to</b> <span data-i18n="ui.rt.time"></span></p>
+      <p class="meta"><b data-i18n="ui.rt.modeH">Mode</b> <span data-i18n="ui.rt.mode"></span></p>
+      <p class="meta"><b data-i18n="ui.rt.realmH">Realm</b> <span data-i18n="ui.rt.realm"></span></p>
+    </section>
+    <section>
+      <h2 data-i18n="ui.keys">keys</h2>
+      <p class="meta" data-i18n="ui.keysNote">space run · ← → hour · shift ← → day · f screen · i readout · s sigil · l listen · esc close</p>
+      <p class="meta" data-i18n="ui.touchNote">on a phone: press the dial for a moment, then turn it to move time; a quick swipe scrolls the page</p>
+    </section>
+  </aside>
+
+  <main id="stage">
+    <button id="now-float" class="float-now" data-i18n="ui.now" hidden>now</button>
+    <div class="dialwrap">
+    <canvas id="dial" role="img" data-i18n="ui.dialLabel" data-i18n-attr="aria-label" aria-label="the sky of the moment, as a dial"></canvas>
+    <button id="update" class="corner-update" data-i18n="ui.update" data-i18n-attr="aria-label title" aria-label="update the app" title="update the app"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.2 12a7.2 7.2 0 1 1-2.1-5.1"/><path d="M19.4 4.2v3.6h-3.6"/></svg></button>
+    <button id="chart-toggle" class="corner-chart" aria-pressed="false" data-i18n="ui.asChart" data-i18n-attr="aria-label title" aria-label="show as a chart" title="show as a chart"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><path d="M12 3.5v3.5M12 17v3.5M3.5 12H7M17 12h3.5M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg></button>
+    <div id="chart-pick" class="chart-pick" hidden role="menu" data-i18n="ui.pickLabel" data-i18n-attr="aria-label" aria-label="choose a chart"></div>
+    <button id="sigil" class="corner-sigil" aria-pressed="false" data-i18n="ui.sigilShow" data-i18n-attr="aria-label" aria-label="show the sigil" title="s"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 L20.5 18 L3.5 18 Z"/><circle cx="12" cy="13" r="3.2"/></svg></button>
+    <button id="listen-corner" class="corner-speaker" data-i18n="ui.listenChord" data-i18n-attr="aria-label" aria-label="listen to the chord" title="l"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 9.5v5h3.2l4.3 3.3V6.2L7.2 9.5H4z"/><path class="w1" d="M15 9.6a3.4 3.4 0 0 1 0 4.8"/><path class="w2" d="M17.6 7a7 7 0 0 1 0 10"/><line class="x" x1="4" y1="20" x2="20" y2="4" stroke-width="1.8"/></svg></button>
+    <a id="what-link" class="what-link" href="#read-title" hidden data-i18n="ui.whatLabel" data-i18n-attr="aria-label" aria-label="what the title means"></a>
+    <button id="copy-link" class="copy-link" hidden data-i18n="ui.copyReport" data-i18n-attr="aria-label title" aria-label="copy chart report" title="copy chart report"></button>
+    </div>
+    <p id="hint1" class="hint1" hidden><span class="t"><span data-i18n="ui.hint1.text">The sky of now, as a clock. Add a birth chart to read it against a person:</span> <button id="hint1-add" type="button" data-i18n="ui.hint1.add">add a birth chart</button></span><button id="hint1-close" type="button" data-i18n="ui.hint1.dismiss" data-i18n-attr="aria-label title" aria-label="dismiss this note" title="dismiss this note"><span aria-hidden="true">×</span></button></p>
+    <div id="caption"></div>
+    <section id="ahead" data-i18n="ui.aheadLabel" data-i18n-attr="aria-label" aria-label="the next 72 hours">
+      <canvas id="strip" role="img" data-i18n="ui.stripLabel" data-i18n-attr="aria-label" aria-label="ideation, manifestation, destruction and the veil over the next 72 hours"></canvas>
+      <input id="preview" type="range" min="0" max="4320" step="10" value="0" data-i18n="ui.previewLabel" data-i18n-attr="aria-label" aria-label="preview the next 72 hours">
+      <div id="nexts"></div>
+    </section>
+  </main>
+
+  <footer class="bar bottom">
+    <nav class="group time">
+      <button data-step="-24" data-i18n="ui.stepLabel.m24" data-i18n-attr="aria-label">−1d</button>
+      <button data-step="-1" data-i18n="ui.stepLabel.m1" data-i18n-attr="aria-label">−1h</button>
+      <button id="live" data-i18n="ui.now">now</button>
+      <button data-step="1" data-i18n="ui.stepLabel.p1" data-i18n-attr="aria-label">+1h</button>
+      <button data-step="24" data-i18n="ui.stepLabel.p24" data-i18n-attr="aria-label">+1d</button>
+      <button id="play" data-i18n="ui.run" data-i18n-title="ui.spaceKey" title="space">run</button>
+      <button id="speed" data-i18n="ui.speedLabel" data-i18n-attr="title" title="running speed">1h/s</button>
+      <label class="when"><input id="when" type="text" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="moment, in the place's own time: year-month-day hour:minute" placeholder="yyyy-mm-dd hh:mm"><span id="zone"></span></label><button id="when-go" data-i18n="ui.go">go</button>
+    </nav>
+    <nav class="group place">
+      <button id="here" data-place="here" data-i18n="ui.here">here</button>
+      <select id="city" data-i18n="ui.cityLabel" data-i18n-attr="aria-label" aria-label="one city for each time zone"></select>
+    </nav>
+    <nav class="group">
+      <button id="save" data-i18n="ui.save">save 2048</button>
+      <button id="save-hd" data-i18n="ui.saveHd">save 4096</button>
+      <button id="wallpaper" data-i18n="ui.wallpaper">wallpaper</button>
+      <button id="share" data-i18n="ui.shareBtn">share</button>
+    </nav>
+  </footer>
+
+  <aside id="readout"></aside>
+
+  <section id="birth" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="birth-title">
+    <article>
+      <button id="birth-close" data-i18n="ui.close">close</button>
+      <h1 id="birth-title" tabindex="-1" data-i18n="ui.newNativity">new birth chart</h1>
+      <p class="meta" data-i18n="ui.kept">kept on this device only · never sent anywhere</p>
+      <div class="form">
+        <label><span data-i18n="ui.name">name</span> <input id="birth-name" type="text" maxlength="80" autocomplete="off" data-i18n="ui.namePrompt" data-i18n-attr="placeholder" placeholder="a name for this chart"></label>
+        <label><span><span data-i18n="ui.date">date</span> <span class="hint" data-i18n="ui.dateFmt">YYYY/MM/DD</span></span> <input id="birth-date" type="text" inputmode="numeric" data-i18n="ui.dateFmt" data-i18n-attr="placeholder" placeholder="YYYY/MM/DD" autocomplete="off" aria-describedby="birth-date-err birth-date-read"></label>
+        <p id="birth-date-err" class="field-err" aria-live="polite" hidden></p>
+        <p id="birth-date-read" class="field-read" aria-live="polite"></p>
+        <label><span data-i18n="ui.time">time</span> <span class="timebox"><input id="birth-time" type="text" inputmode="numeric" placeholder="hh:mm" autocomplete="off"><select id="birth-ampm" data-i18n="ui.ampmLabel" data-i18n-attr="aria-label" aria-label="24-hour or am / pm"><option value="24">24 h</option><option value="am">am</option><option value="pm">pm</option></select></span></label>
+        <label class="check"><input id="birth-unknown" type="checkbox"> <span data-i18n="ui.unknown">time unknown</span></label>
+        <label><span data-i18n="ui.placeName">birthplace</span> <input id="birth-place" type="text" data-i18n="ui.placeHint" data-i18n-attr="placeholder" placeholder="type the town, e.g. Lucca" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="birth-results"></label>
+        <ul id="birth-results" class="results" role="listbox" data-i18n="ui.placeName" data-i18n-attr="aria-label" aria-label="birthplace" hidden></ul>
+        <p id="birth-place-status" class="sr-only" role="status" aria-live="polite"></p>
+        <p id="birth-chosen" class="meta"></p>
+        <div class="pair">
+          <label><span data-i18n="ui.lat">latitude</span> <input id="birth-lat" type="text" inputmode="decimal" placeholder="43.84"></label>
+          <label><span data-i18n="ui.lon">longitude</span> <input id="birth-lon" type="text" inputmode="decimal" placeholder="10.50"></label>
+        </div>
+        <p id="birth-note" class="meta" aria-live="polite"></p>
+        <div class="actions"><button id="birth-save" class="primary" data-i18n="ui.saveBtn">save</button><button id="birth-clear" data-i18n="ui.clear">clear</button></div>
+      </div>
+      <p data-i18n="ui.birthNote">The time zone and offset are taken from the city for that date.</p>
+    </article>
+  </section>
+
+  <section id="glossary" class="panel" hidden data-i18n="ui.glossary" data-i18n-attr="aria-label" aria-label="glossary">
+    <div class="close-row"><button id="glossary-close" data-i18n="ui.close">close</button></div>
+    <article>
+      <h1 data-i18n="ui.glossary">Glossary</h1>
+      <p class="meta" data-i18n="ui.glossaryNote">Every word on the dial, explained plainly. Tap a word anywhere in the readout to come here.</p>
+      <nav id="glossary-index" class="gindex"></nav>
+      <div id="glossary-body" class="gbody"></div>
+    </article>
+  </section>
+  <section id="about" class="panel" hidden data-i18n="ui.about" data-i18n-attr="aria-label" aria-label="about siderarium">
+    <div class="close-row"><button id="about-close" data-i18n="ui.close">close</button></div>
+    <article data-about="en">
+      <h1>Siderarium: a macrocosmic clock of the present moment</h1>
+            <p class="meta">macrocosmic clock visually tracking the astrological energy of the moment · working paper · v0.8 · october 2026</p>
+            <p class="abstract">Siderarium draws the sky of the present moment as a living mandala. Through synesthesia we wanted an instrument that conveys, in a multi-sensory experience, the astrological energy of the hour: its colour, its geometry, its chord. The dial captures the moment and its vibration, so that it can be seen, heard, kept as an image and returned to. For practitioners of the Arts it is also a timing tool: the light at the centre, the guardians of the hour and the windows of the coming day show when a working finds the sky ready.</p>
+
+            <h2>1 · CONCEPT</h2>
+            <ul>
+              <li>How the sky becomes a figure. The positions of the planets are computed from an ephemeris. Classical astrology reads the angles between them as aspects: the trine at 120°, the square at 90°, the sextile at 60°. Kepler showed that these angles are the divisions of the circle by its regular polygons [16]. Siderarium takes that literally: an aspect of k·360/n is drawn as the star polygon {n/k} [15], so a trine becomes a triangle, a square a square, a quintile a pentagram. The ruling aspect gives the central figure; the others stand fainter behind it.</li>
+              <li>Each planet brings its number, its tincture and its light: Saturn the three, the Sun the six, Mercury the eight; gold, silver and the King scale of colours; a glow that follows its dignity and strength at that hour. Soft aspects bend the edges and chain circles, hard aspects keep the lines straight. The mandala that results is the key to the present moment: a pattern that exists only now and can be traced, line by line, to a rule and a source.</li>
+              <li>The design descends from the astronomical clocks of §2.1 and borrows the functional discipline of haute horlogerie: a dial on which every mark earns its place, a chapter ring, applied Roman numerals, the Moon shown in its phase, and nothing that does not read. One astrological factor drives one visual channel.</li>
+              <li>The figure at the centre is a yantra in the literal sense, an instrument. In the Western talismanic tradition an image made at a chosen moment holds that moment [4, 5, 6]; the sigil layer lets it be copied by hand.</li>
+              <li>The title of the moment, one line under the dial. First whether this is a time to work, to watch or to shelter, read from the Moon's condition by Lilly's rules and from the strength of the figure. Then the stage of life the hour serves, the house the Moon stands in, one of twelve words from Body to Occult; the houses as stages of life are Manilius and Lilly, the Moon's house as the matter of an election is Agrippa. Then the mode, one of the three mother letters of the Sefer Yetzirah: Aleph, air, ideation while the ruling aspect applies; Mem, water, manifestation once it is exact; Shin, fire, destruction when the aspect is hard or the portal is cut. Then the angel of the hour. The three states and the reading of the mothers are this instrument's <code>[SD]</code>.</li>
+              <li><strong>Reading the title line, plainly.</strong> The line under the dial says three things. <em>Can I operate now?</em> Time to work: yes, the sky is ready. Time to watch: not yet, wait and prepare. Time to shelter: no, there is a storm, protect yourself. This comes from the Moon: whether the next contact she makes is good or bad, or none at all (void), and whether a harsh planet is cutting the main figure. <em>What kind of work does the hour favour?</em> Mode of Ideation: starting, thinking, planning. Mode of Manifestation: making real, finishing, landing. Mode of Destruction: ending, cutting, banishing. This comes from the main figure of the sky: a harsh figure breaks, a figure that has just become exact lands, a figure still forming is an idea. <em>Where in life?</em> Realm of the Body, of Wealth, of Work and so on: the house the Moon is passing through. The Moon is the hand of the clock, and the house she is in is the part of life the hour touches.</li>
+              <li>The core is one tradition, the Renaissance; two modern layers are added and declared. Rules invented for this instrument are marked <code>[SD]</code>.</li>
+            </ul>
+
+            <h2>2 · BACKGROUND</h2>
+            <h3>2.1 Mechanical cosmic clocks</h3>
+            <ul>
+              <li>Antikythera mechanism, c. 2nd–1st century BCE: geared Sun, Moon and eclipse cycles [24].</li>
+              <li>Su Song's astronomical clock tower, Kaifeng, 1088–1092 [26].</li>
+              <li>Giovanni Dondi's Astrarium, Padua, 1364: one dial for each of the seven planets [25].</li>
+              <li>Prague Orloj, 1410: an astrolabe dial with day, twilight and night fields. The Sun on its hand inspires the placement of bodies by altitude here.</li>
+              <li>The astronomical complications of modern haute horlogerie: Ludwig Oechslin's Astrolabium Galileo Galilei for Ulysse Nardin (1985) and its Planetarium and Tellurium; Christiaan van der Klaauw's planetaria; the celestial charts of Patek Philippe (ref. 5102, 2002) and Vacheron Constantin. From them Siderarium takes the dial discipline: chapter ring, applied numerals, the Moon in its aperture, a finish that serves the reading.</li>
+            </ul>
+            <h3>2.2 The Renaissance synthesis</h3>
+            <ul>
+              <li>Astrology: Ptolemy [1] through Lilly [3]: dignities, terms, faces, the solar phases, the planetary hours.</li>
+              <li>Kabbalah entered Latin Europe in the same generation: Pico della Mirandola's theses (1486) [29], Reuchlin's <em>De arte cabalistica</em> (1517) [30], and Agrippa's third book (1533), which sets the Sephiroth, the divine names and the angelic orders beside the planetary spheres [4]. The Tree as drawn today is Kircher's (1652) [31].</li>
+              <li>Planetary magic: the <em>Picatrix</em> [5], Ficino [6], the Heptameron [7], Agrippa's magic squares and the 28 mansions of the Moon [4].</li>
+              <li>The Golden Dawn (1888–) [10], Crowley [9], Fortune [11] and Case [12] are later layers. Two of them are used here as declared windows (§3.9).</li>
+            </ul>
+            <h3>2.3 Visual lineage</h3>
+            <ul>
+              <li>Itten's twelve-step colour circle and his harmonic chords [13]; Albers on colour interaction [14].</li>
+              <li>Frieda Harris's projective backgrounds for the Thoth Tarot [27], after George Adams's projective geometry [28].</li>
+              <li>Rose-engine guilloché and intaglio engraving: light as line weight.</li>
+            </ul>
+
+            <h2>3 · METHODS</h2>
+            <h3>3.1 Ephemeris and frame</h3>
+            <ul>
+              <li>Astronomy Engine 2.1.19 [18]: positions to about one arcminute. Tropical zodiac, true ecliptic of date, geocentric longitudes. The Moon's altitude is topocentric.</li>
+              <li>Ascendant and MC from the local sidereal time and the obliquity [17]. Checked against the horizon: the Ascendant point has altitude 0.000°.</li>
+              <li>Projection: angle = ecliptic longitude, with the Ascendant on the eastern horizon; radius = altitude. One projection for every body and for the zodiac ring.</li>
+            </ul>
+            <h3>3.2 Houses</h3>
+            <ul>
+              <li>Current: Regiomontanus houses, Lilly's system [3]: the equator divided into twelve from the meridian, each division carried to the ecliptic by a great circle through the north and south points of the horizon. The MC is the cusp of the 10th. The regular dodecagon is the container; the cusps are drawn across it, where they fall. Equal houses and Placidus remain available for comparison (<code>?houses=equal</code>, <code>?houses=placidus</code>). Angularity is conjunction with an angle, within 5°.</li>
+              <li>Under review: whole-sign (Hellenistic) [19], Regiomontanus (Lilly's system) [3], Placidus (the modern default). A quadrant system makes the frame irregular.</li>
+            </ul>
+            <h3>3.3 Condition of the planets</h3>
+            <div class="wrap"><table>
+              <tr><th>factor</th><th>rule</th><th>source</th></tr>
+              <tr><td>essential dignity</td><td>domicile +5 · exaltation +4 · triplicity +3 · term +2 · face +1 · detriment −5 · fall −4 · peregrine −5</td><td>Lilly [3]; Egyptian terms; Chaldean faces</td></tr>
+              <tr><td>mutual reception</td><td>by domicile or by exaltation; lifts the peregrine penalty</td><td>Lilly [3]; scoring [SD]</td></tr>
+              <tr><td>outer planets</td><td>no essential dignity, no number, no place on the Tree; drawn as optics</td><td>traditional consensus [1, 3, 19]</td></tr>
+              <tr><td>solar phase</td><td>cazimi &lt; 17′ · combust &lt; 8.5° · under the beams &lt; 17°, every planet</td><td>[3]</td></tr>
+              <tr><td>motion</td><td>retrograde; stationary below 12% of mean speed</td><td>[SD threshold]</td></tr>
+            </table></div>
+            <h3>3.4 Aspects and the hierarchy of figures [SD]</h3>
+            <ul>
+              <li>Ptolemaic aspects, plus quincunx, semisquare, sesquisquare, quintiles, septiles and noviles, each with its own orb. A whole-sign aspect that does not hold by sign (29° Aries to 1° Virgo) is dissociate and takes half weight.</li>
+              <li>power = (0.2 + 0.8·rarity) × weight × (0.3·exactness<sup>1.5</sup> + 0.7·window) × modifiers.</li>
+              <li><em>rarity</em> = log of the pair's synodic period. <em>window</em> = time to exactness, not degrees: e<sup>−½(days/1.5)²</sup>; the Moon's window is 6 hours.</li>
+              <li>Modifiers: applying ×1.2, separating ×0.8, station ×1.5, Sun involved ×1.2, angular ×1.3. Events override the score: eclipse &gt; lunation &gt; cazimi &gt; exact outer contact &gt; station.</li>
+            </ul>
+            <h3>3.5 The figure [SD]</h3>
+            <ul>
+              <li>Each aspect is drawn as {n/k}. A conjunction is a rose with as many petals as the sum of the two planets' Sephirah numbers. An opposition, the circle halved, is two equal circles each passing through the other's centre, the vesica piscis: the first construction of Euclid's <em>Elements</em> (I.1). The vesica's axis lies on the two planets.</li>
+              <li>Soft aspects bow the edges and add a circle chain; hard aspects keep straight edges and points. Each line passes from one planet's colour to the other's; the fill is their mixture.</li>
+              <li>Size: Jupiter widens the portal, Saturn narrows it. Cut: a hard aspect from a third planet removes a wedge, pointed at that planet.</li>
+              <li>Stars mark the points where vertices of two figures coincide. Two centred figures share gcd(n₁, n₂) vertices.</li>
+            </ul>
+            <h3>3.6 The Moon and ripeness</h3>
+            <ul>
+              <li>Void of course: no Ptolemaic aspect to a classical planet perfects before the Moon leaves its sign. Also tested: Via Combusta (15° Libra to 15° Scorpio), combust, applying to a malefic [3]. The verdict (ripe, open, unripe, void) sets the light at the pole [SD].</li>
+              <li>The Moon's mansion: 28 divisions of 12°51′26″ from 0° Aries, names after Agrippa II.33 [4].</li>
+            </ul>
+            <h3>3.7 Time</h3>
+            <ul>
+              <li>The planetary day begins at local sunrise. Twelve unequal hours run from sunrise to sunset and twelve from sunset to sunrise, in Chaldean order. Angels of the days and hours from the Heptameron [7].</li>
+            </ul>
+            <h3>3.8 Windows [SD]</h3>
+            <ul>
+              <li>Three windows, after the three mother letters of the Sefer Yetzirah [8]: ideation (aleph, air), incarnation (mem, water: descent into form), destruction (shin, fire). Earth has no mother letter, so there is no fourth.</li>
+              <li>Each window is scored from the planets and signs of the figure, its nature (soft or hard), and the beauty of the moment: a whole figure, harmonious guardians and a ripe Moon. Destruction is scored the opposite way.</li>
+            </ul>
+            <h3>3.8b The veil [SD]</h3>
+            <ul>
+              <li>A fourth line under the windows, dashed, on its own scale from 0 to 1: how thin the veil is. The between-times of the day (twilight at sunrise and sunset, solar midnight), the Moon's light (dark, full), her place (a water sign, a water house), her void, the hours of the Moon and of Saturn, the doors of the year (the cross-quarters, Samhain heaviest, then Beltane, Imbolc and Lammas; the solstices and equinoxes lighter), an eclipse, and Neptune on the Moon or on an angle. Each factor is a weight; they combine so that one strong cause opens the veil alone and several weak ones add up. The readout names the factors in force; the legend names the thinnest moment of the coming day.</li>
+            </ul>
+            <h3>3.9 Correspondences: a Renaissance core and two declared windows</h3>
+            <div class="wrap"><table>
+              <tr><th>layer</th><th>rule</th><th>source</th></tr>
+              <tr><td>planet colour</td><td>heraldic tinctures by planet: Sun or, Moon argent, Mercury purpure, Venus vert, Mars gules, Jupiter azure, Saturn sable. Gold and silver rendered as metals.</td><td>Ferne 1586 [32]; agrees with Agrippa I.49 [4] and the GD Queen scale [10]</td></tr>
+              <tr><td>planet number</td><td>Saturn 3, Jupiter 4, Mars 5, Sun 6, Venus 7, Mercury 8, Moon 9: the Sephirah, and the order of the planet's magic square</td><td>Agrippa II.22 [4]</td></tr>
+              <tr><td>outer planets</td><td>Uranus iridescence, Neptune brilliance, Pluto lensing. No pigment, no number.</td><td>[SD]</td></tr>
+              <tr><td>window 1 · sign colour</td><td>the King scale of the paths: Aries scarlet … Pisces crimson, rendered ultraviolet. The same circle as Itten's, and as the chromatic scale (Aries = C)</td><td>Golden Dawn [10], Case [12]</td></tr>
+              <tr><td>window 2 · tarot</td><td>the 36 decans as Chaldean faces with their minor cards and Book T titles; trumps on signs and planets, Golden Dawn attribution (Strength to Leo, Justice to Libra, the Star to Aquarius)</td><td>Book T, in Regardie [10]</td></tr>
+              <tr><td>elements</td><td>air pale yellow, water deep blue, fire orange-scarlet, earth near-black brown</td><td>GD King scale of the mother letters [10]</td></tr>
+            </table></div>
+            <h3>3.10 Birth chart and synastry</h3>
+            <ul>
+              <li>Birth data stay on the device. The birth chart is computed as any other moment and shown as its own clock.</li>
+              <li>Synastry: transiting planets to natal planets and angles, Ptolemaic aspects and the quincunx, orbs 6/6/5/5/3/2°, plus 1° for the luminaries. Power = weight × exactness<sup>1.5</sup> × slowness of the transiting planet [SD]. The dial draws the ten heaviest transits as a harmonic rose, in place of planets [SD].</li>
+            </ul>
+
+            <h2>4 · USE</h2>
+            <div class="wrap"><table>
+              <tr><th>you see</th><th>it means</th></tr>
+              <tr><td>polygon of a planet</td><td>its number: Saturn 3 … Mercury 8; the Moon is drawn by its phase; gold and silver shine</td></tr>
+              <tr><td>ring around a planet</td><td>whole = domicile · doubled = exaltation · thin = minor dignity · faint = peregrine · broken = detriment · broken and drawn in = fall. Out of alignment with the core = out of tune</td></tr>
+              <tr><td>size of a planet</td><td>its power: dignity, angularity, station, part in the figure</td></tr>
+              <tr><td>blur</td><td>retrograde, or slowing toward a station</td></tr>
+              <tr><td>eclipse inside a circle</td><td>Pluto: the field goes dark under it and a corona rings its limb; stronger when angular, stationary or in the figure. Two planets in conjunction fuse into one form</td></tr>
+              <tr><td>central figure</td><td>the ruling aspect; secondary figures fainter behind it</td></tr>
+              <tr><td>white stars</td><td>points where two figures meet exactly</td></tr>
+              <tr><td>light at the pole</td><td>the Moon's verdict: warm = ripe · cold = unripe · dark = void</td></tr>
+              <tr><td>star at the pole</td><td>the guardians: day ruler and hour ruler as their planetary stars</td></tr>
+              <tr><td>flow from gold to silver</td><td>the Sun's outflow arriving in the Moon's cup; its speed follows the Moon's light</td></tr>
+              <tr><td>red core, blue ring</td><td>Transits and Synastry: strife (the hard transits) from the centre, harmony (the easy ones) laid around it; the outline is the two together. Compare areas, not widths</td></tr>
+              <tr><td>aura outside the frame</td><td>the element of the hour: water ripples, air drifts in pale yellow, fire flickers, earth stands still with the grain of stone</td></tr>
+              <tr><td>coloured line under the dial</td><td>time to work, to watch or to shelter: the Moon's condition and the figure's strength</td></tr>
+              <tr><td>title of the moment</td><td>the Moon's house as a stage of life · the mother letter of the hour · the angel of the hour</td></tr>
+              <tr><td>strip below the dial</td><td>the three windows over the next 24 hours, each named with its stage; tap a time to go there</td></tr>
+            </table></div>
+            <p>Turn the dial to travel in time: clockwise is forward, one turn is one day. On a phone, press the dial for a moment and then turn it; a quick swipe over it scrolls the page. Pinch or ctrl + scroll to zoom; double tap to reset. Run, pause and change speed from the bar below. The sigil layer isolates the figure for copying by hand. Print HD art saves a square at 2048 pixels; Wallpaper saves a portrait at this screen's size. Both carry the notice. On a phone, open the app in the browser and choose "add to home screen"; it then runs offline.</p>
+
+            <h2>5 · LIMITATIONS</h2>
+            <ul>
+              <li>Ephemeris accuracy is about one arcminute: the Moon's aspects can be off by a few minutes of time. Swiss Ephemeris is not used.</li>
+              <li>The hierarchy, windows, verdict colours, sound mapping and synastry power are design rules [SD], not tradition.</li>
+              <li>The sign colours and the Tarot are 19th–20th-century layers on a Renaissance core, declared as such. The Book T titles are translated plainly in Spanish.</li>
+              <li>Mansion names follow Agrippa's spellings, which vary between editions.</li>
+              <li>No effect of any figure is claimed or measured. The instrument shows the sky; it does not act on it.</li>
+            </ul>
+
+            <h2>6 · VALIDATION</h2>
+            <ul>
+              <li>Ten timed historical moments were scored against 1,500 random moments at the same places, 1900–2030. Mean percentile of the ruling figure: 64 (chance = 50 ± 9; p ≈ 0.06). Five of the ten fall in the top fifth; the nuclear moments of 1942–45 score at or below chance. The sample was chosen by fame, which biases it.</li>
+            </ul>
+
+            <h2>REFERENCES</h2>
+            <ol class="refs">
+              <li>Ptolemy, <em>Tetrabiblos</em> (c. 150 CE), trans. F. E. Robbins, Loeb, 1940.</li>
+              <li>Vettius Valens, <em>Anthology</em> (2nd c. CE).</li>
+              <li>W. Lilly, <em>Christian Astrology</em>, London, 1647.</li>
+              <li>H. C. Agrippa, <em>Three Books of Occult Philosophy</em> (1533), ed. D. Tyson, Llewellyn, 1993.</li>
+              <li><em>Picatrix</em> (Arabic 10th–11th c.; Latin 13th c.), trans. D. Attrell &amp; D. Porreca, Penn State UP, 2019.</li>
+              <li>M. Ficino, <em>De vita libri tres</em> (1489), eds. C. Kaske &amp; J. Clark, 1989.</li>
+              <li><em>Heptameron</em>, attr. Pietro d'Abano, 16th-c. printing.</li>
+              <li><em>Sefer Yetzirah</em>, trans. A. Kaplan, Weiser, 1990.</li>
+              <li>A. Crowley, <em>777</em>, 1909.</li>
+              <li>I. Regardie, <em>The Golden Dawn</em> (1937–40), incl. <em>Book T</em>, Llewellyn, 6th ed., 1989.</li>
+              <li>D. Fortune, <em>The Mystical Qabalah</em>, 1935.</li>
+              <li>P. F. Case, <em>The Tarot: A Key to the Wisdom of the Ages</em>, 1947.</li>
+              <li>J. Itten, <em>Kunst der Farbe</em>, 1961.</li>
+              <li>J. Albers, <em>Interaction of Color</em>, Yale UP, 1963.</li>
+              <li>J. Addey, <em>Harmonics in Astrology</em>, 1976.</li>
+              <li>J. Kepler, <em>Harmonices Mundi</em>, book IV, 1619.</li>
+              <li>J. Meeus, <em>Astronomical Algorithms</em>, 2nd ed., Willmann-Bell, 1998.</li>
+              <li>D. Cross, <em>Astronomy Engine</em>, MIT licence, github.com/cosinekitty/astronomy.</li>
+              <li>Place names, coordinates and time zones of the birthplace search: GeoNames, CC BY 4.0, geonames.org.</li>
+              <li>C. Brennan, <em>Hellenistic Astrology: The Study of Fate and Fortune</em>, Amor Fati, 2017.</li>
+              <li>S. Skinner, <em>The Complete Magician's Tables</em>, Golden Hoard, 2006.</li>
+              <li>S. Kynes, <em>Llewellyn's Complete Book of Correspondences</em>, Llewellyn, 2013.</li>
+              <li>L. M. DuQuette, <em>The Chicken Qabalah of Rabbi Lamed Ben Clifford</em>, Weiser, 2001.</li>
+              <li>J. McCarthy, <em>Quareia</em>, 2014–, quareia.com.</li>
+              <li>T. Freeth et al., "Decoding the ancient Greek astronomical calculator known as the Antikythera Mechanism", <em>Nature</em> 444, 2006.</li>
+              <li>S. A. Bedini &amp; F. R. Maddison, "Mechanical Universe: The Astrarium of Giovanni de' Dondi", <em>Trans. American Philosophical Society</em> 56/5, 1966.</li>
+              <li>Su Song, <em>Xin Yi Xiang Fa Yao</em>, 1092.</li>
+              <li>F. Harris &amp; A. Crowley, Thoth Tarot (painted 1938–43; published 1969).</li>
+              <li>G. Adams, <em>Physical and Ethereal Spaces</em>, Rudolf Steiner Press, 1965.</li>
+              <li>G. Pico della Mirandola, <em>Conclusiones</em>, Rome, 1486.</li>
+              <li>J. Reuchlin, <em>De arte cabalistica</em>, Hagenau, 1517.</li>
+              <li>A. Kircher, <em>Oedipus Aegyptiacus</em>, Rome, 1652–54.</li>
+              <li>J. Ferne, <em>The Blazon of Gentrie</em>, London, 1586.</li>
+              <li>B. Whitcomb, <em>The Magician's Companion</em>, Llewellyn, 1993.</li>
+            </ol>
+            <h2>LEGAL</h2>
+            <p class="meta">Siderarium is a tool for astrological and symbolic practice, offered for entertainment, reflection and study. It does not predict events and is not medical, psychological, legal or financial advice.</p>
+            <p class="meta">Siderarium, its name, mark, dial, design and method are proprietary. © 2026 Hippocrene Design Works LLC. All rights reserved. Every image exported from the app carries this notice.</p>
+            <p class="meta">Privacy: the app sends nothing anywhere. Settings, birth data and saved charts, including those entered for other people, stay in this browser's storage; no cookies, no analytics, no third-party requests (the fonts are served with the app). The "here" button asks the browser for your position and uses it on the device only. The site is hosted on GitHub Pages, whose servers may log visitor IP addresses under GitHub's privacy statement. Data controller, for now: Hippocrene Design Works LLC. Contact: <a href="mailto:siderarium@gmail.com">siderarium@gmail.com</a>.</p>
+            <p class="meta"><a href="https://siderarium.com/terms.html" target="_blank" rel="noopener">Terms of use</a> · <a href="https://siderarium.com/privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="https://siderarium.com/credits.html" target="_blank" rel="noopener">Credits and licences</a>: Astronomy Engine (MIT), GeoNames (CC BY 4.0), Geist and Geist Mono (SIL Open Font License).</p>
+    </article>
+    <article data-about="es" hidden>
+      <h1>Siderarium: un reloj macrocósmico del momento presente</h1>
+            <p class="meta">reloj macrocósmico que sigue visualmente la energía astrológica del momento · documento de trabajo · v0.8 · octubre 2026</p>
+            <p class="abstract">Siderarium dibuja el cielo del momento presente como un mandala vivo. A través de la sinestesia quisimos un instrumento que transmita, en una experiencia multisensorial, la energía astrológica de la hora: su color, su geometría, su acorde. La esfera captura el momento y su vibración, para que se pueda ver, oír, guardar como imagen y volver a él. Para quienes practican las Artes es también una herramienta de tiempo: la luz del centro, los guardianes de la hora y las ventanas del día que viene muestran cuándo una obra encuentra el cielo dispuesto.</p>
+
+            <h2>1 · CONCEPTO</h2>
+            <ul>
+              <li>Cómo el cielo se vuelve figura. Las posiciones de los planetas se calculan con una efemérides. La astrología clásica lee los ángulos entre ellos como aspectos: el trígono a 120°, la cuadratura a 90°, el sextil a 60°. Kepler mostró que esos ángulos son las divisiones del círculo por sus polígonos regulares [16]. Siderarium lo toma al pie de la letra: un aspecto de k·360/n se dibuja como el polígono estrellado {n/k} [15], así un trígono se vuelve triángulo, una cuadratura cuadrado, un quintil pentagrama. El aspecto que rige da la figura central; los demás quedan más tenues detrás.</li>
+              <li>Cada planeta trae su número, su tintura y su luz: Saturno el tres, el Sol el seis, Mercurio el ocho; oro, plata y la escala del Rey de colores; un resplandor que sigue su dignidad y su fuerza en esa hora. Los aspectos suaves curvan las aristas y encadenan círculos, los duros mantienen las líneas rectas. El mandala que resulta es la llave del momento presente: un patrón que solo existe ahora y que se puede rastrear, línea a línea, hasta una regla y una fuente.</li>
+              <li>El diseño desciende de los relojes astronómicos del §2.1 y toma la disciplina funcional de la alta relojería: una esfera en la que cada marca se gana su lugar, un anillo horario, numerales romanos aplicados, la Luna mostrada en su fase, y nada que no se lea. Un factor astrológico gobierna un canal visual.</li>
+              <li>La figura del centro es un yantra en sentido literal, un instrumento. En la tradición talismánica occidental, una imagen hecha en un momento elegido retiene ese momento [4, 5, 6]; la capa sigilo permite copiarla a mano.</li>
+              <li>El título del momento, una línea bajo la esfera. Primero si es tiempo de obrar, de observar o de resguardarse, leído de la condición de la Luna según las reglas de Lilly y de la fuerza de la figura. Después la etapa de la vida a la que sirve la hora, la casa en la que está la Luna, una de doce palabras de Cuerpo a Oculto; las casas como etapas de la vida son Manilio y Lilly, la casa de la Luna como asunto de una elección es Agrippa. Después el modo, una de las tres letras madres del Séfer Yetzirá: Álef, aire, ideación mientras el aspecto regente aplica; Mem, agua, manifestación una vez exacto; Shin, fuego, destrucción cuando el aspecto es duro o el portal está cortado. Después el ángel de la hora. Los tres estados y la lectura de las madres son de este instrumento <code>[SD]</code>.</li>
+              <li><strong>Leer el título, en palabras llanas.</strong> La línea bajo la esfera dice tres cosas. <em>¿Puedo operar ahora?</em> Tiempo de obrar: sí, el cielo está listo. Tiempo de observar: todavía no, espera y prepara. Tiempo de resguardarse: no, hay tormenta, protégete. Esto viene de la Luna: si el próximo contacto que hace es bueno o malo, o ninguno (vacía), y si un planeta duro corta la figura principal. <em>¿Qué clase de obra favorece la hora?</em> Modo de Ideación: empezar, pensar, planear. Modo de Manifestación: hacer real, terminar, aterrizar. Modo de Destrucción: acabar, cortar, desterrar. Esto viene de la figura principal del cielo: una figura dura rompe, una figura recién exacta aterriza, una figura que aún se forma es una idea. <em>¿En qué parte de la vida?</em> Reino del Cuerpo, de la Riqueza, del Trabajo, etc.: la casa por la que pasa la Luna. La Luna es la aguja del reloj, y la casa en que está es la parte de la vida que la hora toca.</li>
+              <li>El núcleo es una sola tradición, la del Renacimiento; se añaden dos capas modernas, declaradas. Las reglas inventadas para este instrumento se marcan <code>[SD]</code>.</li>
+            </ul>
+
+            <h2>2 · ANTECEDENTES</h2>
+            <h3>2.1 Relojes cósmicos mecánicos</h3>
+            <ul>
+              <li>Mecanismo de Anticitera, c. siglos II–I a. C.: Sol, Luna y ciclos de eclipses con engranajes [24].</li>
+              <li>Torre-reloj astronómica de Su Song, Kaifeng, 1088–1092 [26].</li>
+              <li>Astrarium de Giovanni Dondi, Padua, 1364: una esfera para cada uno de los siete planetas [25].</li>
+              <li>Orloj de Praga, 1410: una esfera de astrolabio con campos de día, crepúsculo y noche. El Sol sobre su aguja inspira aquí la colocación de los cuerpos por altura.</li>
+              <li>Las complicaciones astronómicas de la alta relojería moderna: el Astrolabium Galileo Galilei de Ludwig Oechslin para Ulysse Nardin (1985) con su Planetarium y su Tellurium; los planetarios de Christiaan van der Klaauw; las cartas celestes de Patek Philippe (ref. 5102, 2002) y Vacheron Constantin. De ellas Siderarium toma la disciplina de la esfera: anillo horario, numerales aplicados, la Luna en su ventana, un acabado al servicio de la lectura.</li>
+            </ul>
+            <h3>2.2 La síntesis renacentista</h3>
+            <ul>
+              <li>Astrología: de Ptolomeo [1] a Lilly [3]: dignidades, términos, faces, las fases solares, las horas planetarias.</li>
+              <li>La cábala entró en la Europa latina en la misma generación: las tesis de Pico della Mirandola (1486) [29], el <em>De arte cabalistica</em> de Reuchlin (1517) [30] y el tercer libro de Agrippa (1533), que coloca las Sefirot, los nombres divinos y los órdenes angélicos junto a las esferas planetarias [4]. El Árbol tal como se dibuja hoy es el de Kircher (1652) [31].</li>
+              <li>Magia planetaria: el <em>Picatrix</em> [5], Ficino [6], el Heptamerón [7], los cuadrados mágicos de Agrippa y las 28 mansiones de la Luna [4].</li>
+              <li>La Golden Dawn (1888–) [10], Crowley [9], Fortune [11] y Case [12] son capas posteriores. Dos de ellas se usan aquí como ventanas declaradas (§3.9).</li>
+            </ul>
+            <h3>2.3 Linaje visual</h3>
+            <ul>
+              <li>El círculo cromático de doce pasos de Itten y sus acordes armónicos [13]; Albers sobre la interacción del color [14].</li>
+              <li>Los fondos proyectivos de Frieda Harris para el Tarot Thoth [27], según la geometría proyectiva de George Adams [28].</li>
+              <li>El guilloché de torno de rosas y el grabado calcográfico: la luz como grosor de línea.</li>
+            </ul>
+
+            <h2>3 · MÉTODOS</h2>
+            <h3>3.1 Efemérides y marco</h3>
+            <ul>
+              <li>Astronomy Engine 2.1.19 [18]: posiciones con un minuto de arco aproximado. Zodiaco tropical, eclíptica verdadera de la fecha, longitudes geocéntricas. La altura de la Luna es topocéntrica.</li>
+              <li>Ascendente y Medio Cielo a partir del tiempo sidéreo local y la oblicuidad [17]. Comprobado contra el horizonte: el punto del Ascendente tiene altura 0,000°.</li>
+              <li>Proyección: ángulo = longitud eclíptica, con el Ascendente en el horizonte oriental; radio = altura. Una sola proyección para cada cuerpo y para el anillo zodiacal.</li>
+            </ul>
+            <h3>3.2 Casas</h3>
+            <ul>
+              <li>Actual: casas Regiomontanus, el sistema de Lilly [3]: el ecuador dividido en doce desde el meridiano, cada división llevada a la eclíptica por un círculo máximo que pasa por los puntos norte y sur del horizonte. El MC es la cúspide de la casa 10. El dodecágono regular es el contenedor; las cúspides se trazan sobre él, donde caen. Las casas iguales y Placidus siguen disponibles para comparar (<code>?houses=equal</code>, <code>?houses=placidus</code>). La angularidad es la conjunción con un ángulo, dentro de 5°.</li>
+              <li>En revisión: signos enteros (helenístico) [19], Regiomontano (el sistema de Lilly) [3], Placidus (el habitual moderno). Un sistema de cuadrantes vuelve irregular el marco.</li>
+            </ul>
+            <h3>3.3 Condición de los planetas</h3>
+            <div class="wrap"><table>
+              <tr><th>factor</th><th>regla</th><th>fuente</th></tr>
+              <tr><td>dignidad esencial</td><td>domicilio +5 · exaltación +4 · triplicidad +3 · término +2 · faz +1 · exilio −5 · caída −4 · peregrino −5</td><td>Lilly [3]; términos egipcios; faces caldeas</td></tr>
+              <tr><td>recepción mutua</td><td>por domicilio o por exaltación; levanta la penalización de peregrino</td><td>Lilly [3]; puntuación [SD]</td></tr>
+              <tr><td>planetas exteriores</td><td>sin dignidad esencial, sin número, sin lugar en el Árbol; dibujados como ópticas</td><td>consenso tradicional [1, 3, 19]</td></tr>
+              <tr><td>fase solar</td><td>cazimi &lt; 17′ · combusto &lt; 8,5° · bajo los rayos &lt; 17°, todos los planetas</td><td>[3]</td></tr>
+              <tr><td>movimiento</td><td>retrógrado; estacionario por debajo del 12% de la velocidad media</td><td>[umbral SD]</td></tr>
+            </table></div>
+            <h3>3.4 Aspectos y jerarquía de figuras [SD]</h3>
+            <ul>
+              <li>Aspectos ptolemaicos, más quincuncio, semicuadratura, sesquicuadratura, quintiles, septiles y noviles, cada uno con su orbe. Un aspecto de signo entero que no se cumple por signo (29° Aries a 1° Virgo) es disociado y pesa la mitad.</li>
+              <li>potencia = (0,2 + 0,8·rareza) × peso × (0,3·exactitud<sup>1,5</sup> + 0,7·ventana) × modificadores.</li>
+              <li><em>rareza</em> = logaritmo del periodo sinódico del par. <em>ventana</em> = tiempo hasta la exactitud, no grados: e<sup>−½(días/1,5)²</sup>; la ventana de la Luna es de 6 horas.</li>
+              <li>Modificadores: aplicativo ×1,2, separativo ×0,8, estación ×1,5, Sol implicado ×1,2, angular ×1,3. Los eventos anulan la puntuación: eclipse &gt; lunación &gt; cazimi &gt; contacto exterior exacto &gt; estación.</li>
+            </ul>
+            <h3>3.5 La figura [SD]</h3>
+            <ul>
+              <li>Cada aspecto se dibuja como {n/k}. Una conjunción es una rosa con tantos pétalos como la suma de los números sefiróticos de los dos planetas. Una oposición, el círculo partido en dos, son dos círculos iguales que pasan cada uno por el centro del otro, la vesica piscis: la primera construcción de los <em>Elementos</em> de Euclides (I.1). El eje de la vesica descansa sobre los dos planetas.</li>
+              <li>Los aspectos suaves curvan las aristas y añaden una cadena de círculos; los duros mantienen aristas rectas y puntas. Cada línea pasa del color de un planeta al del otro; el relleno es su mezcla.</li>
+              <li>Tamaño: Júpiter ensancha el portal, Saturno lo estrecha. Corte: un aspecto duro desde un tercer planeta retira una cuña, apuntada hacia ese planeta.</li>
+              <li>Las estrellas marcan los puntos donde coinciden vértices de dos figuras. Dos figuras concéntricas comparten mcd(n₁, n₂) vértices.</li>
+            </ul>
+            <h3>3.6 La Luna y la madurez</h3>
+            <ul>
+              <li>Vacía de curso: ningún aspecto ptolemaico con un planeta clásico se perfecciona antes de que la Luna cambie de signo. También se comprueban la Vía Combusta (15° Libra a 15° Escorpio), la combustión y la aplicación a un maléfico [3]. El veredicto (madura, abierta, inmadura, vacía) fija la luz del polo [SD].</li>
+              <li>La mansión de la Luna: 28 divisiones de 12°51′26″ desde 0° Aries, nombres según Agrippa II.33 [4].</li>
+            </ul>
+            <h3>3.7 Tiempo</h3>
+            <ul>
+              <li>El día planetario comienza en el orto local del Sol. Doce horas desiguales van del orto al ocaso y doce del ocaso al orto, en orden caldeo. Ángeles de los días y de las horas según el Heptamerón [7].</li>
+            </ul>
+            <h3>3.8 Ventanas [SD]</h3>
+            <ul>
+              <li>Tres ventanas, según las tres letras madres del Sefer Yetzirá [8]: ideación (álef, aire), encarnación (mem, agua: descenso a la forma), destrucción (shin, fuego). La tierra no tiene letra madre, así que no hay una cuarta.</li>
+              <li>Cada ventana se puntúa a partir de los planetas y signos de la figura, de su naturaleza (suave o dura) y de la belleza del momento: figura entera, guardianes en armonía y Luna madura. La destrucción se puntúa al revés.</li>
+            </ul>
+            <h3>3.8b El velo [SD]</h3>
+            <ul>
+              <li>Una cuarta línea bajo las ventanas, discontinua, en su propia escala de 0 a 1: cuán fino está el velo. Los entretiempos del día (el crepúsculo al amanecer y al ocaso, la medianoche solar), la luz de la Luna (oscura, llena), su lugar (un signo de agua, una casa de agua), su vacío de curso, las horas de la Luna y de Saturno, las puertas del año (los cuartos cruzados, Samhain el más pesado, luego Beltane, Imbolc y Lammas; solsticios y equinoccios más ligeros), un eclipse y Neptuno sobre la Luna o sobre un ángulo. Cada factor es un peso; se combinan de modo que una causa fuerte abre el velo por sí sola y varias débiles se suman. La lectura nombra los factores en vigor; la leyenda, el momento más fino del día que viene.</li>
+            </ul>
+            <h3>3.9 Correspondencias: un núcleo renacentista y dos ventanas declaradas</h3>
+            <div class="wrap"><table>
+              <tr><th>capa</th><th>regla</th><th>fuente</th></tr>
+              <tr><td>color de los planetas</td><td>tinturas heráldicas por planeta: Sol oro, Luna plata, Mercurio púrpura, Venus sinople, Marte gules, Júpiter azur, Saturno sable. Oro y plata se dibujan como metales.</td><td>Ferne 1586 [32]; concuerda con Agrippa I.49 [4] y la escala de la Reina de la GD [10]</td></tr>
+              <tr><td>número de los planetas</td><td>Saturno 3, Júpiter 4, Marte 5, Sol 6, Venus 7, Mercurio 8, Luna 9: la Sefirá, y el orden del cuadrado mágico del planeta</td><td>Agrippa II.22 [4]</td></tr>
+              <tr><td>planetas exteriores</td><td>Urano iridiscencia, Neptuno brillo, Plutón lente. Sin pigmento, sin número.</td><td>[SD]</td></tr>
+              <tr><td>ventana 1 · color de los signos</td><td>la escala del Rey de los senderos: Aries escarlata … Piscis carmesí, dibujado como ultravioleta. El mismo círculo que el de Itten, y que la escala cromática (Aries = do/C)</td><td>Golden Dawn [10], Case [12]</td></tr>
+              <tr><td>ventana 2 · tarot</td><td>los 36 decanatos como faces caldeas con sus arcanos menores y los títulos del Libro T; triunfos sobre signos y planetas, atribución de la Golden Dawn (la Fuerza a Leo, la Justicia a Libra, la Estrella a Acuario). Los títulos se traducen llanamente; los originales ingleses están en la versión inglesa de esta página.</td><td>Libro T, en Regardie [10]</td></tr>
+              <tr><td>elementos</td><td>aire amarillo pálido, agua azul profundo, fuego escarlata anaranjado, tierra pardo casi negro</td><td>escala del Rey de las letras madres, GD [10]</td></tr>
+            </table></div>
+            <h3>3.10 Carta natal y sinastría</h3>
+            <ul>
+              <li>Los datos de nacimiento quedan en el dispositivo. La carta natal se calcula como cualquier otro momento y se muestra como su propio reloj.</li>
+              <li>Sinastría: planetas en tránsito sobre planetas y ángulos natales, aspectos ptolemaicos y quincuncio, orbes 6/6/5/5/3/2°, más 1° para las luminarias. Potencia = peso × exactitud<sup>1,5</sup> × lentitud del planeta en tránsito [SD]. La esfera dibuja los diez tránsitos de más peso como una rosa armónica, en lugar de planetas [SD].</li>
+            </ul>
+
+            <h2>4 · USO</h2>
+            <div class="wrap"><table>
+              <tr><th>ves</th><th>significa</th></tr>
+              <tr><td>polígono de un planeta</td><td>su número: Saturno 3 … Mercurio 8; la Luna se dibuja por su fase; oro y plata brillan</td></tr>
+              <tr><td>anillo alrededor de un planeta</td><td>entero = domicilio · doble = exaltación · fino = dignidad menor · tenue = peregrino · roto = exilio · roto y encogido = caída. Desalineado con el núcleo = desafinado</td></tr>
+              <tr><td>tamaño de un planeta</td><td>su potencia: dignidad, angularidad, estación, parte en la figura</td></tr>
+              <tr><td>desenfoque</td><td>retrógrado, o frenando hacia una estación</td></tr>
+              <tr><td>eclipse dentro de un círculo</td><td>Plutón: el campo se apaga bajo él y una corona rodea su limbo; más fuerte si es angular, estacionario o parte de la figura. Dos planetas en conjunción se funden en una sola forma</td></tr>
+              <tr><td>figura central</td><td>el aspecto que rige; las figuras secundarias, más tenues detrás</td></tr>
+              <tr><td>estrellas blancas</td><td>puntos donde dos figuras coinciden exactamente</td></tr>
+              <tr><td>luz del polo</td><td>el veredicto de la Luna: cálida = madura · fría = inmadura · oscura = vacía</td></tr>
+              <tr><td>estrella del polo</td><td>los guardianes: regente del día y regente de la hora como sus estrellas planetarias</td></tr>
+              <tr><td>flujo de oro a plata</td><td>la emanación del Sol llegando a la copa de la Luna; su velocidad sigue la luz de la Luna</td></tr>
+              <tr><td>núcleo rojo, anillo azul</td><td>Tránsitos y Sinastría: el conflicto (los tránsitos difíciles) desde el centro, la armonía (los fáciles) posada a su alrededor; el contorno es la suma de los dos. Se comparan áreas, no anchos</td></tr>
+              <tr><td>aura fuera del marco</td><td>el elemento de la hora: el agua ondula, el aire corre en amarillo pálido, el fuego titila, la tierra queda quieta con el grano de la piedra</td></tr>
+              <tr><td>línea de color bajo la esfera</td><td>tiempo de obrar, de observar o de resguardarse: la condición de la Luna y la fuerza de la figura</td></tr>
+              <tr><td>título del momento</td><td>la casa de la Luna como etapa de la vida · la letra madre de la hora · el ángel de la hora</td></tr>
+              <tr><td>banda bajo la esfera</td><td>las tres ventanas en las próximas 24 horas, cada una con su etapa; toca una hora para ir a ella</td></tr>
+            </table></div>
+            <p>Gira la esfera para viajar en el tiempo: en el sentido del reloj es hacia delante, una vuelta es un día. En el móvil, mantén pulsada la esfera un momento y luego gírala; un gesto rápido sobre ella desplaza la página. Pellizca o ctrl + rueda para ampliar; doble toque para volver. Corre, pausa y cambia la velocidad desde la barra inferior. La capa sigilo aísla la figura para copiarla a mano. Imprimir arte HD guarda un cuadrado de 2048 píxeles; Fondo de pantalla guarda un retrato al tamaño de esta pantalla. Ambos llevan el aviso. En el móvil, abre la aplicación en el navegador y elige «añadir a la pantalla de inicio»; después funciona sin conexión.</p>
+
+            <h2>5 · LIMITACIONES</h2>
+            <ul>
+              <li>La precisión de la efemérides es de un minuto de arco: los aspectos de la Luna pueden desviarse unos minutos de tiempo. No se usa Swiss Ephemeris.</li>
+              <li>La jerarquía, las ventanas, los colores del veredicto, la correspondencia sonora y la potencia de la sinastría son reglas de diseño [SD], no tradición.</li>
+              <li>Los colores de los signos y el Tarot son capas de los siglos XIX–XX sobre un núcleo renacentista, declaradas como tales.</li>
+              <li>Los nombres de las mansiones siguen las grafías de Agrippa, que varían entre ediciones.</li>
+              <li>No se afirma ni se mide ningún efecto de figura alguna. El instrumento muestra el cielo; no actúa sobre él.</li>
+            </ul>
+
+            <h2>6 · VALIDACIÓN</h2>
+            <ul>
+              <li>Diez momentos históricos con hora conocida se puntuaron contra 1.500 momentos aleatorios en los mismos lugares, 1900–2030. Percentil medio de la figura regente: 64 (azar = 50 ± 9; p ≈ 0,06). Cinco de los diez caen en el quinto superior; los momentos nucleares de 1942–45 puntúan en el azar o por debajo. La muestra se eligió por fama, lo que la sesga.</li>
+            </ul>
+
+            <h2>REFERENCIAS</h2>
+            <p class="meta">la lista completa, con los títulos originales, está en la versión inglesa de esta página.</p>
+            <ol class="refs">
+              <li>Ptolomeo, <em>Tetrabiblos</em> (c. 150). 2. Vettius Valens, <em>Antología</em>. 3. W. Lilly, <em>Christian Astrology</em>, 1647. 4. H. C. Agrippa, <em>De occulta philosophia</em>, 1533 (ed. Tyson, 1993). 5. <em>Picatrix</em>. 6. M. Ficino, <em>De vita</em>, 1489. 7. <em>Heptamerón</em>. 8. <em>Sefer Yetzirá</em> (trad. Kaplan). 9. A. Crowley, <em>777</em>, 1909. 10. I. Regardie, <em>The Golden Dawn</em>, incl. <em>Libro T</em>. 11. D. Fortune, <em>The Mystical Qabalah</em>, 1935. 12. P. F. Case, <em>The Tarot</em>, 1947. 13. J. Itten, <em>Kunst der Farbe</em>, 1961. 14. J. Albers, <em>Interaction of Color</em>, 1963. 15. J. Addey, <em>Harmonics in Astrology</em>, 1976. 16. J. Kepler, <em>Harmonices Mundi</em>, IV, 1619. 17. J. Meeus, <em>Astronomical Algorithms</em>, 1998. 18. D. Cross, <em>Astronomy Engine</em>. 19. C. Brennan, <em>Hellenistic Astrology</em>, 2017. 20. S. Skinner, <em>The Complete Magician's Tables</em>, 2006. 21. S. Kynes, <em>Llewellyn's Complete Book of Correspondences</em>, 2013. 22. L. M. DuQuette, <em>The Chicken Qabalah</em>, 2001. 23. J. McCarthy, <em>Quareia</em>. 24. T. Freeth et al., <em>Nature</em> 444, 2006. 25. Bedini &amp; Maddison, 1966. 26. Su Song, 1092. 27. Harris &amp; Crowley, Tarot Thoth. 28. G. Adams, 1965. 29. Pico della Mirandola, <em>Conclusiones</em>, 1486. 30. J. Reuchlin, <em>De arte cabalistica</em>, 1517. 31. A. Kircher, <em>Oedipus Aegyptiacus</em>, 1652. 32. J. Ferne, <em>The Blazon of Gentrie</em>, 1586. 33. B. Whitcomb, <em>The Magician's Companion</em>, 1993.</li>
+            </ol>
+            <h2>LEGAL</h2>
+            <p class="meta">Siderarium es una herramienta de práctica astrológica y simbólica, ofrecida como entretenimiento, reflexión y estudio. No predice acontecimientos y no constituye asesoramiento médico, psicológico, jurídico ni financiero.</p>
+            <p class="meta">Siderarium, su nombre, marca, esfera, diseño y método son propietarios. © 2026 Hippocrene Design Works LLC. Todos los derechos reservados. Cada imagen exportada desde la aplicación lleva este aviso.</p>
+            <p class="meta">Privacidad: la aplicación no envía nada a ningún sitio. Los ajustes, los datos de nacimiento y las cartas guardadas, también las de otras personas, quedan en el almacenamiento de este navegador; sin cookies, sin analítica, sin peticiones a terceros (las fuentes se sirven con la aplicación). El botón «aquí» pide al navegador tu posición y la usa solo en el dispositivo. El sitio se aloja en GitHub Pages, cuyos servidores pueden registrar direcciones IP según la declaración de privacidad de GitHub. Responsable del tratamiento, por ahora: Hippocrene Design Works LLC. Contacto: <a href="mailto:siderarium@gmail.com">siderarium@gmail.com</a>.</p>
+            <p class="meta"><a href="https://siderarium.com/terms.html" target="_blank" rel="noopener">Condiciones de uso</a> · <a href="https://siderarium.com/privacy.html" target="_blank" rel="noopener">Privacidad</a> · <a href="https://siderarium.com/credits.html" target="_blank" rel="noopener">Créditos y licencias</a>: Astronomy Engine (MIT), GeoNames (CC BY 4.0), Geist y Geist Mono (SIL Open Font License).</p>
+    </article>
+  </section>
+
+  <div id="install-sheet" class="install-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="install-title">
+    <div class="install-card">
+      <div class="install-head"><h2 id="install-title" data-i18n="ui.install.btn">Install Siderarium</h2><button id="install-close" data-i18n="ui.close">close</button></div>
+      <div id="install-how" class="install-how"></div>
+      <button id="install-native" class="install-native" hidden data-i18n="ui.install.now">Install now</button>
+    </div>
+  </div>
+  <script src="js/vendor/astronomy.browser.min.js"></script>
+  <script src="js/color.js"></script>
+  <script src="js/correspondences.js"></script>
+<script src="js/i18n.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/tikkun.js"></script>
+  <script src="js/tarot-meanings.js"></script>
+  <script src="js/synastry.js"></script>
+  <script src="js/talismans.js"></script>
+  <script src="js/temperament.js"></script>
+  <script src="js/glyphs.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/glossary.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

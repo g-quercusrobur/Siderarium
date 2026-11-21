@@ -1,0 +1,2 @@
+Geist and Geist Mono, by Vercel. Licensed under the SIL Open Font License 1.1 (https://openfontlicense.org).
+Self-hosted here so that Siderarium makes no request to any third party.

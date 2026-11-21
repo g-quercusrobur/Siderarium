@@ -1,0 +1,4 @@
+# nothing to ignore but the leftovers of local work
+.DS_Store
+node_modules/
+*.log

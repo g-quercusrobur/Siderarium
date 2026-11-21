@@ -1,0 +1,620 @@
+@font-face { font-family: Geist; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/Geist-Regular.woff2") format("woff2"); }
+@font-face { font-family: Geist; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/Geist-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/GeistMono-Regular.woff2") format("woff2"); }
+/* siderarium — the frame is austere. all colour belongs to the sky. */
+:root {
+  --void: #000000;
+  --ink: #ebe7dc;
+  --ink-2: rgba(235, 231, 220, 0.76);
+  --ink-3: rgba(235, 231, 220, 0.52);
+  --unit: 8px;
+  --sans: Geist, "Helvetica Neue", Arial, sans-serif;
+  --mark: Geist, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--ground, var(--void)); color: var(--ink); transition: background 1s; }
+body {
+  font: 400 14px/1.45 var(--sans);
+  letter-spacing: 0.005em;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "top top" "stage side" "bottom bottom";
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+.bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: calc(var(--unit) * 1.5);
+  padding: calc(var(--unit) * 1.5) max(16px, calc(var(--unit) * 3));
+}
+.top { grid-area: top; border-bottom: 1px solid var(--ink-3); }
+.bottom { grid-area: bottom; border-top: 1px solid var(--ink-3); }
+.mark { font: 500 14px/1 var(--mark); letter-spacing: 0.26em; text-transform: uppercase; white-space: nowrap; }
+.brand { display: inline-grid; justify-items: center; gap: 5px; }   /* the wordmark sets the width; the tagline sits centred beneath it */
+.brand .tag { font: 400 11px/1 var(--sans); letter-spacing: 0.04em; color: var(--ink-3); white-space: nowrap; text-align: center; width: 100%; }
+.group { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+.bar button { min-height: 36px; padding: 0 11px; border-radius: 2px; }
+.bar button.on { background: rgba(235, 231, 220, 0.08); }
+.seg { position: relative; display: inline-flex; border: 1px solid var(--ink-3); border-radius: 3px; overflow: hidden; }
+.seg .seg-ind { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: var(--ink); transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.seg button { position: relative; z-index: 1; border: 0; border-radius: 0; min-height: 34px; padding: 0 14px; background: none; transition: color 0.25s; }
+.seg button + button { border-left: 1px solid var(--ink-3); }
+.seg button.on { background: none; color: var(--void); }
+.seg button.on:hover { color: var(--void); }
+.seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }   /* inside the button: the bar clips anything outside it */
+.seg button.on:focus-visible { outline-color: var(--void); }   /* the tab on show is cream: its ring is black */
+.seg .tog { margin-left: 4px; border-left: 1px solid var(--ink-3); color: var(--ink-2); }
+.seg .tog.on { color: var(--ink); background: rgba(235, 231, 220, 0.1); }
+.dialwrap { position: relative; }
+.corner-speaker { position: absolute; right: calc(var(--ox, 0px) + 6px); bottom: calc(16% + 8px); z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.55); color: var(--ink-2); display: grid; place-items: center; }
+:is(.corner-speaker, .speak) svg .w2 { opacity: 0.3; transition: opacity 0.3s; }
+.corner-speaker.on { color: var(--ink); border-color: var(--ink-2); }
+:is(.corner-speaker, .speak).on svg .w2 { opacity: 1; }
+:is(.corner-speaker, .speak) svg .x { display: none; }
+:is(.corner-speaker, .speak):not(.on) svg .x { display: initial; }
+:is(.corner-speaker, .speak):not(.on) svg .w1, :is(.corner-speaker, .speak):not(.on) svg .w2 { display: none; }   /* sound off: one bar struck through the whole speaker */
+.corner-speaker:not(.on) { color: var(--ink-3); }
+/* the chord's speaker in the reading: the corner's drawing and states, small, on the line of the chord; the target is a finger's */
+#readout .speak { display: inline-flex; position: relative; vertical-align: -3px; align-items: center; justify-content: center; width: 22px; height: 18px; min-height: 0; margin-left: 2px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); }
+#readout .speak::after { content: ''; position: absolute; inset: -13px -11px; }
+#readout .speak.on, #readout .speak:hover { color: var(--ink); }
+/* the grades of two skies, deep strife to deep harmony: hot to cold */
+.state-polar, body.small #caption .h1.state-polar { color: #c58bf0; }   /* a polarity: sympathy in one tie, antipathy in another */
+.state-deepStrife, body.small #caption .h1.state-deepStrife { color: #ff3b1a; } .state-strife, body.small #caption .h1.state-strife { color: #ff5a2a; } .state-tension, body.small #caption .h1.state-tension { color: #e8894a; } .state-balanced, body.small #caption .h1.state-balanced { color: #e3b341; } .state-ease, body.small #caption .h1.state-ease { color: #b9cf6e; } .state-harmony, body.small #caption .h1.state-harmony { color: #6fcf8e; } .state-deepHarmony, body.small #caption .h1.state-deepHarmony { color: #7fa4e0; } .state-quiet, body.small #caption .h1.state-quiet { color: var(--ink-2); }
+.state-work, body.small #caption .h1.state-work { color: #6fcf8e; } .state-watch, body.small #caption .h1.state-watch { color: #e3b341; } .state-shelter, body.small #caption .h1.state-shelter { color: #ff5a2a; }   /* the one coloured text */
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(360px, 100vw); z-index: 12; background: var(--void); border-left: 1px solid var(--ink-3);
+  overflow-y: auto; padding: 0 20px max(32px, env(safe-area-inset-bottom, 0px)); box-shadow: -24px 0 48px rgba(0, 0, 0, 0.45); }
+.sheet-head { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; background: var(--void); padding: 14px 0 10px; border-bottom: 1px solid var(--ink-3); margin-bottom: 6px; }
+.sheet-head button { border-color: var(--ink-3); min-height: 36px; border-radius: 2px; }
+.sheet section { padding: 14px 0 6px; border-bottom: 1px solid rgba(235, 231, 220, 0.08); }
+.sheet section:last-child { border-bottom: 0; }
+.sheet h2 { font: 500 11px/1 var(--sans); letter-spacing: 0.16em; color: var(--ink-2); margin: 4px 0 12px; }
+.sheet .meta { font: 400 13px/1.5 var(--sans); color: var(--ink-3); margin: 0 0 10px; }
+.sheet .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; min-height: 40px; font: 400 13px/1.3 var(--sans); color: var(--ink-2); }
+.sheet .row[hidden] { display: none; }   /* the 'save as' name row stays shut until asked for: the grid above overrode the hidden attribute */
+.sheet .row select, .sheet .row input { min-height: 36px; max-width: 200px; }
+.sheet .row input { border: 1px solid var(--ink-3); padding: 0 10px; color: var(--ink); font: 400 13px/1 var(--mono); width: 100%; }
+.sheet .about-row { display: grid; gap: 8px; padding: 16px 0 14px; }   /* two buttons, not one block */
+.sheet .about-row .big { width: 100%; min-height: 48px; border: 0; border-radius: 2px; background: var(--ink); color: var(--void); font: 500 15px/1 var(--sans); letter-spacing: 0.02em; }
+.sheet .about-row .big:hover, .sheet .about-row .big.on { background: #fff; color: var(--void); }
+.sheet .rowbtns { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.sheet .rowbtns button { border-color: var(--ink-3); min-height: 36px; padding: 0 12px; border-radius: 2px; }
+.sheet .rowbtns button.on { color: var(--ink); background: rgba(235, 231, 220, 0.08); }
+.sheet .list { list-style: none; margin: 0 0 8px; }
+.sheet .list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(235, 231, 220, 0.08); font: 400 13px/1.3 var(--sans); }
+.sheet .list li.on .name { color: var(--ink); }
+.sheet .list .name { display: block; color: var(--ink-2); background: none; border: 0; text-align: left; padding: 6px 0; min-height: 32px; font: 400 13px/1.3 var(--sans); cursor: pointer; }
+.sheet .list .name:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
+.sheet .list .name:hover { color: var(--ink); }
+.sheet .list .name input { width: 100%; border: 1px solid var(--ink-3); padding: 4px 8px; color: var(--ink); font: 400 13px/1.3 var(--mono); }
+.sheet .list .ops { display: flex; gap: 2px; }
+.sheet .list .name { min-width: 0; overflow-wrap: anywhere; }   /* a long name wraps; the buttons stay on screen */
+.sheet .list .ops button { font: 400 13px/1 var(--sans); padding: 0 8px; min-height: 32px; color: var(--ink-3); }
+.sheet .list .ops button:hover { color: var(--ink); }
+.sheet .list .empty { color: var(--ink-3); font: 400 13px/1.5 var(--sans); padding: 6px 0; }
+body.mrx #caption, body.mrx #readout, body.mrx #nexts { text-shadow: 0.7px 0 rgba(235, 231, 220, 0.3); }
+button, input {
+  font: 400 13px/1 var(--sans); letter-spacing: 0.02em; color: var(--ink-2);
+  background: none; border: 1px solid transparent; padding: 8px 10px; cursor: pointer;
+  min-height: 32px;
+}
+button:hover { color: var(--ink); }
+button.on { color: var(--ink); border-color: var(--ink-3); }
+button:focus-visible, input:focus-visible, a:focus-visible, [role="button"]:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
+select {
+  font: 400 13px/1 var(--sans); color: var(--ink); background: var(--void); border: 1px solid var(--ink-3);
+  padding: 7px 8px; min-height: 36px; color-scheme: dark; cursor: pointer; max-width: 46vw; border-radius: 2px;
+}
+select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
+.when { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ink-3); padding: 0 10px 0 0; min-height: 36px; border-radius: 2px; }
+.when input { font: 400 13px/1 var(--mono); letter-spacing: 0; color: var(--ink); width: 19.5ch; cursor: text; border: 0; }
+.when input.bad { color: #ff8a6a; }
+.when span { font: 400 12px/1 var(--mono); color: var(--ink-2); }
+#dial { touch-action: pan-y; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* a swipe over the dial scrolls the page; a finger that rests on it turns time (app.js, bindGesture) */
+#dial.turning { cursor: grabbing; }
+#dial.held { filter: brightness(1.16); }   /* the finger has taken hold: the dial lights a little, for the phones that cannot buzz */
+#listen::before { content: ''; display: inline-block; width: 6px; height: 6px; border: 1px solid currentColor; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+#sigil.on::before, #listen.on::before { background: currentColor; }
+
+.panel { position: fixed; inset: 0; z-index: 10; background: var(--void); overflow-y: auto;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); }
+.panel article { max-width: 68ch; margin: 0 auto; font: 400 15px/1.6 var(--sans); color: var(--ink-2); }
+.panel h1 { font: 500 26px/1.2 var(--sans); color: var(--ink); letter-spacing: 0.01em; margin: 8px 0 4px; text-wrap: balance; }
+.panel h2 { font: 500 13px/1.3 var(--sans); color: var(--ink); letter-spacing: 0.14em; margin: 36px 0 10px; }
+.panel h3 { font: 500 15px/1.3 var(--sans); color: var(--ink); margin: 22px 0 6px; }
+.panel p, .panel li { margin: 0 0 10px; }
+.panel ul, .panel ol { padding-left: 20px; }
+.panel .meta { font: 400 13px/1.5 var(--sans); color: var(--ink-3); margin-bottom: 18px; }
+.panel .abstract { border-left: 1px solid var(--ink-3); padding-left: 16px; color: var(--ink); }
+.panel table { border-collapse: collapse; width: 100%; font: 400 13px/1.45 var(--sans); margin: 8px 0 14px; }
+.panel th { text-align: left; font-weight: 500; color: var(--ink); border-bottom: 1px solid var(--ink-3); padding: 6px 10px 6px 0; }
+.panel td { border-bottom: 1px solid rgba(235,231,220,0.08); padding: 6px 10px 6px 0; vertical-align: top; }
+.panel .wrap { overflow-x: auto; }
+.panel .refs li { font-size: 13px; }
+.panel code { font: 400 13px var(--mono); color: var(--ink); }
+#about-close, #birth-close { position: sticky; top: 0; float: right; border-color: var(--ink-3); background: var(--void); z-index: 1; }
+.panel .close-row { max-width: 68ch; margin: 0 auto; display: flex; justify-content: flex-end; position: sticky; top: 0; z-index: 2; background: var(--void); padding: 0 0 6px; }
+.panel .close-row button { position: static; float: none; }
+.form { display: grid; gap: 14px; margin: 18px 0 22px; }
+.form label { display: grid; gap: 6px; font: 400 13px/1.3 var(--sans); color: var(--ink-2); }
+.form label .hint { margin-left: 6px; font: 400 12px/1.3 var(--mono); letter-spacing: 0.04em; color: var(--ink-3); }   /* the date's order, beside its label: still there once the field is filled */
+.form input[type="text"].bad { color: #ff8a6a; border-color: #ff8a6a; }   /* a date that cannot be read (as specific as the field's own rule, so it shows) */
+.form .field-err { margin: -8px 0 0; font: 400 13px/1.4 var(--sans); color: #ff8a6a; }   /* the date's error, right under it */
+.form .field-read { margin: -8px 0 0; min-height: 1.4em; font: 400 13px/1.4 var(--sans); color: var(--ink-3); }   /* the date as it was read, in words; its line is kept while empty so the form does not jump as the last figure is typed */
+.form .field-err:not([hidden]) + .field-read { display: none; }
+.form input:disabled, .form select:disabled { opacity: 0.38; cursor: not-allowed; }   /* the time and its am / pm while "time unknown" is ticked */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }   /* said, not shown: what the towns' list holds */
+#birth-title:focus { outline: none; }   /* focus lands on the heading when the form opens: announced, not drawn */
+.form input[type="text"], .form select { font: 400 15px/1.2 var(--mono); color: var(--ink); background: var(--void); border: 1px solid var(--ink-3); padding: 10px 12px; min-height: 44px; width: 100%; max-width: 100%; }
+.form .check { grid-template-columns: auto 1fr; align-items: start; gap: 10px; }
+.form .check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--ink); }
+.form .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form .actions { display: flex; gap: 8px; }
+.form .actions button { border-color: var(--ink-3); min-height: 44px; padding: 0 18px; }
+.form .actions .primary { color: var(--void); background: var(--ink); border-color: var(--ink); }
+@media (max-width: 480px) { .form .pair { grid-template-columns: 1fr; } }
+#stage { grid-area: stage; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 0; min-width: 0; padding: 8px; }
+.float-now { position: absolute; top: 14px; right: calc(var(--ox, 0px) + 14px); z-index: 3; min-height: 40px; padding: 0 18px; border: 0; border-radius: 2px; background: var(--ink); color: var(--void); font: 500 13px/1 var(--sans); letter-spacing: 0.06em; box-shadow: 0 2px 14px rgba(0, 0, 0, 0.5); }
+.float-now:hover { color: var(--void); background: #fff; }
+#dial { display: block; }
+/* on a wide screen the title of the moment is painted on the dial; the same words stay in the page for a screen reader,
+   out of sight (the .sr-only recipe). its link and its copy button have their twins over the dial (#what-link, #copy-link) */
+#caption { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+body:not(.small) #caption :is(a.what, .copy-btn) { display: none; }
+body.small #caption { position: relative; height: auto; margin: 0; overflow: visible; clip-path: none; white-space: normal; display: block; width: 100%; padding: 12px 8px 4px; font: 400 13px/1.55 var(--sans); color: var(--ink-2); }
+body.small #caption .eyebrow { font: 500 12px/1.6 var(--sans); letter-spacing: 0.08em; color: var(--ink); margin: 0 0 6px; }
+body.small #caption .h1 { font: 500 24px/1.15 var(--sans); letter-spacing: -0.01em; color: var(--ink); margin: 0 0 6px; }
+body.small #caption .deck { font: 500 17px/1.35 var(--sans); color: var(--ink); margin: 0 0 6px; }
+body.small #caption .h1.els { text-wrap: balance; }   /* a birth chart's elements: two even lines on a phone, never three and one */
+body.small #caption .reason { font: 400 15px/1.45 var(--sans); color: var(--ink); margin: 0 0 8px; }
+body.small #caption .moment { font: 400 13.5px/1.5 var(--sans); color: var(--ink-2); margin: 0 0 8px; }
+body.small #caption .detail { font: 400 13.5px/1.55 var(--sans); color: var(--ink-2); margin: 0 0 6px; }
+body.small #stage { justify-content: flex-start; }
+/* the first visit, one quiet line under the dial: what this is, and the way to a birth chart (app.js, hintSync) */
+.hint1 { display: flex; align-items: flex-start; justify-content: center; gap: 6px; width: 100%; padding: 0 8px; font: 400 13px/20px var(--sans); color: var(--ink-3); }
+.hint1[hidden] { display: none; }
+.hint1 .t { flex: 0 1 auto; min-width: 0; text-wrap: pretty; }
+body.small .hint1 { margin-top: 8px; } body.small .hint1 .t { flex: 1 1 auto; }   /* with the caption beneath: it starts where the caption does, its × at the edge (a margin, so the line measures the same in both layouts) */
+.hint1 #hint1-add { position: relative; min-height: 0; padding: 0; border: 0; font: inherit; letter-spacing: 0; color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--ink-3); text-underline-offset: 3px; }
+.hint1 #hint1-add::after { content: ''; position: absolute; inset: -6px -4px; }   /* a taller target than the words */
+.hint1 #hint1-add:hover { color: var(--ink); }
+.hint1 #hint1-close { flex: none; width: 24px; height: 20px; min-height: 0; padding: 0; font: 400 17px/20px var(--sans); color: var(--ink-3); }   /* as tall as the line: on a wide screen the line's height comes off the dial */
+.hint1 #hint1-close:hover { color: var(--ink); }
+body.bare .hint1 { display: none; }
+#ahead { display: grid; gap: 4px; }
+#strip { width: 100%; height: 44px; display: block; }   /* 34 px + 30% */
+#preview { width: 100%; min-height: 20px; padding: 0; accent-color: var(--ink); background: none; cursor: pointer; }
+#nexts { display: flex; flex-wrap: wrap; gap: 0 14px; font: 400 13px/1.3 var(--sans); }
+#nexts button { font: 400 13px/1.3 var(--sans); padding: 2px 0; min-height: 0; letter-spacing: 0; }
+#nexts i { font-style: normal; display: inline-block; width: 18px; height: 2px; vertical-align: middle; margin-right: 6px; }
+#nexts i.dash { background: none !important; border-top: 2px dashed #c9b8f5; height: 0; }
+body.bare #ahead, body.natal #ahead { display: none; }
+
+#readout {
+  grid-area: side; width: 0; overflow: hidden auto; border-left: 1px solid transparent;
+  font: 400 14px/1.5 var(--sans); color: var(--ink-2);
+  transition: width 0.2s steps(4);
+}
+body.reading #readout { width: min(480px, 40vw); padding: 18px 22px; border-left-color: var(--ink-3); }
+body.small #caption .pair-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font: 400 13.5px/1.55 var(--sans); color: var(--ink-2); margin: 0 0 8px; } body.small #caption .pair-cols b { color: var(--ink); font-weight: 500; }
+/* the three ties as scales: label, hairline with ticks where the word changes, a dot at the score, the word under the dot */
+.scales { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 4px 0 14px; }
+.scale { position: relative; min-width: 0; }
+.scale .sl { display: block; font: 500 11px/1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 10px; }
+.scale .sline { position: relative; height: 1px; background: var(--ink-3); }
+.scale .sline i { position: absolute; top: -3px; width: 1px; height: 7px; background: var(--ink-3); } .scale .sline i.mid { top: -5px; height: 11px; background: var(--ink-2); }
+.scale .sline b { position: absolute; top: -5px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; box-shadow: 0 0 0 2px var(--void, #000); }
+.scale .sw { display: block; margin-top: 11px; text-align: center; font: 500 13px/1.25 var(--sans); overflow-wrap: anywhere; }   /* centred under its own scale, wrapping rather than running into the next */
+body.small #caption .scales { margin: 8px 0 12px; }
+/* the cards of the tikkun: three tables, the same columns, the letter on a muted second line */
+
+body.bare { grid-template-areas: "stage stage" "stage stage" "stage stage"; }
+body.bare .bar, body.bare #readout { display: none; }
+body.bare #stage { grid-row: 1 / 4; grid-column: 1 / 3; }
+
+/* the phone layout: one column, the page scrolls. a narrow window, or a low one no wider than a phone on its side (844 × 390,
+   667 × 375): there the fixed bars of the wide layout left the dial a 220 px pane. every phone rule in this file, the wide
+   rules' "(min-width: 951px), (min-width: 721px) and (min-height: 501px)" and PHONE / LOW in js/app.js say the same two cases */
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) {
+  .sheet .list .ops button { min-height: 44px; }   /* a finger's height for each chart's Edit, Duplicate, Delete */
+  body { grid-template-columns: 1fr; grid-template-areas: "top" "stage" "bottom"; overflow: auto; height: auto; min-height: 100%; }
+  #stage { min-height: 0; }
+  body.reading { grid-template-areas: "top" "stage" "bottom" "side"; }
+  body:not(.reading) #readout { display: none; }
+  body.reading #readout { width: 100%; border-left: 0; border-top: 1px solid var(--ink-3); }
+  .bar { padding: 10px 16px; }
+  .top { gap: 10px; }
+  .brand { justify-items: start; } .brand .tag { font-size: 13px; text-align: left; }   /* the tagline stays on a phone: two lines within the height the menu button gives the row, so the tabs do not move */
+  .float-now { top: 10px; right: 10px; min-height: 44px; }
+  .corner-speaker { width: 44px; height: 44px; right: 4px; bottom: 4px; }
+  .dialwrap .corner-sigil { width: 44px; height: 44px; left: 4px; bottom: 4px; }   /* mirrors the sound button */
+  .dialwrap .corner-update { width: 44px; height: 44px; min-height: 44px; left: 4px; top: 4px; }   /* round: the phone's 44 px minimum height made it 40 × 44 */
+  body.small #caption button.share-btn { width: 44px; height: 44px; min-height: 44px; }
+  .top .seg { order: 3; width: 100%; display: flex; }
+  .top .seg button { flex: 1; padding: 0; }
+  .bottom { gap: 6px; }
+  button { padding: 8px 7px; min-height: 44px; }
+  .bar button { min-height: 44px; }
+  select, .when { min-height: 44px; }
+  .sheet { width: 100vw; border-left: 0; }
+  .sheet .row select, .sheet .row input, .sheet .rowbtns button, .sheet-head button, .sheet .list .name { min-height: 44px; }   /* a finger's height for every control of the menu, not only the charts' buttons */
+  #nexts button { min-height: 30px; }
+}
+
+/* live wallpaper: the sky alone, the window edge to edge */
+body.wall { display: block; overflow: hidden; cursor: none; }
+body.wall .bar, body.wall #readout, body.wall #ahead, body.wall #caption, body.wall #now-float, body.wall #listen-corner, body.wall #sigil, body.wall #chart-toggle, body.wall #chart-pick, body.wall #hint1, body.wall #install-sheet, body.wall #menu, body.wall #birth { display: none !important; }
+body.wall #stage { position: fixed; inset: 0; padding: 0; display: block; }
+body.wall .dialwrap, body.wall #dial { display: block; width: 100vw; height: 100vh; }
+
+/* the birthplace search: a short list of towns under the box */
+.panel .results { list-style: none; margin: -6px 0 8px; padding: 0; border: 1px solid var(--ink-3); background: var(--void); }
+.panel .results li { margin: 0; }
+.panel .results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(235, 231, 220, 0.08); padding: 8px 10px; min-height: 36px; color: var(--ink-2); font: 400 14px/1.3 var(--sans); cursor: pointer; }
+.panel .results li:last-child button { border-bottom: 0; }
+.panel .results button:hover, .panel .results button:focus-visible { color: var(--ink); background: rgba(235, 231, 220, 0.06); outline: none; }
+.panel .results button:focus-visible, .panel .results button.active { outline: 1px solid var(--ink); outline-offset: -2px; }   /* a ring, drawn inside the row: a 6% tint alone did not show where the keyboard was */
+.panel .results .where { color: var(--ink-3); }
+.panel .results button.active { color: var(--ink); background: rgba(235, 231, 220, 0.13); box-shadow: inset 2px 0 0 var(--ink); }   /* the row the arrow keys are on */
+.panel .results button:disabled { cursor: default; }
+
+/* the chart in use on the clock: a radio before each saved chart */
+.sheet .list .use { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; padding: 0; min-height: 0; flex: none; border: 1px solid var(--ink-3); border-radius: 50%; margin: 0 2px 0 0; cursor: pointer; background: none; }
+.sheet .list .use:checked { border-color: var(--ink); box-shadow: inset 0 0 0 3.5px var(--void), inset 0 0 0 8px var(--ink); }
+.sheet .list .use:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+
+/* the clickable area over the canvas eyebrow, and the link in the phone caption */
+.what-link { position: absolute; display: block; z-index: 3; cursor: pointer; background: transparent; }
+.form .timebox { display: flex; gap: 6px; align-items: stretch; } .form .timebox input[type="text"] { flex: 1 1 0; width: 0; min-width: 0; } .form .timebox select { flex: 0 0 5.5em; width: 5.5em; padding: 10px 8px; }   /* the birth time and its 24 h / am / pm */
+.copy-link { position: absolute; display: block; z-index: 3; cursor: pointer; background: transparent; border: 0; padding: 0; border-radius: 4px; }   /* over the icon drawn on the dial */
+.copy-link.done { background: rgba(111, 207, 142, 0.18); }
+.copy-btn { display: inline-flex; vertical-align: -3px; align-items: center; justify-content: center; width: 22px; height: 18px; min-height: 0; margin-left: 2px;   /* sits on the line, not above it (overrides the 44 px touch minimum) */ padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); cursor: pointer; }
+.copy-btn .ico-done { display: none; } .copy-btn.done .ico-copy { display: none; } .copy-btn.done .ico-done { display: inline; color: #6fcf8e; }
+.what-link:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+.what-link[hidden], .copy-link[hidden] { display: none; }   /* put away means away: their display above kept the two, sizeless, in the keyboard's path */
+body.small #caption .eyebrow a.what { color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; margin-left: 8px; letter-spacing: 0; font-weight: 400; }
+
+/* the glossary: linked words everywhere, the panel with its index and entries */
+a.g { color: inherit; text-decoration: underline dotted; text-decoration-color: rgba(235, 231, 220, 0.45); text-underline-offset: 3px; cursor: pointer; }
+/* the tikkun's words and their definitions: the word looks like the glossary's links; a tap opens a small square under it */
+/* 'Magickal operations:' before the clock's verdict: the question in the ink, the answer in its colour */
+.h1 .op, .verdict .op { color: var(--ink); font-weight: 400; font-size: 0.6em; letter-spacing: 0; margin-right: 0.12em; vertical-align: 0.08em; }
+.verdict .op { font-size: 1em; }
+button.deflink { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; min-height: 0; text-align: left; letter-spacing: inherit;
+  text-decoration: underline dotted; text-decoration-color: rgba(235, 231, 220, 0.45); text-underline-offset: 3px; cursor: pointer; }
+button.deflink[aria-expanded="true"] { text-decoration-color: var(--ink); }
+/* a Hebrew letter inside running text: Geist has none, so the system's Hebrew face */
+.he { font-family: "Noto Sans Hebrew", "Arial Hebrew", "David", "Times New Roman", serif; font-size: 1.12em; line-height: 1; }
+a.g:hover { text-decoration-style: solid; color: var(--ink); }
+.gindex { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 14px 0 22px; font: 400 13px/1.6 var(--sans); }
+.gindex a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid rgba(235, 231, 220, 0.2); }
+.gindex a:hover { color: var(--ink); }
+.gbody h2 { font: 500 13px/1.4 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin: 28px 0 8px; }
+.gbody dl { margin: 0; display: grid; gap: 10px; }
+.gbody dt { font: 500 16px/1.3 var(--sans); color: var(--ink); scroll-margin-top: 72px; }   /* clear of the close row */
+.gbody dt.lit, .gbody dt.lit + dd { background: rgba(111, 207, 142, 0.12); box-shadow: 0 0 0 6px rgba(111, 207, 142, 0.12); border-radius: 2px; }   /* the entry one arrived at, in faint siderarium green */
+.gbody dt.lit { color: #6fcf8e; }
+.gbody dd { margin: 0 0 6px; font: 400 15px/1.55 var(--sans); color: var(--ink-2); max-width: 68ch; }
+
+/* the tarot plates in the glossary: the card beside its words, unaltered */
+.gbody dd.plate { display: grid; grid-template-columns: 110px 1fr; gap: 14px; align-items: start; }
+.gbody dd.plate img { width: 110px; height: auto; border: 1px solid rgba(235, 231, 220, 0.18); border-radius: 3px; background: #111; }
+.gbody dd.plate p { margin: 0; }
+
+/* hold the Natal tab: a small menu of the saved charts under the bar */
+.chart-pick { position: fixed; z-index: 30; min-width: 180px; max-width: 80vw; background: var(--void); border: 1px solid var(--ink-3); border-radius: 3px; padding: 6px 0; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); }
+.chart-pick button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 0; padding: 9px 14px; min-height: 36px; color: var(--ink-2); font: 400 14px/1.3 var(--sans); cursor: pointer; }
+.chart-pick button.on { color: var(--ink); }
+.chart-pick button.on::before { content: "● "; font-size: 9px; vertical-align: middle; }
+.chart-pick button:hover, .chart-pick button:focus-visible { color: var(--ink); background: rgba(235, 231, 220, 0.06); outline: none; }
+.chart-pick button:focus-visible { outline: 1px solid var(--ink); outline-offset: -2px; }
+.chart-pick .empty { padding: 9px 14px; color: var(--ink-3); font: 400 13px/1.4 var(--sans); }
+.chart-pick button.new { border-top: 1px solid rgba(235, 231, 220, 0.14); margin-top: 4px; padding-top: 11px; color: var(--ink); }
+
+/* the sigil toggle at the top right of the art, a twin of the speaker */
+.corner-sigil { position: absolute; left: calc(var(--ox, 0px) + 6px); bottom: calc(16% + 8px);   /* the bottom-left corner, level with the sound button */ z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.corner-update { position: absolute; left: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; -webkit-user-select: none; user-select: none; touch-action: manipulation; }   /* the top-left corner: fetch the newest version and reload */
+body.small #caption { position: relative; } body.small #caption .eyebrow, body.small #caption .h1 { padding-right: 52px; }   /* the share button's column: no text runs under it */
+.share-btn { display: none; } body.small #caption .share-btn { display: inline-flex; position: absolute; right: 8px; top: 2px; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: transparent; color: var(--ink-2); align-items: center; justify-content: center; }   /* beside the headline */
+.corner-update:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+.corner-update.busy { color: var(--ink); border-color: var(--ink-2); } .corner-update.busy svg { animation: sd-spin 0.9s linear infinite; }
+@keyframes sd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .corner-update.busy svg { animation: none; } }
+body.wall #update, body.bare #update { display: none; }
+.corner-sigil.on { color: var(--ink); border-color: var(--ink-2); background: rgba(235, 231, 220, 0.08); }
+.corner-sigil:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+body.pair #ahead { display: none; }   /* two fixed charts: no day to scan */
+body.natal .bar.bottom .group.time, body.natal .bar.bottom .group.place, body.pair .bar.bottom .group.time, body.pair .bar.bottom .group.place { display: none; }   /* a birth chart is fixed: no clock to step, no place to move; the prints stay */
+
+/* a held tab must not select its text or call up the system menu on a phone */
+.seg button, .chart-pick, .corner-sigil, .corner-speaker { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+
+/* Algol: a switch in the bottom bar */
+.toggle { display: inline-flex; align-items: center; gap: 8px; }
+.toggle .sw { position: relative; width: 28px; height: 16px; border-radius: 8px; border: 1px solid var(--ink-3); flex: none; transition: border-color 0.2s, background 0.2s; }
+.toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); transition: transform 0.2s, background 0.2s, box-shadow 0.2s; }
+.toggle[aria-pressed="true"] .sw { border-color: #bfe0c6; background: rgba(191, 224, 198, 0.08); }
+.toggle[aria-pressed="true"] .sw::after { transform: translateX(12px); background: #000; box-shadow: 0 0 0 1px #bfe0c6, 0 0 8px 2px rgba(191, 224, 198, 0.45); }
+@media (prefers-reduced-motion: reduce) { .toggle .sw, .toggle .sw::after { transition: none; } }
+
+/* the image buttons while they work, and the share button once its image is ready */
+@keyframes sd-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+button.busy { animation: sd-breathe 1.1s ease-in-out infinite; pointer-events: none; }
+button.ready { color: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3px rgba(235, 231, 220, 0.14); }
+.share-btn.busy svg { animation: sd-spin 1.2s linear infinite; }
+@media (prefers-reduced-motion: reduce) { button.busy, .share-btn.busy svg { animation: none; } }
+
+/* ---------- phone legibility (UX audit): no running text under 14 px, labels at 13 px at least ---------- */
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) {
+  .bar button, .bottom button { font-size: 15px; }
+  .top .seg button { font-size: 13.5px; letter-spacing: 0; }
+  #nexts, #nexts button { font-size: 14.5px; }
+  .when input { font-size: 15px; } #zone { font-size: 13px; }
+  .hint1 { font-size: 14px; padding: 0 0 0 8px; } body.small .hint1 { margin-top: 0; } .hint1 #hint1-close { width: 44px; height: 44px; font-size: 20px; line-height: 44px; } .hint1 .t { padding: 12px 0 4px; } .hint1 #hint1-add::after { inset: -12px -4px; }   /* a finger's × and a finger's height for the link */
+  body.small #caption .eyebrow { font-size: 13px; }
+  body.small #caption .eyebrow a.what { font-size: 14px; }
+  body.small #caption .moment, body.small #caption .detail { font-size: 15px; }
+  body.small #caption .reason { font-size: 16px; }
+  body.small #caption .pair-cols { font-size: 14.5px; }
+  .scale .sl { font-size: 12px; } .scale .sw { font-size: 14px; }
+}
+
+/* ---------- the tarot plates in the glossary: a card large enough to see, its meaning below; tap to enlarge ---------- */
+.gbody dd.plate { display: grid; grid-template-columns: minmax(150px, 200px) 1fr; gap: 18px; align-items: start; }
+.gbody dd.plate img { width: 100%; height: auto; aspect-ratio: 11 / 19; object-fit: cover; border: 1px solid rgba(235, 231, 220, 0.18); border-radius: 4px; background: #111; cursor: zoom-in; }
+.gbody dd.plate .meaning { white-space: pre-line; margin: 10px 0 0; color: var(--ink-2); }
+.gbody dd.plate .gd { margin: 0; color: var(--ink); }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { .gbody dd.plate { grid-template-columns: 1fr; } .gbody dd.plate img { width: min(240px, 70vw); } }
+.plate-view { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.92); display: grid; place-items: center; padding: 16px; cursor: zoom-out; }
+.plate-view img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 0 40px rgba(0, 0, 0, 0.8); }
+.plate-view[hidden] { display: none; }
+
+/* Natal: the birth as a printed chart, a corner button at the top right, mirroring the update button */
+.corner-chart { display: none; position: absolute; right: calc(var(--ox, 0px) + 6px); top: 8px; z-index: 3; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--ink-3); background: rgba(0, 0, 0, 0.35); color: var(--ink-2); align-items: center; justify-content: center; }
+body.natal .corner-chart { display: inline-flex; }
+.corner-chart.on { color: var(--void); background: var(--ink); border-color: var(--ink); }
+.corner-chart:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { .dialwrap .corner-chart { width: 44px; height: 44px; min-height: 44px; right: 4px; top: 4px; } }
+/* the tabs that open a list of charts carry a small chevron, so the second tap is discoverable */
+.seg button.has-pick::after { content: ''; display: inline-block; width: 5px; height: 5px; margin-left: 6px; border-right: 1.3px solid currentColor; border-bottom: 1.3px solid currentColor; transform: translateY(-3px) rotate(45deg); opacity: 0.7; }
+@media (max-width: 400px) { .seg button.has-pick::after { margin-left: 3px; width: 4px; height: 4px; } }
+
+/* install, at the top of the menu */
+.install-row { display: grid; gap: 10px; }
+.install-row .primary { background: var(--ink); color: var(--void); border-color: var(--ink); }
+.install-how { font: 400 15px/1.55 var(--sans); color: var(--ink-2); }
+.install-how p { margin: 0 0 8px; } .install-how .warn { color: #e3b341; }
+.install-how ol { margin: 0; padding-left: 22px; display: grid; gap: 6px; color: var(--ink); }
+.sheet .install-row .big { width: 100%; min-height: 48px; border: 1px solid var(--ink); border-radius: 2px; background: transparent; color: var(--ink); font: 500 15px/1 var(--sans); letter-spacing: 0.02em; }
+
+/* the install card: over the clock, appearing at once (no slide), closed by its button, a tap outside or Escape */
+.install-sheet { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.72); display: grid; align-items: end; justify-items: center; padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.install-sheet[hidden] { display: none; }
+.install-card { width: min(460px, 100%); background: #0c0c0c; border: 1px solid var(--ink-3); border-radius: 6px; padding: 18px 18px 20px; display: grid; gap: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }
+.install-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.install-head h2 { margin: 0; font: 500 19px/1.25 var(--sans); color: var(--ink); }
+.install-head button { border: 1px solid var(--ink-3); border-radius: 2px; min-height: 40px; padding: 0 14px; font: 400 14px var(--sans); }
+.install-native { min-height: 48px; border: 0; border-radius: 2px; background: var(--ink); color: var(--void); font: 500 16px/1 var(--sans); }
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { .install-sheet { align-items: center; } }
+
+/* a tarot card as a lightbox: shown at once, the plate beside (or above, on a phone) its meaning */
+.card-view { position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, 0.86); overflow-y: auto; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card-view[hidden] { display: none; }
+.cv-card { position: relative; width: min(760px, 100%); background: #0c0c0c; border: 1px solid var(--ink-3); border-radius: 6px; padding: 18px; display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 20px; align-items: start; }
+.cv-card img { width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(235, 231, 220, 0.18); cursor: zoom-in; background: #111; }
+.cv-text h2 { margin: 0 0 8px; font: 500 22px/1.2 var(--sans); color: var(--ink); padding-right: 72px; }
+.cv-text .gd { margin: 0 0 12px; font: 400 15px/1.5 var(--sans); color: var(--ink); }
+.cv-text .meaning { margin: 0; font: 400 15px/1.6 var(--sans); color: var(--ink-2); white-space: pre-line; }
+.cv-close { position: absolute; top: 12px; right: 12px; border: 1px solid var(--ink-3); border-radius: 2px; min-height: 40px; padding: 0 14px; background: #0c0c0c; font: 400 14px var(--sans); }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { .card-view { place-items: start center; } .cv-card { grid-template-columns: 1fr; padding-top: 64px; } .cv-card img { width: min(260px, 72vw); } .cv-text h2 { padding-right: 0; } }
+
+/* ---------- aspects in the reading: three colours, chosen to read on black ----------
+   pure red on black is dim (5.3:1, and 4.2:1 to a protanope), so the red is a coral at 7.5:1; the orange sits a step
+   lighter and the green leans to teal, which keeps the three apart for red-green colour blindness as well */
+:root { --asp-flow: #5fd3a1; --asp-tension: #ffb454; --asp-afflict: #ff6b61; }
+
+/* ==========================================================================
+   READOUT · one type and layout system (November 2026)
+   Paste at the END of css/style.css; it wins over the older #readout rules by order and specificity, so it works
+   before the clean-up. The lines it supersedes are listed at the foot.
+   Two cuts of Geist (400, 500), nothing synthesised. Figures set in a column use Geist's own tabular digits (tnum:
+   every digit 600 units, + and − 570), so degrees, orbs and times align without a second family.
+   Phone first (≤ 720 px: 15 px text in a 358 px measure at 390); from 721 px every role one step smaller.
+   ========================================================================== */
+:root {
+  --rule: rgba(235, 231, 220, 0.12);      /* the hairline between sections and between talisman rows */
+  --rule-2: rgba(235, 231, 220, 0.24);    /* under column heads; the edge of pills and pop-ups */
+  --surface: #111;                        /* pop-ups */
+  --r-h3: 20px;   --r-h3-lh: 26px;        /* section title */
+  --r-std: 17px;  --r-std-lh: 24px;       /* standfirst: the section's answer, in one line */
+  --r-h4: 15px;   --r-h4-lh: 20px;        /* sub-section title */
+  --r-body: 15px; --r-body-lh: 24px;      /* sentences */
+  --r-row-lh: 22px;                       /* rows of lists and tables */
+  --r-sub: 14px;  --r-sub-lh: 20px;       /* second lines, notes, keys, legends */
+  --r-cap: 12px;  --r-cap-lh: 16px;       /* tracked capitals: column heads and group rows, nothing else */
+}
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) {
+  :root { --r-h3: 18px; --r-h3-lh: 24px; --r-std: 16px; --r-std-lh: 22px; --r-h4: 14px; --r-body: 14px; --r-body-lh: 22px;
+    --r-row-lh: 21px; --r-sub: 13px; --r-sub-lh: 19px; --r-cap: 11.5px; }
+}
+
+/* ---------- the column ---------- */
+body.reading #readout { width: clamp(360px, 40vw, 480px); padding: 20px 24px 48px; font: 400 var(--r-body)/var(--r-body-lh) var(--sans); letter-spacing: 0; color: var(--ink-2); font-synthesis: none; }   /* never narrower than a phone's measure; the font here outranks the old phone rule */
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) { body.reading #readout { width: 100%; padding: 20px 16px 48px; } }
+
+/* ---------- sections: a hairline between them, nothing else ---------- */
+#readout > :is(section.rs, .r-head) + section.rs { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--rule); }
+#readout h3 { margin: 0 0 10px; padding: 0; border: 0; font: 500 var(--r-h3)/var(--r-h3-lh) var(--sans); letter-spacing: -0.005em; color: var(--ink); text-wrap: balance; }
+#readout p.verdict { margin: 0 0 12px; font: 400 var(--r-std)/var(--r-std-lh) var(--sans); letter-spacing: 0; color: var(--ink); text-wrap: pretty; }
+#readout h4 { margin: 24px 0 8px; font: 500 var(--r-h4)/var(--r-h4-lh) var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink); }
+#readout :is(h3, p.verdict, .pills) + h4 { margin-top: 12px; }
+#readout h4 .hv { font-weight: 400; color: var(--ink-2); }   /* "Friendship · mixed": the tie's word after its name */
+
+/* ---------- sentences, notes, separators ---------- */
+#readout p { margin: 0 0 12px; text-wrap: pretty; }
+#readout p.prose { hyphens: auto; -webkit-hyphens: auto; }
+#readout :is(p.note, p.dim) { margin: 0 0 12px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); white-space: normal; }
+#readout span.dim, #readout .sep { color: var(--ink-3); }
+#readout b, #readout strong { font-weight: 500; color: var(--ink); }
+
+/* ---------- the head of a rose view (Transits, Synastry): the dial's legend, then one sentence ---------- */
+#readout .rose-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 10px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-2); }
+#readout .rose-key .k { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+#readout .rose-key svg { flex: none; width: 20px; height: 20px; overflow: visible; }
+#readout .rose-key .pe { stroke-width: 1; stroke-linejoin: round; }
+#readout .rose-key .pe-o { fill: none; stroke: rgba(251, 248, 240, 0.4); }   /* the whole flower, faint: where the core sits */
+#readout .rose-key .pe-s { fill: rgba(255, 90, 42, 0.66); stroke: rgba(251, 248, 240, 0.82); }   /* the core, as the dial draws it: red enamel, ink wire */
+#readout .rose-key .pe-h { fill: rgba(127, 164, 224, 0.5); stroke: rgba(251, 248, 240, 0.82); }   /* the ring around it: blue enamel between the outline and the seam */
+#readout p.lede { margin: 0 0 8px; color: var(--ink-2); }
+
+/* ---------- pop-up triggers: one kind, a labelled pill, placed under the section's answer ---------- */
+#readout .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+#readout button.pill { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 26px; min-height: 0; margin: 0; padding: 0 11px 0 5px;
+  border: 1px solid var(--rule-2); border-radius: 13px; background: none; font: 400 13px/1 var(--sans); letter-spacing: 0; color: var(--ink-2); white-space: nowrap; vertical-align: middle; cursor: pointer; }
+#readout button.pill::before { content: 'i'; flex: none; box-sizing: border-box; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font: 500 10px/14px var(--sans); text-align: center; }
+#readout button.pill::after { content: ''; position: absolute; inset: -9px -4px; }   /* a 44 px tall target */
+#readout button.pill:hover, #readout button.pill[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-2); }
+#readout :is(p:not(.pills), td) > button.pill { margin: -1px 0 -1px 4px; }   /* at the end of a sentence: the line keeps its height */
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { #readout button.pill { height: 24px; border-radius: 12px; font-size: 12.5px; } }
+
+/* ---------- aspect tones: a 7 px dot, the letters stay in the ink ---------- */
+#readout .asp-flow { --tone: var(--asp-flow); }
+#readout .asp-tension { --tone: var(--asp-tension); }
+#readout .asp-afflict { --tone: var(--asp-afflict); }
+#readout :is(.asp-flow, .asp-tension, .asp-afflict) { color: inherit; }
+#readout span.asp::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--tone, transparent); vertical-align: 0.1em; }
+#readout p.asp-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 6px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout p.asp-key span.asp::before { width: 7px; height: 7px; margin-right: 6px; background: var(--tone); vertical-align: 0.1em; }   /* outranks the old key dots in currentColor */
+
+/* ---------- ranked lists (aspects, transits, contacts, active now, a tie's makers): the order is the rank ---------- */
+#readout ol.rank { list-style: none; margin: 0 0 8px; padding: 0; }
+#readout ol.rank > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; padding: 6px 0; line-height: var(--r-row-lh); }
+#readout ol.rank > li.grp { display: block; padding: 16px 0 4px; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout .nm { display: block; padding-left: 15px; text-indent: -15px; color: var(--ink); }   /* the dot hangs in a 15 px gutter; a wrapped name aligns under the name */
+#readout .nm::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: var(--tone, transparent); vertical-align: 0.1em; text-indent: 0; }
+#readout ol.rank .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+#readout ol.rank .meta { grid-column: 1 / -1; margin-top: 2px; padding-left: 15px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout ol.rank.plain .nm { padding-left: 0; text-indent: 0; }
+#readout ol.rank.plain .nm::before { display: none; }
+#readout ol.rank.plain .meta { padding-left: 0; }
+
+/* ---------- tables: names wrap, figures never do ---------- */
+#readout table { width: 100%; margin: 0 0 8px; border-collapse: collapse; table-layout: auto; font-variant-numeric: tabular-nums; }
+#readout :is(td, th) { padding: 6px 12px 6px 0; vertical-align: baseline; text-align: left; font-weight: 400; line-height: var(--r-row-lh); white-space: normal; overflow-wrap: break-word; }
+#readout :is(td, th):last-child { padding-right: 0; }
+#readout td:first-child { white-space: normal; }   /* was nowrap: it pushed the figures off the screen */
+#readout :is(td, th).n { width: 1%; white-space: nowrap; text-align: right; padding-left: 12px; }
+#readout :is(td, th).k, #readout td.v, #readout td.card { color: var(--ink); }
+#readout tr.head > :is(td, th) { padding: 0 12px 6px 0; border-bottom: 1px solid var(--rule-2); vertical-align: bottom; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout tr.head > :last-child { padding-right: 0; }
+#readout tr.head + tr > :is(td, th) { padding-top: 10px; }
+#readout tr.grp > :is(td, th) { padding: 16px 0 4px; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout tr.sub > td { padding: 0 12px 8px 0; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); white-space: normal; }
+#readout tr.sub > td:last-child { padding-right: 0; }
+#readout tr:has(+ tr.sub) > :is(td, th) { padding-bottom: 2px; }
+/* bodies: name | degrees | sign | house numeral */
+#readout table.bodies :is(td, th).k { width: 7.5em; }
+/* key and value: one fact per row */
+#readout table.kv th { width: 9.5em; font-size: var(--r-sub); color: var(--ink-3); }
+#readout table.kv td { color: var(--ink-2); }
+/* cards: what the card answers | the card; its derivation on the second line */
+#readout table.cards :is(td, th):first-child { width: 7.5em; }
+#readout table.cards td.card { width: auto; }   /* the old 38% pushed the card to the right edge */
+#readout table.cards.asp :is(td, th):first-child { width: 55%; }
+#readout table.cards tr.sub > td { padding-top: 0; font-size: var(--r-sub); line-height: var(--r-sub-lh); }   /* outranks the old 12 px */
+#readout table.cards.asp tr.sub > td { padding-left: 15px; }   /* under the name, past the dot */
+/* the temperament's testimonies: label (its detail on a second line) | humour | weight */
+#readout table.temper td.v { width: 6.5em; }
+#readout table.temper .det { display: block; margin-top: 2px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+/* two charts side by side */
+#readout table.pair tr.head > :is(td, th) { color: var(--ink); letter-spacing: 0; text-transform: none; font-size: var(--r-body); }
+#readout table.pair :is(td, th):first-child { width: 6.5em; }
+
+/* ---------- the 24 hours: day hours left, night hours right, the hour now marked ---------- */
+#readout ol.hours { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(12, auto); grid-auto-flow: column; column-gap: 16px; font-variant-numeric: tabular-nums; }
+#readout ol.hours li { position: relative; display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline; padding: 3px 0 3px 8px; line-height: var(--r-row-lh); color: var(--ink-2); }
+#readout ol.hours .i { text-align: right; font-size: var(--r-sub); color: var(--ink-3); }
+#readout ol.hours .t { text-align: right; }
+#readout ol.hours li.now, #readout .hours .now { color: var(--ink); font-weight: 500; border: 0; }   /* no underline: a line under a word means a definition */
+#readout ol.hours li.now::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; background: var(--ink); }
+
+/* ---------- disclosure: reference folds away; the summary always names what is inside ---------- */
+#readout details > summary { list-style: none; cursor: pointer; }
+#readout details > summary::-webkit-details-marker { display: none; }
+#readout details > summary::after { content: ''; flex: none; align-self: center; width: 6px; height: 6px; margin: 0 3px 0 auto; border-right: 1.3px solid var(--ink-3); border-bottom: 1.3px solid var(--ink-3); transform: translateY(-2px) rotate(45deg); }
+#readout details[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+#readout details > summary:hover { color: var(--ink); }
+#readout details > summary:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+#readout details.more { margin: 2px 0 8px; }
+#readout details.more > summary { display: flex; align-items: baseline; gap: 8px; min-height: 44px; padding: 11px 0; line-height: var(--r-row-lh); color: var(--ink-2); }
+#readout details.fold > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; min-height: 44px; }
+#readout details.fold > summary :is(h3, h4) { margin: 0; }
+#readout details.fold > summary .s { grid-column: 1; margin-top: 2px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout details.fold > summary::after { grid-column: 2; grid-row: 1; align-self: center; margin: 0 3px; }
+#readout details.fold[open] > summary { margin-bottom: 12px; }
+
+/* ---------- planetary talismans: seven rows, each opens on its windows ---------- */
+#readout .tal-list { margin: 4px 0 0; border-top: 1px solid var(--rule); }
+#readout .tal-planet { margin: 0; border-bottom: 1px solid var(--rule); }
+#readout .tal-planet > summary, #readout div.tal-planet { display: grid; grid-template-columns: 5.5em minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; min-height: 44px; padding: 11px 0; line-height: var(--r-row-lh); }
+#readout .tal-planet .p { color: var(--ink); }
+#readout .tal-planet .w { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+#readout div.tal-planet .w { color: var(--ink-3); }
+#readout .tal-planet > summary::after { grid-column: 3; margin: 0 3px; }
+#readout .tal-planet[open] { padding-bottom: 12px; }
+#readout .tal-sub { margin: 4px 0 6px; font: 500 var(--r-cap)/var(--r-cap-lh) var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+#readout ul.tal { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+#readout ul.tal li { line-height: var(--r-row-lh); }
+#readout a.tal-at { color: var(--ink); font-variant-numeric: tabular-nums; text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 4px; }   /* solid: it goes somewhere (the clock at that moment) */
+#readout a.tal-at:hover, #readout a.tal-at:focus-visible { text-decoration-color: var(--ink); }
+#readout .tal-why { display: block; margin-top: 2px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+
+/* ---------- controls inside the reading ---------- */
+#readout p.ctl { margin: 4px 0 0; }
+#readout p.ctl .toggle { min-height: 40px; padding: 0; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-2); }
+#readout p.rel { margin: 0 0 12px; font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout p.rel label { display: inline-flex; align-items: center; gap: 12px; }
+#readout p.rel select { margin: 0; }
+#readout button.cta { min-height: 44px; padding: 0 16px; border: 1px solid var(--ink-3); border-radius: 2px; font: 400 15px/1 var(--sans); color: var(--ink); }
+#readout p.out { margin: 32px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); font: 400 var(--r-sub)/var(--r-sub-lh) var(--sans); color: var(--ink-3); }
+#readout p.out button { min-height: 0; margin: 0; padding: 0; border: 0; background: none; font: inherit; letter-spacing: 0; color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--rule-2); text-underline-offset: 4px; }
+
+/* ---------- glossary words: tappable always, drawn once ---------- */
+#readout a.g, #caption a.g { color: inherit; text-decoration: none; }
+#readout a.g[data-first], #readout a.g.card { text-decoration: underline dotted 1px; text-decoration-color: rgba(235, 231, 220, 0.4); text-underline-offset: 4px; }
+#readout a.g:is(:hover, :focus-visible), #caption a.g:is(:hover, :focus-visible) { color: var(--ink); text-decoration: underline dotted 1px; text-decoration-color: currentColor; text-underline-offset: 4px; }
+#readout a.g:active, #caption a.g:active { background: rgba(235, 231, 220, 0.08); border-radius: 2px; }
+#readout button.deflink { text-decoration-color: rgba(235, 231, 220, 0.4); text-underline-offset: 4px; }   /* the tikkun's role words: the same mark, the same meaning */
+
+/* ---------- the pop-up: anchored under its trigger; on a phone, a long text rises as a sheet ---------- */
+.popdef { position: absolute; z-index: 20; box-sizing: border-box; width: min(20rem, calc(100vw - 32px)); max-height: min(60vh, 28rem); overflow-y: auto; overscroll-behavior: contain;
+  padding: 14px 16px 16px; background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule-2); border-radius: 6px;
+  font: 400 15px/22px var(--sans); letter-spacing: 0; text-wrap: pretty; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7); }
+.popdef .pt { display: block; margin: 0 0 8px; padding-right: 36px; font: 500 15px/20px var(--sans); color: var(--ink); }   /* the title: the trigger's words */
+.popdef p { margin: 0 0 10px; }
+.popdef p.ps { margin: 16px 0 6px; font-weight: 500; color: var(--ink); }   /* a second topic inside one note ('How the humours mix') */
+.popdef p:last-child { margin-bottom: 0; }
+.popdef .pclose { position: absolute; top: 4px; right: 4px; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; background: none; font: 400 22px/40px var(--sans); color: var(--ink-2); }
+.popdef .pfoot { margin: 12px 0 0; text-align: right; }
+.popdef .pfoot button { min-height: 0; padding: 8px 0; border: 0; background: none; font: 400 13px/1 var(--sans); letter-spacing: 0; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+.pop-scrim { display: none; }
+@media (max-width: 720px), (max-height: 500px) and (max-width: 950px) {
+  .popdef.sheet { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 72dvh; padding: 20px 16px max(24px, env(safe-area-inset-bottom, 0px));
+    border-width: 1px 0 0; border-radius: 12px 12px 0 0; line-height: 24px; box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.7); hyphens: auto; -webkit-hyphens: auto; }
+  .popdef.sheet .pt { margin-bottom: 10px; font-size: 17px; line-height: 24px; }
+  .pop-scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgba(0, 0, 0, 0.6); }
+}
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { .popdef { font-size: 14px; line-height: 21px; } .popdef.sheet { width: 26rem; max-height: min(70vh, 34rem); } }
+
+/* the older readout, pop-up and talisman rules this block replaced were removed (November 2026; DESIGN.md, "The readout system") */
+/* the Transits tab: no 72-hour strip, that is the clock's */
+body.transits #ahead { display: none; }
+
+@media (min-width: 951px), (min-width: 721px) and (min-height: 501px) { body.small #stage { overflow: hidden auto; } }
+/* line breaks (after the redesign's check): a date never splits; the impediment's dot stays with its words; cells wrap without a lone last word; one rule under the last talisman row is the section's own */
+#readout time { white-space: nowrap; }
+#readout .tal-why span.asp::before { display: inline; padding: 0 3.5px; font-size: 7px; line-height: 0; }
+#readout :is(td, th, .meta, .det, .tal-why, .s) { text-wrap: pretty; }
+#readout .tal-planet:last-child { border-bottom: 0; }
