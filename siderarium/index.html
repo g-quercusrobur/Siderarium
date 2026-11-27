@@ -73,7 +73,7 @@
     <section>
       <h2 data-i18n="ui.keys">keys</h2>
       <p class="meta" data-i18n="ui.keysNote">space run · ← → hour · shift ← → day · f screen · i readout · s sigil · l listen · esc close</p>
-      <p class="meta" data-i18n="ui.touchNote">on a phone: press the dial for a moment, then turn it to move time; a quick swipe scrolls the page</p>
+      <p class="meta" data-i18n="ui.touchNote">on a phone: turn the dial with one finger to move time; scroll the page from outside the dial</p>
     </section>
   </aside>
 
@@ -117,7 +117,10 @@
       <button id="save" data-i18n="ui.save">save 2048</button>
       <button id="save-hd" data-i18n="ui.saveHd">save 4096</button>
       <button id="wallpaper" data-i18n="ui.wallpaper">wallpaper</button>
-      <button id="share" data-i18n="ui.shareBtn">share</button>
+      <span class="share-pair">
+        <button id="share" data-i18n="ui.shareBtn">share</button>
+        <button id="copy-ai" class="copy-ai" hidden data-i18n="ui.copyAiTitle" data-i18n-attr="title" title="copy the chart as text, to paste into an AI such as Claude for a deeper reading"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="lbl" data-i18n="ui.copyAi">copy for AI</span></button>
+      </span>
     </nav>
   </footer>
 
@@ -288,7 +291,7 @@
               <tr><td>title of the moment</td><td>the Moon's house as a stage of life · the mother letter of the hour · the angel of the hour</td></tr>
               <tr><td>strip below the dial</td><td>the three windows over the next 24 hours, each named with its stage; tap a time to go there</td></tr>
             </table></div>
-            <p>Turn the dial to travel in time: clockwise is forward, one turn is one day. On a phone, press the dial for a moment and then turn it; a quick swipe over it scrolls the page. Pinch or ctrl + scroll to zoom; double tap to reset. Run, pause and change speed from the bar below. The sigil layer isolates the figure for copying by hand. Print HD art saves a square at 2048 pixels; Wallpaper saves a portrait at this screen's size. Both carry the notice. On a phone, open the app in the browser and choose "add to home screen"; it then runs offline.</p>
+            <p>Turn the dial to travel in time: clockwise is forward, one turn is one day. On a phone, one finger turns it; scroll the page from outside the dial. Now brings the clock back to the present. Pinch or ctrl + scroll to zoom; double tap to reset. Run, pause and change speed from the bar below. The sigil layer isolates the figure for copying by hand. Print HD art saves a square at 2048 pixels; Wallpaper saves a portrait at this screen's size. Both carry the notice. On a phone, open the app in the browser and choose "add to home screen"; it then runs offline.</p>
 
             <h2>5 · LIMITATIONS</h2>
             <ul>
@@ -474,7 +477,7 @@
               <tr><td>título del momento</td><td>la casa de la Luna como etapa de la vida · la letra madre de la hora · el ángel de la hora</td></tr>
               <tr><td>banda bajo la esfera</td><td>las tres ventanas en las próximas 24 horas, cada una con su etapa; toca una hora para ir a ella</td></tr>
             </table></div>
-            <p>Gira la esfera para viajar en el tiempo: en el sentido del reloj es hacia delante, una vuelta es un día. En el móvil, mantén pulsada la esfera un momento y luego gírala; un gesto rápido sobre ella desplaza la página. Pellizca o ctrl + rueda para ampliar; doble toque para volver. Corre, pausa y cambia la velocidad desde la barra inferior. La capa sigilo aísla la figura para copiarla a mano. Imprimir arte HD guarda un cuadrado de 2048 píxeles; Fondo de pantalla guarda un retrato al tamaño de esta pantalla. Ambos llevan el aviso. En el móvil, abre la aplicación en el navegador y elige «añadir a la pantalla de inicio»; después funciona sin conexión.</p>
+            <p>Gira la esfera para viajar en el tiempo: en el sentido del reloj es hacia delante, una vuelta es un día. En el móvil, un dedo la gira; desplaza la página desde fuera de la esfera. Ahora devuelve el reloj al presente. Pellizca o ctrl + rueda para ampliar; doble toque para volver. Corre, pausa y cambia la velocidad desde la barra inferior. La capa sigilo aísla la figura para copiarla a mano. Imprimir arte HD guarda un cuadrado de 2048 píxeles; Fondo de pantalla guarda un retrato al tamaño de esta pantalla. Ambos llevan el aviso. En el móvil, abre la aplicación en el navegador y elige «añadir a la pantalla de inicio»; después funciona sin conexión.</p>
 
             <h2>5 · LIMITACIONES</h2>
             <ul>

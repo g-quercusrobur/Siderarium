@@ -707,7 +707,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   }
   /* the same report onto the clipboard, to paste into an interpreter; the old way when the clipboard refuses */
   /* the copy icon: the chart report onto the clipboard, a tick for a moment as the answer */
-  async function copyWithTick(btn) { const ok = await copyReport(); if (ok === false) return; btn.classList.add('done'); setTimeout(() => btn.classList.remove('done'), 1600); }
+  async function copyWithTick(btn) {
+    const ok = await copyReport(); if (ok === false) return;
+    const lbl = btn.querySelector('.lbl'), was = lbl && lbl.textContent;   // a labelled button says it too: "copied", for a moment
+    btn.classList.add('done'); if (lbl) lbl.textContent = SD.i18n.cap1(SD.i18n.t('ui.copiedShort'));
+    setTimeout(() => { btn.classList.remove('done'); if (lbl && lbl.textContent === SD.i18n.cap1(SD.i18n.t('ui.copiedShort'))) lbl.textContent = was; }, 1600);
+  }
   async function copyReport() {
     const r = reportText(); if (!r) return false;
     const note = $('import-note'), i = SD.i18n;
@@ -1298,7 +1303,11 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     location.reload();
   }
 
+  /* "copy for AI" is shown wherever there is a chart to put into words: a birth chart (its view, its printed chart, its
+     transits) and a pair with its second chart */
+  const copyable = () => !!S.natal && (['natal', 'natalchart', 'synastry'].includes(S.mode) || (S.mode === 'pair' && !!(S.state && S.state.pair)));
   function updateControls() {
+    $('copy-ai').hidden = !copyable();
     if (document.activeElement !== $('when')) { $('when').value = placeStamp(S.state.date); $('when').classList.remove('bad'); }
     $('zone').textContent = offsetOf(S.place.tz || 'UTC', S.state.date);
     const live = S.offsetMs === 0 && !S.fixed && !S.playing;
@@ -1723,6 +1732,7 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     for (const cv of [canvas, plate]) if (cv && cv.addEventListener) cv.addEventListener('contextrestored', () => { SD.render.resetCaches(); S.dirty = true; });   // a canvas the browser dropped is drawn again
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { SD.render.resetCaches(); S.dirty = true; } });   // back from the background: fresh plates
     $('share').addEventListener('click', shareArt);
+    $('copy-ai').addEventListener('click', e => copyWithTick(e.currentTarget));   // the chart as text for an AI, beside the image to share
     $('caption').addEventListener('click', e => { if (e.target.closest('.share-btn')) shareArt(); const cb = e.target.closest('.copy-btn'); if (cb) copyWithTick(cb); });
     $('copy-link').addEventListener('click', e => copyWithTick(e.currentTarget));
     $('natal-summary').addEventListener('click', e => { const cb = e.target.closest('.copy-btn'); if (cb) copyWithTick(cb); });
@@ -2245,12 +2255,13 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
   /* ---------- the gesture: turn the dial to travel in time ----------
      clockwise = forward. one full turn = one day. the wheel moves ten minutes a notch. */
   function bindGesture() {
-    /* the mouse or the pen turns the dial (time) at once. a finger turns it only after resting on it for a moment:
-       a swipe across the dial is the page being scrolled, and must not move time (the usability audit, November 2026).
-       two fingers pinch to zoom and pan. ctrl/⌘ + wheel, or a trackpad pinch, zooms at the pointer. the plain wheel
-       moves time. double click or double tap returns to the whole dial. */
-    const pts = new Map(), HOLD_MS = 300, HOLD_SLOP = 8;   // a third of a second: a finger that rests before a slow swipe still scrolls
-    let drag = null, pinch = null, lastTap = 0, hold = null;   // hold: a finger down on the dial, not yet a turn
+    /* one finger, the mouse or the pen on the dial turns it at once: time follows the hand, clockwise forward,
+       counterclockwise back, one turn one day. the page scrolls under a finger only where the dial is not: from the
+       margins of its square and everywhere else on the page. two fingers pinch to zoom and pan. ctrl/⌘ + wheel, or a
+       trackpad pinch, zooms at the pointer. the plain wheel moves time. double click or double tap returns to the
+       whole dial. (a hold before the turn was tried in November 2026 and taken back: the dial is drawn on, not pressed) */
+    const pts = new Map();
+    let drag = null, pinch = null, lastTap = 0;
     const local = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left - (S.ox || 0), y: e.clientY - r.top }; };
     const toDial = p => ({ x: (p.x - view.x) / view.z, y: (p.y - view.y) / view.z });
     const clampView = () => {
@@ -2262,14 +2273,14 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
     };
     const zoomAt = (p, z) => { const w = toDial(p); view.z = z; view.x = p.x - w.x * view.z; view.y = p.y - w.y * view.z; clampView(); };
     const angleAt = p => { const Lt = SD.render.layout(S.side, S.side < 560), q = toDial(p); return { a: Math.atan2(q.y - Lt.cy, q.x - Lt.cx), d: Math.hypot(q.y - Lt.cy, q.x - Lt.cx), R: Lt.Rb }; };
-    const endTurn = () => { if (!drag) return; drag = null; S.dragging = false; canvas.classList.remove('turning', 'held'); recompute(); };
-    const beginTurn = (a, touch) => { drag = { last: a, base: S.offsetMs, turned: 0, touch }; S.playing = false; S.dragging = true; canvas.classList.add('turning'); };
-    const dropHold = () => { if (hold) { clearTimeout(hold.timer); hold = null; } };
+    const endTurn = () => { if (!drag) return; drag = null; S.dragging = false; canvas.classList.remove('turning'); recompute(); };
+    const beginTurn = a => { drag = { last: a, base: S.offsetMs, turned: 0 }; S.playing = false; S.dragging = true; canvas.classList.add('turning'); };
+    const onDisc = (x, y) => { const r = canvas.getBoundingClientRect(), p = angleAt({ x: x - r.left - (S.ox || 0), y: y - r.top }); return p.d <= p.R; };
     canvas.addEventListener('pointerdown', e => {
       canvas.setPointerCapture(e.pointerId);
       pts.set(e.pointerId, local(e));
       if (pts.size === 2) {                                  // second finger: leave time alone, start the pinch
-        dropHold(); endTurn();
+        endTurn();
         const [a, b] = [...pts.values()];
         pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z, w: toDial({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) };
         view.pinching = true; return;
@@ -2277,20 +2288,12 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       const now = performance.now();
       if (now - lastTap < 300) { view.z = 1; clampView(); lastTap = 0; return; }   // double tap: the whole dial
       lastTap = now;
-      const at = local(e), p = angleAt(at); if (p.d > p.R) return;
-      if (e.pointerType !== 'touch') { beginTurn(p.a, false); return; }
-      dropHold();                                            // a finger: nothing moves yet. still there after a moment, it has taken hold of the dial
-      const id = e.pointerId;
-      hold = { id, at, timer: setTimeout(() => {
-        hold = null; const now = pts.get(id); if (!now || pts.size !== 1) return;
-        beginTurn(angleAt(now).a, true); canvas.classList.add('held');   // from here the touch is the dial's: the page no longer scrolls under it
-        try { navigator.vibrate && navigator.vibrate(8); } catch (x) { /* no haptics */ }
-      }, HOLD_MS) };
+      const p = angleAt(local(e)); if (p.d > p.R) return;   // the margins of the square are the page's
+      beginTurn(p.a);
     });
     canvas.addEventListener('pointermove', e => {
       if (!pts.has(e.pointerId)) return;
       pts.set(e.pointerId, local(e));
-      if (hold && hold.id === e.pointerId) { const q = pts.get(e.pointerId); if (Math.hypot(q.x - hold.at.x, q.y - hold.at.y) > HOLD_SLOP) dropHold(); }   // moved before the hold: a swipe, the browser's to scroll with
       if (pinch && pts.size >= 2) {
         const [a, b] = [...pts.values()], mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
         view.z = pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
@@ -2304,21 +2307,22 @@ Style: discursive prose, dense and exact. Explain each technical term once, brie
       S.offsetMs = drag.base + drag.turned / (2 * Math.PI) * 864e5;   // one turn, one day; the slider under the dial follows
       recompute();
     });
-    const up = e => {                                        // lifted, or taken by the browser for its own scroll (pointercancel): either way nothing is left armed
+    const up = e => {                                        // lifted, or taken by the browser (pointercancel): either way nothing is left turning
       pts.delete(e.pointerId);
-      if (hold && hold.id === e.pointerId) dropHold();
       if (pinch && pts.size < 2) { pinch = null; view.pinching = false; S.dirty = true; }
       if (!pts.size) endTurn();
     };
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('dblclick', () => { view.z = 1; clampView(); });
-    /* the dial lets the browser scroll the page up and down under one finger (touch-action: pan-y) and keeps the touch
-       for itself in two cases: two fingers (some phone browsers start their own page zoom despite touch-action), and one
-       finger once its hold has armed the turn */
-    const mine = e => { if (e.touches.length >= 2 || (drag && drag.touch)) e.preventDefault(); };
-    canvas.addEventListener('touchmove', mine, { passive: false });
-    canvas.addEventListener('touchstart', mine, { passive: false });
-    canvas.addEventListener('contextmenu', e => { if ((drag && drag.touch) || hold) e.preventDefault(); });   // a long press is the turn, not the browser's menu
+    /* the browser may scroll the page up and down from the dial's square (touch-action: pan-y), so the touch is kept
+       from it wherever the dial itself is touched: a finger that lands on the disc turns time and never scrolls, nor do
+       two fingers (some phone browsers start their own page zoom despite touch-action). a finger on the margins scrolls */
+    let held = false;
+    canvas.addEventListener('touchstart', e => { if (e.touches.length === 1) held = onDisc(e.touches[0].clientX, e.touches[0].clientY); if (held || e.touches.length >= 2) e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchmove', e => { if (held || e.touches.length >= 2) e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchend', e => { if (!e.touches.length) held = false; });
+    canvas.addEventListener('touchcancel', () => { held = false; });
+    canvas.addEventListener('contextmenu', e => { if (held) e.preventDefault(); });   // a finger resting on the dial is a turn, not the browser's menu
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) { zoomAt(local(e), view.z * Math.exp(-e.deltaY * 0.005)); return; }   // trackpad pinch arrives as ctrl + wheel

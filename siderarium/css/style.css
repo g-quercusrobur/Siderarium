@@ -112,9 +112,8 @@ select:focus-visible { outline: 1px solid var(--ink); outline-offset: 1px; }
 .when input { font: 400 13px/1 var(--mono); letter-spacing: 0; color: var(--ink); width: 19.5ch; cursor: text; border: 0; }
 .when input.bad { color: #ff8a6a; }
 .when span { font: 400 12px/1 var(--mono); color: var(--ink-2); }
-#dial { touch-action: pan-y; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* a swipe over the dial scrolls the page; a finger that rests on it turns time (app.js, bindGesture) */
+#dial { touch-action: pan-y; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* a finger on the disc turns time at once; on the margins of the square it scrolls the page (app.js, bindGesture) */
 #dial.turning { cursor: grabbing; }
-#dial.held { filter: brightness(1.16); }   /* the finger has taken hold: the dial lights a little, for the phones that cannot buzz */
 #listen::before { content: ''; display: inline-block; width: 6px; height: 6px; border: 1px solid currentColor; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 #sigil.on::before, #listen.on::before { background: currentColor; }
 
@@ -618,3 +617,9 @@ body.transits #ahead { display: none; }
 #readout .tal-why span.asp::before { display: inline; padding: 0 3.5px; font-size: 7px; line-height: 0; }
 #readout :is(td, th, .meta, .det, .tal-why, .s) { text-wrap: pretty; }
 #readout .tal-planet:last-child { border-bottom: 0; }
+/* copy for AI: the chart as text, beside the image to share. two sheets, and the words, so it is not taken for a share */
+.share-pair { display: inline-flex; flex-wrap: nowrap; gap: 2px; align-items: center; }   /* share and copy for AI keep to one line, side by side */
+.copy-ai { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--ink-3) !important; margin-left: 4px; }
+.copy-ai[hidden] { display: none; }
+.copy-ai svg { flex: none; }
+.copy-ai .ico-done { display: none; } .copy-ai.done .ico-copy { display: none; } .copy-ai.done .ico-done { display: inline; color: #6fcf8e; }

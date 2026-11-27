@@ -7,7 +7,7 @@ Siderarium draws the sky of the present moment as a living mandala. Through syne
 Open `index.html` in a browser: no build step, no server, works offline (the fonts ship with it).
 
 **Controls:** clock / chart / natal / transits · `readout` · `menu` (sigil, listen, screen, about; language, houses, field, planets; nativity, relocation, saved charts) · `now` · `±1h` · `±1d` · `run` / `pause` (15 min, 1 h, 4 h, 24 h of sky per second) · date field (place's own time) · one city per time zone · `here` · `birth` · print HD art (2048) · wallpaper
-**Gestures:** turn the dial to travel in time (one turn = one day, wheel = ten minutes; on a phone press the dial for a moment, then turn: a quick swipe scrolls the page) · pinch or ctrl+wheel to zoom · double tap to reset
+**Gestures:** turn the dial to travel in time (one turn = one day, wheel = ten minutes; on a phone one finger turns it; the page scrolls from outside the dial) · pinch or ctrl+wheel to zoom · double tap to reset
 **Keys:** `space` run · `←/→` hour · `shift+←/→` day · `f` screen · `i` readout · `esc`
 **URL:** `?t=2027-01-15T21:00:00Z` fixes the moment · `?place=rome` · `?mode=chart` · `?lang=es` · `?field=glow` (the glow field instead of the engraving) · `?hd=1` shows the 4096 export
 
