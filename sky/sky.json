@@ -1,0 +1,26 @@
+{
+ "rendered": "2026-11-28 10:13 utc",
+ "targets": [
+  {
+   "name": "rome",
+   "place": "rome",
+   "caption": "Saturday · 28 November 2026 · 11:13 CET · Rome",
+   "figure": "Uranus trine Pluto · exact",
+   "chord": "Chord A#–D · major third"
+  },
+  {
+   "name": "new-york",
+   "place": "new york",
+   "caption": "Saturday · 28 November 2026 · 05:13 GMT-5 · New York",
+   "figure": "Uranus trine Pluto · exact",
+   "chord": "Chord A#–D · major third"
+  },
+  {
+   "name": "greenwich",
+   "place": "greenwich",
+   "caption": "Saturday · 28 November 2026 · 10:13 GMT · Greenwich",
+   "figure": "Uranus trine Pluto · exact",
+   "chord": "Chord A#–D · major third"
+  }
+ ]
+}

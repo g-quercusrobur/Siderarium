@@ -1,0 +1,2399 @@
+/*  siderarium — app shell
+    Live clock, time scrubber, places, modes, export.
+*/
+(function (SD) {
+  'use strict';
+  /* inside another site's page the app is not drawn: a frame from elsewhere could lay its own picture over the buttons
+     and borrow a tap. the website's own live dial is the same address and passes; the wallpaper is drawn but made inert;
+     the single file published elsewhere is not this address */
+  if (window.top !== window.self && /(^|\.)siderarium\.com$/.test(location.hostname)) {
+    let same = false; try { same = window.top.location.origin === location.origin; } catch (e) { /* another site's frame */ }
+    if (!same && new URLSearchParams(location.search).get('wall') === '1') document.documentElement.inert = true;   // the wallpaper is a picture there: drawn, and deaf to taps and keys
+    else if (!same) { document.documentElement.hidden = true; return; }
+  }
+  /* one city for each time zone, west to east */
+  const ZONES = [
+    ['pago pago', -14.2756, -170.7020, 'Pacific/Pago_Pago'], ['honolulu', 21.3069, -157.8583, 'Pacific/Honolulu'],
+    ['atuona', -9.8030, -139.0410, 'Pacific/Marquesas'], ['anchorage', 61.2181, -149.9003, 'America/Anchorage'],
+    ['los angeles', 34.0522, -118.2437, 'America/Los_Angeles'], ['denver', 39.7392, -104.9903, 'America/Denver'],
+    ['mexico city', 19.4326, -99.1332, 'America/Mexico_City'], ['new york', 40.7128, -74.0060, 'America/New_York'],
+    ['caracas', 10.4806, -66.9036, 'America/Caracas'], ["st. john's", 47.5615, -52.7126, 'America/St_Johns'],
+    ['são paulo', -23.5505, -46.6333, 'America/Sao_Paulo'], ['noronha', -3.8540, -32.4240, 'America/Noronha'],
+    ['ponta delgada', 37.7412, -25.6756, 'Atlantic/Azores'], ['greenwich', 51.4769, -0.0005, 'UTC', 'GMT'],
+    ['rome', 41.9028, 12.4964, 'Europe/Rome'], ['jerusalem', 31.7683, 35.2137, 'Asia/Jerusalem'],
+    ['istanbul', 41.0082, 28.9784, 'Europe/Istanbul'], ['tehran', 35.6892, 51.3890, 'Asia/Tehran'],
+    ['dubai', 25.2048, 55.2708, 'Asia/Dubai'], ['kabul', 34.5553, 69.2075, 'Asia/Kabul'],
+    ['karachi', 24.8607, 67.0011, 'Asia/Karachi'], ['mumbai', 19.0760, 72.8777, 'Asia/Kolkata'],
+    ['kathmandu', 27.7172, 85.3240, 'Asia/Kathmandu'], ['dhaka', 23.8103, 90.4125, 'Asia/Dhaka'],
+    ['yangon', 16.8409, 96.1735, 'Asia/Yangon'], ['bangkok', 13.7563, 100.5018, 'Asia/Bangkok'],
+    ['beijing', 39.9042, 116.4074, 'Asia/Shanghai'], ['tokyo', 35.6762, 139.6503, 'Asia/Tokyo'],
+    ['darwin', -12.4634, 130.8456, 'Australia/Darwin'], ['sydney', -33.8688, 151.2093, 'Australia/Sydney'],
+    ['nouméa', -22.2758, 166.4580, 'Pacific/Noumea'], ['auckland', -36.8485, 174.7633, 'Pacific/Auckland'],
+    ["nuku'alofa", -21.1394, -175.2018, 'Pacific/Tongatapu'], ['kiritimati', 1.8721, -157.3626, 'Pacific/Kiritimati']
+  ].map(([name, lat, lon, tz, zoneLabel]) => ({ name, lat, lon, tz, zoneLabel }));
+  const PLACES = Object.assign(Object.create(null), Object.fromEntries(ZONES.map(z => [z.name, z])));   // no inherited keys: a place named "constructor" is not a place
+  const offsetOf = (tz, d = new Date()) => {
+    try { return new Intl.DateTimeFormat('en-GB', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(d).find(p => p.type === 'timeZoneName').value.replace('GMT', 'UTC') || 'UTC'; }
+    catch (e) { return ''; }
+  };
+  /* without a stored place: the city of the device's own time zone */
+  function placeFromDevice() {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const exact = ZONES.find(z => z.tz === tz);
+    if (exact) return exact;
+    const off = offsetOf(tz);
+    return ZONES.find(z => offsetOf(z.tz) === off) || PLACES.greenwich;
+  }
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('cw.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    del(k) { try { localStorage.removeItem('cw.' + k); } catch (e) { /* nothing kept, nothing to remove */ } },
+    set(k, v) { try { localStorage.setItem('cw.' + k, JSON.stringify(v)); return localStorage.getItem('cw.' + k) === JSON.stringify(v); } catch (e) { return false; } },   // true only when the browser kept it
+    works() { try { localStorage.setItem('cw.probe', '1'); const ok = localStorage.getItem('cw.probe') === '1'; localStorage.removeItem('cw.probe'); return ok; } catch (e) { return false; } }
+  };
+  const params = new URLSearchParams(location.search);
+  /* everything that comes from outside (a link's parameters, the browser's storage, a charts file) is checked before it
+     is used: a choice is taken only from its own list, a moment only inside the years the app can compute, a place only
+     with real coordinates and a real zone. a link or a damaged store can then show a default, never a blank page. */
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const oneOf = (v, list, d) => typeof v === 'string' && list.includes(v) ? v : d;
+  const MODES = ['clock', 'chart', 'natal', 'natalchart', 'synastry', 'pair'], HOUSES = ['regiomontanus', 'equal', 'placidus'], LANGS = SD.i18n.langs;
+  const T_LO = Date.UTC(1000, 0, 1), T_HI = Date.UTC(3001, 0, 1) - 1;   // the years a date can be typed in: the same for a link's moment, and for the dial however far it is turned
+  const C_LO = -62135596800000;                              // a chart may be older: from the year 1
+  /* a name or a place as typed: one line, no control characters, none of the marks that turn the direction of the text
+     after them, and the two brackets of markup turned into their look-alikes, so that no page can read a name as a tag
+     wherever it is written */
+  const cleanText = (v, n) => typeof v === 'string' ? [...v.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/</g, '\u2039').replace(/>/g, '\u203a').trim()].slice(0, n).join('').trim() : undefined;   // cut on whole characters: an emoji is never halved
+  const unread = [];                                         // entries of the stored list that could not be read (see soundCharts)
+  const num = v => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '') ? +v : NaN;
+  function soundPlace(p) {
+    if (!p || typeof p !== 'object') return null;
+    const lat = num(p.lat), lon = num(p.lon);
+    if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) || !validZone(p.tz)) return null;
+    const pl = { name: cleanText(p.name, 80) || 'here', lat, lon, tz: p.tz }, zl = cleanText(p.zoneLabel, 16), lb = cleanText(p.label, 160);
+    if (zl) pl.zoneLabel = zl; if (lb) pl.label = lb;
+    if (pl.name === 'here') { pl.lat = Math.round(lat * 100) / 100; pl.lon = Math.round(lon * 100) / 100; }   // the device's position is kept coarse (see locate)
+    return pl;
+  }
+  const tAsked = params.get('t') ? new Date(params.get('t')).getTime() : NaN, tFixed = tAsked >= T_LO && tAsked <= T_HI ? new Date(tAsked) : null;
+  const placeRaw = store.get('place', null), placeKept = soundPlace(placeRaw);
+  if (placeKept && placeRaw && (placeRaw.lat !== placeKept.lat || placeRaw.lon !== placeKept.lon)) { store.set('place', placeKept); store.del('talismans'); }   // a position kept in full by an earlier version is rewritten coarse, and the cache that was keyed by it goes
+
+  const S = {
+    mode: oneOf(params.get('mode'), MODES, null) || (params.get('wall') === '1' ? 'clock' : oneOf(store.get('mode', 'clock'), MODES, 'clock')),   // a wallpaper shows the clock unless its address says otherwise: never the chart last opened on this device
+    place: placeKept || placeFromDevice(),
+    firstVisit: !placeKept,
+    speed: 1,                                              // hours of sky per second while running
+    live: !tFixed,
+    offsetMs: 0,
+    fixed: tFixed,
+    playing: false,
+    preview: 0,                                            // minutes ahead, from the 24-hour strip
+    sigil: params.get('sigil') === '1',
+    algol: store.get('algol', false),
+    engrave: params.get('field') ? params.get('field') !== 'glow' : (params.get('engrave') !== '0' && store.get('field', 'engraved') !== 'glow'),   // engraved at rest; glow on request
+    natal: soundChart(store.get('natal', null), true),      // { date, place, unknownTime } — stays on this device
+    pair: soundId(store.get('pair', null)),                 // the second chart for synastry, by id
+    lang: oneOf(params.get('lang'), LANGS, null) || oneOf(store.get('lang', null), LANGS, null) || ((navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en'),
+    field: params.get('field') || (store.get('field', 'engraved') === 'guilloche' ? 'guilloche' : 'waves'),   // the engraving as it was; guilloché on request
+    houses: oneOf(params.get('houses'), HOUSES, null) || oneOf(store.get('houses', 'regiomontanus'), HOUSES, 'regiomontanus'),   // lilly's system; equal and placidus to compare
+    luminous: params.get('bodies') === 'luminous' || (!params.get('bodies') && store.get('bodies', 'lights') === 'lights'),   // planets as lights (default); bodies on request
+    relocate: store.get('relocate', false) === true,          // the nativity seen from the current place
+    charts: soundCharts(store.get('charts', [])),              // saved nativities, on this device
+    reading: true,                                             // the readout is always there
+    groundEl: params.get('ground') === 'element',              // prototype: the element of the hour as the ground
+    wall: params.get('wall') === '1', ox: 0,                          // live wallpaper: the sky alone, filling the window, for lively / plash / wallpaper engine
+    state: null,
+    lastCompute: 0
+  };
+  if (params.get('place') && has(PLACES, params.get('place'))) S.place = PLACES[params.get('place')];
+  if (params.get('lat') && params.get('lon') && Number.isFinite(+params.get('lat')) && Number.isFinite(+params.get('lon')))   // any horizon, for a wallpaper: ?lat=41.90&lon=12.50&tz=Europe/Rome&name=Roma
+    S.place = { name: cleanText(params.get('name') || '', 80) || 'here', lat: Math.max(-90, Math.min(90, +params.get('lat'))), lon: Math.max(-180, Math.min(180, +params.get('lon'))), tz: validZone(params.get('tz')) ? params.get('tz') : Intl.DateTimeFormat().resolvedOptions().timeZone };
+
+  const $ = id => document.getElementById(id);
+  const canvas = $('dial');
+  const ctx = canvas.getContext('2d');
+  const plate = document.createElement('canvas');          // the full render, redrawn only when the sky moves
+  const pctx = plate.getContext('2d');
+  let info = null, lastPlate = 0;
+  const view = { z: 1, x: 0, y: 0, pinching: false };      // screen = view.xy + view.z × dial
+
+  /* one displacement: the moment shown = anchor (real now, or a fixed moment) + offsetMs. the dial, the slider, the arrows and the run all move it. */
+  const anchor = () => S.fixed ? S.fixed.getTime() : Date.now();
+  function base() { return new Date(Math.max(T_LO, Math.min(T_HI, anchor() + S.offsetMs))); }   // inside the years the app computes, however far the dial is turned
+  function now() { return base(); }
+
+  /* the nativity, computed once per birth data */
+  const natalCache = { key: null, state: null }, pairCache = { key: null, state: null }, activeCache = { key: null, v: [] };
+  /* the relationship type of a pair (rule A3), kept per pair whichever chart is first; "other" by default */
+  const pairKey = (a, b) => 'pairType:' + [a, b].sort().join('|');
+  const PAIR_TYPES = ['partner', 'friend', 'colleague', 'parent', 'sibling', 'other'];
+  const pairTypeOf = (a, b) => oneOf(store.get(pairKey(a, b), 'other'), PAIR_TYPES, 'other');
+  function natalState() {
+    if (!S.natal) return null;
+    const place = S.relocate ? S.place : S.natal.place;     // relocated: the same instant, the houses of another horizon
+    const key = JSON.stringify([S.natal.date, place, S.houses, S.natal.name, !!S.natal.unknownTime]);
+    if (natalCache.key !== key) {
+      const st = SD.engine.compute(new Date(S.natal.date), place, { houses: S.houses });
+      st.natalView = true; st.nextChord = null; st.relocated = S.relocate ? place.name : null;
+      st.chartName = S.natal.name || '';                   // the owner's name, after "birth chart" on the dial
+      if (S.natal.unknownTime) st.elements = SD.engine.elements(st, { noTime: true });   // no birth time: the angles are unknown, the elements go by the bodies alone
+      st.tikkun = SD.tikkun.of(st, { noTime: !!S.natal.unknownTime });   // the life mission, from the nodes
+      try {                                                 // the temperament, laid down at the birthplace whatever horizon is shown
+        const at = S.relocate ? SD.engine.compute(new Date(S.natal.date), S.natal.place, { houses: S.houses }) : st;
+        st.temperament = Object.assign(SD.temperament.of(at, { noTime: !!S.natal.unknownTime }), { relocated: !!S.relocate, tz: S.natal.place.tz || null });
+      } catch (e) { st.temperament = null; }
+      natalCache.key = key; natalCache.state = st;
+    }
+    return natalCache.state;
+  }
+  /* the stone of the day for the chart on show: read from the sky at the place's local noon of the day displayed, so it
+     holds from midnight to midnight and does not flicker with the hour (SD.engine.stoneOfDay) */
+  const stoneCache = { key: null, v: null };
+  const chartSig = c => c ? [c.date, c.place && c.place.lat, c.place && c.place.lon, c.place && c.place.tz, c.unknownTime ? 1 : 0].join(',') : '';   // what a chart is made of: an edit changes it, a rename does not
+  function stoneOfTheDay(ns) {
+    try {
+      const p = placeParts(now(), S.place.tz), key = [chartSig(S.natal), p.year, p.month, p.day, S.place.lat, S.place.lon].join('|');
+      if (stoneCache.key !== key) {
+        const noon = fromStamp(`${p.year}-${p.month}-${p.day} 12:00`, S.place.tz) || now();
+        const day = SD.engine.compute(noon, S.place, { light: true, houses: S.houses });
+        stoneCache.key = key; stoneCache.v = SD.engine.stoneOfDay(day, ns, SD.engine.computeTransits(day, ns));
+      }
+      return stoneCache.v;
+    } catch (e) { return null; }                            // the stone is a courtesy: the transits never wait on it
+  }
+  const natalModes = ['natal', 'natalchart', 'synastry', 'pair'];
+  /* the leading transits' dates (exact, entering and leaving orb) are searched once per transit and day and kept */
+  const spanCache = new Map();
+  function transitInfo(ns, tr) {
+    const day = Math.floor(now().getTime() / 864e5), spans = {}, houses = {};
+    for (const a of tr.slice(0, 4)) {
+      const key = [chartSig(S.natal), a.a, a.b, a.aspect, day].join('|');
+      if (!spanCache.has(key)) { if (spanCache.size > 200) spanCache.clear(); spanCache.set(key, SD.engine.transitSpan(a.a, a.nlon, a.angle, a.orbMax, now())); }
+      spans[a.a + '|' + a.b + '|' + a.aspect] = spanCache.get(key);
+      if (!S.natal.unknownTime) houses[a.a] = SD.engine.houseIn(ns.cusps, S.state.bodies[a.a].lon);
+    }
+    return { name: S.natal.name || '', spans, houses };
+  }
+  function viewState() { return (S.mode === 'natal' || S.mode === 'natalchart') && S.natal ? natalState() : S.state; }
+
+  function recompute() {
+    { const a = anchor(), o = Math.max(T_LO - a, Math.min(T_HI - a, S.offsetMs)); if (o !== S.offsetMs) { S.offsetMs = o; S.playing = false; } }   // at the first or last year the dial stops there: nothing runs on past the edge
+    const busy = S.playing || S.dragging;
+    S.state = SD.engine.compute(now(), S.place, { light: busy, houses: S.houses });
+    if (!busy) S.state.nextChord = SD.engine.nextChordShift(S.state.date, S.place);
+    if (S.mode === 'pair' && S.natal) {                     // two charts: the second laid over the first, the figure their strongest contact
+      const A = natalState(), Bc = S.charts.find(c => c.id === S.pair && c.id !== S.natal.id);
+      if (Bc) {
+        const key = JSON.stringify([Bc.date, Bc.place, S.houses, !!Bc.unknownTime]);
+        if (pairCache.key !== key) { pairCache.key = key; pairCache.state = SD.engine.compute(new Date(Bc.date), Bc.place, { houses: S.houses }); if (Bc.unknownTime) pairCache.state.elements = SD.engine.elements(pairCache.state, { noTime: true }); }
+        // the first chart is the dial, the second is the ring laid over it; the contacts run from the first's planets to the second's points
+        const Bs = pairCache.state, type = pairTypeOf(S.natal.id, Bc.id), noA = !!S.natal.unknownTime, noB = !!Bc.unknownTime;
+        // synastry rules v2.1: one source of truth for every word of the pair (js/synastry.js)
+        const syn = SD.synastry.of(A, Bs, { at: new Date(), type, noTimeA: noA, noTimeB: noB });
+        const ASP = Object.fromEntries(SD.corr.ASPECTS.map(x => [x.key, x]));
+        const tr = syn.contacts.filter(c => SD.corr.PLANETS[c.a] && (SD.corr.PLANETS[c.b] || c.b === 'ascendant' || c.b === 'midheaven'))   // the drawable contacts, heaviest first
+          .map(c => ({ a: c.a, b: c.b, natal: true, nlon: c.b === 'ascendant' ? Bs.asc : c.b === 'midheaven' ? Bs.mc : Bs.bodies[c.b].lon, aspect: c.aspect, n: (ASP[c.aspect] || {}).n, k: (ASP[c.aspect] || {}).k, nature: (ASP[c.aspect] || {}).nature, angle: c.angle, orb: c.orb, power: c.w / 10, exact: 1 - c.orb / c.max, applying: false }));
+        const dayKey = JSON.stringify([chartSig(S.natal), chartSig(Bc), new Date().toISOString().slice(0, 10)]);
+        if (activeCache.key !== dayKey) { activeCache.key = dayKey; activeCache.v = SD.synastry.activeNow(A, Bs, syn, new Date(), noA, noB); }
+        S.state = { ...A, natalView: true, natal: Bs, transits: tr, syn, synActive: activeCache.v, pair: { a: S.natal.name || '', b: Bc.name || '', ids: [S.natal.id, Bc.id], noTime: [noA, noB] } };
+        S.state.interaction = SD.engine.computeInteractions(A, Bs, tr);
+        S.state.attraction = syn.age.sexual ? SD.engine.desireOf(tr, A, Bs) : null;   // the pull between two bodies: adults only (rule 0)
+        S.state.transitInfo = { name: `${S.natal.name || ''} × ${Bc.name || ''}`, spans: {}, houses: Object.fromEntries(tr.slice(0, 5).filter(a => Bs.bodies[a.b]).slice(0, 3).map(a => [a.b, SD.engine.houseIn(A.cusps, Bs.bodies[a.b].lon)])) };
+        S.state.configs = { ...A.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
+        S.state.ownFigures = { a: A.configs.primary, b: Bs.configs.primary };   // each chart's own ruling figure, faint behind the pair's
+        S.state.composite = SD.engine.compositeOf(A, Bs);    // the pair's own chart: its figure is the mandala
+      } else { S.state = { ...A, natalView: true, pairMissing: true }; }
+    }
+    if (S.mode === 'synastry' && S.natal) {                 // the sky of now against the nativity: the figure is the strongest transit
+      const ns = natalState(), tr = SD.engine.computeTransits(S.state, ns).filter(x => x.power > 0.04 && !(S.natal.unknownTime && (x.b === 'ascendant' || x.b === 'midheaven')));
+      S.state.natal = ns; S.state.transits = tr;
+      S.state.interaction = SD.engine.computeInteractions(S.state, ns, tr);   // what the two skies make together
+      S.state.transitInfo = transitInfo(ns, tr);                                 // when each leading transit is exact, and where it stands in the natal houses
+      S.state.stone = stoneOfTheDay(ns);                                         // one stone for the whole day, with one alternative
+      S.state.configs = { ...S.state.configs, primary: tr[0] || null, secondary: tr.slice(1, 3), scale: 1, cut: null };
+    }
+    S.lastCompute = performance.now();
+    S.dirty = true;
+    document.documentElement.style.setProperty('--ground', S.groundEl ? SD.render.ground(S.state, true) : '#000000');
+    document.body.classList.toggle('mrx', viewState().bodies.mercury.slow > 0.5);   // mercury retrograde: the print misregisters
+    const c = SD.render.captionLines(viewState(), true);
+    const low = s => s.replace(/^./, ch => ch.toLowerCase());
+    for (const k in c) if (typeof c[k] === 'string') c[k] = esc(c[k]);
+    for (const k of ['label', 'state', 'els', 'title', 'reason', 'l1', 'detail1', 'detail2', 'detail3', 'detail4', 'pairLine', 'pairLine2']) if (typeof c[k] === 'string') c[k] = c[k].replace(/ · /g, '\u00a0· ');   // a separator ends its line, never starts the next
+    const copyBtn = `<button class="copy-btn" aria-label="${esc(SD.i18n.t('ui.copyReport'))}" title="${esc(SD.i18n.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>`;
+    const capHtml = `<button class="share-btn${shareState ? ' ' + shareState : ''}" aria-label="${esc(SD.i18n.t(shareState === 'ready' ? 'ui.tapToShare' : 'ui.share'))}" title="${esc(SD.i18n.t('ui.share'))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><path d="M8.6 10.8l6.8-4M8.6 13.2l6.8 4"/></svg></button><p class="eyebrow">${c.label} <a class="what" href="#read-title">${esc(SD.i18n.t('cap.whatItMeans'))}</a></p>${c.els ? `<h2 class="h1 els" style="color:${c.elInk}">${c.els}</h2>` : `<h2 class="h1 state-${c.stateKey}">${c.opLabel ? `<span class="op">${c.opLabel}</span> ` : ''}${c.state}</h2>`}<p class="deck">${c.title}</p>${c.cols && (S.state.syn || S.state.ties) ? tieScales(S.state) : `<p class="reason">${c.reason}${c.brief && c.copy ? ' ' + copyBtn : ''}</p>`}${c.cols ? `<p class="reason">${c.detail4}</p><div class="pair-cols">${c.cols.map(col => `<div><b>${esc(col.head)}</b>${col.lines.map(l => '<br>' + esc(l)).join('')}</div>`).join('')}</div><p class="detail">${c.pairLine}<br>${c.pairLine2}</p>` : c.brief ? '' : `<p class="moment">${c.l1}${c.copy ? ' ' + copyBtn : ''}</p><p class="detail">${c.detail1}<br>${c.detail2} · ${c.detail3}</p>${c.stone ? `<p class="detail stone-line">${c.stone}</p>` : ''}<p class="detail">${c.detail4}</p>`}`;
+    if (capHtml !== S.capHtml) { const back = focusOf($('caption')); S.capHtml = capHtml; $('caption').innerHTML = capHtml; linkTerms($('caption')); capStops(); if (back) back($('caption')); if (SD.app_pop) SD.app_pop.repoint(); }
+    if (!busy) scanIfNeeded();
+    drawStrip();
+    if (!busy) updateReadout();                            // the heavy parts wait until the clock rests
+    followChord();
+    updateControls();
+  }
+
+  let fillCity = () => {};                                  // the city list, filled once the controls are bound and again in a new language
+  /* the stylesheet's phone layout, word for word (css/style.css): a narrow window, or a low one no wider than a phone on its side */
+  const mq = q => window.matchMedia ? window.matchMedia(q) : { matches: false };
+  const PHONE = mq('(max-width: 720px), (max-height: 500px) and (max-width: 950px)'), LOW = mq('(max-height: 500px) and (max-width: 950px)');
+  /* the caption on a wide screen is painted on the dial and kept in the page for a screen reader only (css, #caption):
+     its links and buttons are then no tab stops, for a ring nobody could see; each one's stop comes back with the caption */
+  function capStops() {
+    const hid = !document.body.classList.contains('small');
+    for (const el of $('caption').querySelectorAll('a, button')) {
+      if (hid) { if (el.dataset.tab0 === undefined) { el.dataset.tab0 = el.getAttribute('tabindex') || ''; el.tabIndex = -1; } }
+      else if (el.dataset.tab0 !== undefined) { if (el.dataset.tab0) el.setAttribute('tabindex', el.dataset.tab0); else el.removeAttribute('tabindex'); delete el.dataset.tab0; }
+    }
+  }
+  /* the first visit: one line under the dial that says what this is and how to add a birth chart, in Clock and Chart, while
+     no chart is saved or loaded. its × is remembered (cw.hint1, and only a true there hides it); a chart, once there is one,
+     puts it away for good. returns true when the line came or went, so the dial can be measured again */
+  function hintSync() {
+    const el = $('hint1'), has = S.charts.length > 0 || !!S.natal;
+    if (has && store.get('hint1', null) !== true) store.set('hint1', true);
+    const show = !has && !S.wall && (S.mode === 'clock' || S.mode === 'chart') && store.get('hint1', null) !== true && !S.hintOff;
+    if (el.hidden === !show) return false;
+    el.hidden = !show; return true;
+  }
+  function size() {
+    if (S.wall) {                                           // the whole window, no wheel: a live wallpaper
+      const W = window.innerWidth, H = window.innerHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      plate.width = canvas.width; plate.height = canvas.height;
+      S.side = Math.min(W, H); S.dpr = dpr; S.dirty = true; return;
+    }
+    const box = $('stage').getBoundingClientRect();
+    const low = LOW.matches;                                // a phone on its side: the stacked page, and a dial no taller than the window, so it can be seen whole
+    const small = low || box.width < 560;
+    const hint = $('hint1'), room = box.height - 110 - 16;     // what the 24-hour strip under the dial leaves it
+    // the first-visit line takes its height from a roomy dial, as the strip does; a dial under 560 has its caption beneath it and a stage that scrolls, so there nothing has to give
+    const side = Math.floor(Math.min(box.width - 16, low ? window.innerHeight - 16 : small ? box.width : room - (!hint.hidden && room >= 560 ? hint.offsetHeight + 6 : 0)));
+    $('ahead').style.width = side + 'px';
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const W = small ? side : Math.floor(box.width - 16);     // on desktop the canvas spans the stage: the aura runs beside the square
+    S.ox = Math.floor((W - side) / 2);
+    canvas.style.width = W + 'px'; canvas.style.height = side + 'px';
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(side * dpr);
+    document.querySelector('.dialwrap').style.setProperty('--ox', S.ox + 'px');
+    S.side = side; S.dpr = dpr;
+    plate.width = canvas.width; plate.height = canvas.height;
+    S.dirty = true;
+    document.body.classList.toggle('small', side < 560);
+    capStops();
+    const st = $('strip'); st.width = Math.round(side * dpr); st.height = Math.round(44 * dpr);
+    drawStrip();
+  }
+
+  /* ---------- the next 24 hours: ideation (aleph), incarnation (mem), destruction (shin) ---------- */
+  const MOTHER_INK = { ideation: '#f2e8a0', incarnation: '#4a7ef0', destruction: '#ff5a2a' };   // king scale of the mother letters
+  const STRIP_H = 72;                                       // the strip under the dial spans three days
+  const VEIL_INK = '#c9b8f5';                                // the veil: a silver violet, on its own scale, dashed
+  const scan = { key: null, t0: 0, step: 20, vals: null, nexts: null, token: 0 };
+  function scanIfNeeded() {
+    const b = anchor();                                     // the strip stays anchored at now; the playhead moves along it
+    const key = S.place.name + S.place.lat + S.place.lon;
+    if (scan.key === key && Math.abs(b - scan.t0) < 30 * 60000) return;
+    scan.key = key; scan.t0 = b; scan.vals = null; scan.nexts = null;
+    const token = ++scan.token, N = 7 * 72, out = [];
+    let i = 0;
+    const later = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 400 }) : setTimeout(f, 16));   // in the page's idle time, never in the way of a tap
+    (function chunk() {
+      if (token !== scan.token) return;
+      const until = performance.now() + 6;                          // at most 6 ms at a time
+      for (; i <= N && performance.now() < until; i++) {
+        const st = SD.engine.compute(new Date(b + i * scan.step * 60000), S.place, { light: true, houses: S.houses });
+        out.push({ ...st.windows, house: st.bodies.moon.house, veil: st.veil.v, share: st.mode.share });   // the Moon's house names the window's stage; the veil and the mode's shares ride along
+      }
+      if (i <= N) return later(chunk);
+      scan.vals = out;
+      scan.nexts = {};
+      for (const m of Object.keys(MOTHER_INK)) {
+        const v = out.map(w => w[m]), sorted = v.slice().sort((x, y) => x - y);
+        const T = Math.max(0.06, sorted[Math.floor(sorted.length * 0.85)]);   // each mother names her best hour of the week, even a modest one
+        let j = v.findIndex((x, n) => n > 0 && x >= T);
+        if (j > 0) { while (j + 1 < v.length && v[j + 1] >= v[j]) j++; scan.nexts[m] = { at: new Date(b + j * scan.step * 60000), v: v[j], house: out[j].house }; }
+      }
+      {                                                       // the veil: its thinnest point in the coming day, else the week
+        const pick = (from, to) => { let j = -1, best = 0; for (let n = from; n < Math.min(to, out.length); n++) if (out[n].veil > best) { best = out[n].veil; j = n; } return j; };
+        let j = pick(1, 73); const jw = pick(1, out.length);   // a great night within the week outranks the day's own twilight
+        if (jw >= 0 && (j < 0 || out[jw].veil >= 0.9 || out[jw].veil > out[j].veil + 0.15)) j = jw;
+        scan.veil = j >= 0 ? { at: new Date(b + j * scan.step * 60000), v: out[j].veil, house: out[j].house } : null;
+      }
+      drawStrip(); drawNexts();
+    })();
+  }
+  function drawStrip() {
+    const cv = $('strip'); if (!cv || !cv.width) return;
+    const c = cv.getContext('2d'), W = cv.width, H = cv.height, d = S.dpr || 1;
+    c.clearRect(0, 0, W, H);
+    c.strokeStyle = 'rgba(235,231,220,0.18)'; c.lineWidth = d;
+    c.beginPath(); c.moveTo(0, H - 0.5 * d); c.lineTo(W, H - 0.5 * d); c.stroke();
+    for (let h = 0; h <= STRIP_H; h += 6) { const x = Math.min(W - d, h / STRIP_H * W); c.beginPath(); c.moveTo(x, H); c.lineTo(x, H - (h % 24 ? 3 : 6) * d); c.stroke(); }   // a tick every six hours, taller at the days
+    if (scan.vals) {
+      const n = STRIP_H * 3, vals = scan.vals.slice(0, n + 1), keys = Object.keys(MOTHER_INK);   // three steps an hour
+      const peak = Math.max(0.08, ...scan.vals.flatMap(w => keys.map(k => w[k])));   // the week's strongest window sets the scale; the rows also carry the Moon's house, which is not a value
+      const top = 14 * d;                                     // room for the hour labels (the band of shares was tried and retired: too busy)
+      for (const [m, col] of Object.entries(MOTHER_INK)) {
+        c.strokeStyle = col; c.lineWidth = 1.6 * d; c.globalAlpha = 0.9;
+        c.beginPath();
+        vals.forEach((w, i) => { const x = i / n * W, y = H - 2 * d - (w[m] / peak) * (H - 4 * d - top); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+        c.stroke();
+      }
+      c.strokeStyle = VEIL_INK; c.lineWidth = 1.4 * d; c.globalAlpha = 0.85; c.setLineDash([3 * d, 3 * d]);   // the veil on its own scale, 0 to 1
+      c.beginPath();
+      vals.forEach((w, i) => { const x = i / n * W, y = H - 2 * d - (w.veil || 0) * (H - 4 * d - top); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+      c.stroke(); c.setLineDash([]);
+      c.globalAlpha = 1;
+    }
+    c.font = `${10 * d}px "Geist Mono", monospace`; c.fillStyle = 'rgba(235,231,220,0.5)'; c.textBaseline = 'top';
+    SD.i18n.t('ui.strip').map((l, n) => [SD.i18n.cap1(l), n * 24]).forEach(([l, h]) => { c.textAlign = h === 0 ? 'left' : h === STRIP_H ? 'right' : 'center'; c.fillText(l, h / STRIP_H * W, 2 * d); });
+    const x = Math.max(0, Math.min(1, S.offsetMs / (STRIP_H * 3600e3))) * W;
+    c.fillStyle = 'rgba(235,231,220,0.9)'; c.fillRect(Math.min(W - 2 * d, x), 0, 2 * d, H);
+  }
+  function fmtAt(d) {
+    return new Intl.DateTimeFormat(SD.i18n.locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: S.place.tz || 'UTC' }).format(d).replace(/^./, c => c.toUpperCase());
+  }
+  function drawNexts() {
+    const el = $('nexts');
+    const i = SD.i18n;
+    if (!scan.nexts) { el.innerHTML = `<span>${i.cap1(i.t('ui.reading'))}</span>`; return; }
+    el.innerHTML = Object.entries(MOTHER_INK).map(([m, col]) => {
+      const n = scan.nexts[m];
+      return n ? `<button data-jump="${n.at.toISOString()}" title="${i.t('ui.goTo')}"><i style="background:${col}"></i>${i.cap1(i.window(m))} · ${fmtAt(n.at)} · ${i.t('ui.r.in')} ${i.house12(n.house)}</button>`
+               : `<span><i style="background:${col}"></i>${i.cap1(i.window(m))} · ${i.t('ui.notThisWeek')}</span>`;
+    }).join('') + (scan.veil
+      ? `<button data-jump="${scan.veil.at.toISOString()}" title="${i.t('ui.goTo')}"><i class="dash" style="background:${VEIL_INK}"></i>${i.cap1(i.t('ui.veil'))} · ${i.t('ui.veilThin')} ${fmtAt(scan.veil.at)} · ${i.t('ui.r.in')} ${i.house12(scan.veil.house)}</button>`
+      : `<span><i class="dash" style="background:${VEIL_INK}"></i>${i.cap1(i.t('ui.veil'))} · ${i.t('ui.notThisWeek')}</span>`);
+    el.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () => { S.playing = false; S.offsetMs = new Date(b.dataset.jump).getTime() - anchor(); recompute(); }));
+  }
+
+  let t0 = performance.now(), lastFrame = 0;
+  const REDUCED = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+  function frame(ts) {
+    requestAnimationFrame(frame);
+    if (!S.playing && !S.dragging && ts - lastFrame < 1000 / 30) return;     // at rest 30 fps; running, every frame the screen gives
+    const dt = Math.min(0.1, (ts - (lastFrame || ts)) / 1000);
+    if (S.playing) { S.offsetMs += S.speed * 3600e3 * dt; recompute(); }   // smooth: time advances with the real frame interval
+    else if (performance.now() - S.lastCompute > 20000) recompute();
+    lastFrame = ts;
+    const t = REDUCED.matches ? 0 : (ts - t0) / 1000;      // reduced motion: no twinkle, no glow pulse
+    if (S.wall) {
+      if (S.dirty) {
+        pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, plate.width, plate.height);
+        info = SD.render.renderWallpaper(pctx, viewState(), plate.width, plate.height, t, { fieldRes: 300, plate: true, fast: S.playing, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous });
+        S.dirty = false; lastPlate = ts;
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(plate, 0, 0);
+      SD.render.overlay(ctx, info, t);
+      return;
+    }
+    if (S.dirty) {
+      pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, plate.width, plate.height);
+      pctx.setTransform(S.dpr * view.z, 0, 0, S.dpr * view.z, S.dpr * (view.x + S.ox), S.dpr * view.y);   // the view: zoom and pan, the square centred in the canvas
+      const busy = S.playing || S.dragging || view.pinching || S.quick;
+      const bounds = { x: -(view.x + S.ox) / view.z, y: -view.y / view.z, w: (S.side + 2 * S.ox) / view.z, h: S.side / view.z };   // the canvas, in dial coordinates
+      info = SD.render.render(pctx, viewState(), S.side, t, { mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: busy ? 110 : 200, caption: S.side >= 560, brief: true, plate: true, fast: busy, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous, tight: S.side < 560, groundEl: S.groundEl, bounds });
+      S.dirty = false; lastPlate = ts;
+      if (S.quick) { S.quick = false; S.dirty = true; }               // a quick frame is followed by the full one
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(plate, 0, 0);
+    ctx.setTransform(S.dpr * view.z, 0, 0, S.dpr * view.z, S.dpr * (view.x + S.ox), S.dpr * view.y);
+    SD.render.overlay(ctx, info, t);
+    placeWhatLink(info); placeCopyLink(info);
+  }
+  /* the "what it means" link drawn on the canvas gets a clickable area in the page, following zoom and pan */
+  function placeCopyLink(info) {                           // the copy icon drawn on the dial after the birth city: a button laid over it
+    const a = $('copy-link'); if (!a) return;
+    const e = info && info.layout && info.layout.copyHit;
+    if (!e || S.side < 560 || S.wall || document.body.classList.contains('bare')) { a.hidden = true; return; }
+    a.hidden = false;
+    a.style.left = `${view.x + S.ox + e.x * view.z}px`; a.style.top = `${view.y + e.y * view.z}px`; a.style.width = `${e.w * view.z}px`; a.style.height = `${e.h * view.z}px`;
+  }
+  function placeWhatLink(info) {
+    const a = $('what-link'); if (!a) return;
+    const e = info && info.layout && info.layout.eyebrow;
+    if (!e || S.side < 560 || S.wall || document.body.classList.contains('bare')) { a.hidden = true; return; }
+    a.hidden = false;
+    a.style.left = `${view.x + S.ox + e.x * view.z}px`; a.style.top = `${view.y + e.y * view.z}px`; a.style.width = `${e.w * view.z}px`; a.style.height = `${e.h * view.z}px`;
+  }
+
+  /* ---------- sound: the chord as a slow organ drone ----------
+     Pure tones with their first overtones (the organ pipe; Pythagoras' and Kepler's music of the spheres),
+     each doubled with a slight detune so it breathes. A = 440. The root also sounds an octave below.
+     Swells in over 3 s, glides to the next chord when the sky shifts, fades over 3 s on stop. */
+  const audio = { ctx: null, bus: null, voices: [], key: null, on: false };
+  const SPEAKER = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 9.5v5h3.2l4.3 3.3V6.2L7.2 9.5H4z"/><path class="w1" d="M15 9.6a3.4 3.4 0 0 1 0 4.8"/><path class="w2" d="M17.6 7a7 7 0 0 1 0 10"/><line class="x" x1="4" y1="20" x2="20" y2="4" stroke-width="1.8"/></svg>';
+  function reverb(ac) {
+    const len = ac.sampleRate * 3.2, buf = ac.createBuffer(2, len, ac.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+    const c = ac.createConvolver(); c.buffer = buf; return c;
+  }
+  /* the voicing: the sign gives the pitch, the sky gives the register. a planet high in the sky sounds high, one
+     below the horizon low; the Moon sings softer in her own place; the guardians of the day and the hour hold the
+     ground in the lowest octave. the root of the figure's chord is doubled an octave below for weight. */
+  function voicing(ch) {
+    if (!ch || !ch.voices || !ch.voices.length) return [];
+    const freq = (pc, oct) => 440 * Math.pow(2, (pc - 9) / 12 + (oct - 4));
+    const octOf = alt => 2 + Math.round((Math.max(-90, Math.min(90, alt || 0)) + 90) / 180 * 2.6);   // octave 2 deep below the horizon, 3 near it, 4 high, 5 at the zenith
+    const out = [];
+    for (const v of ch.voices) {
+      if (v.role === 'day' || v.role === 'hour') { out.push({ f: freq(v.pc, 2), g: v.role === 'day' ? 0.7 : 0.55, role: v.role }); continue; }
+      const o = octOf(v.alt), isRoot = v.role === 'figure' && v.pc === ch.root;
+      out.push({ f: freq(v.pc, o), g: v.role === 'moon' ? 0.45 : isRoot ? 1 : 0.8, role: v.role });
+      if (isRoot && o > 2) out.push({ f: freq(v.pc, o - 1), g: 0.5, role: 'root' });
+    }
+    const one = new Map();                                  // one voice per pitch: the louder stays
+    for (const v of out) { const k = v.f.toFixed(2); if (!one.has(k) || one.get(k).g < v.g) one.set(k, v); }
+    return [...one.values()].sort((a, b) => a.f - b.f);
+  }
+  const voiceKey = ch => voicing(ch).map(v => v.f.toFixed(1)).join(',');
+  function soundChord(ch, fadeIn = 3) {
+    const ac = audio.ctx, now = ac.currentTime, out = ch ? 3 : 0.25;   // a new chord glides over 3 s; silence comes at once, a quick fade with no click
+    for (const v of audio.voices) { v.gain.gain.cancelScheduledValues(now); v.gain.gain.setValueAtTime(v.gain.gain.value, now); v.gain.gain.linearRampToValueAtTime(0, now + out); v.oscs.forEach(o => o.stop(now + out + 0.05)); }
+    audio.voices = [];
+    for (const { f, g } of voicing(ch)) {
+      const gain = ac.createGain(); gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.11 * g, now + fadeIn);
+      gain.connect(audio.bus);
+      const oscs = [];
+      for (const [mult, amp] of [[1, 1], [2, 0.32], [3, 0.14], [4, 0.06]]) for (const det of [-0.12, 0.12]) {
+        const o = ac.createOscillator(), a = ac.createGain();
+        o.type = 'sine'; o.frequency.value = f * mult + det * mult; a.gain.value = amp / 2;
+        o.connect(a).connect(gain); o.start(now); oscs.push(o);
+      }
+      audio.voices.push({ gain, oscs });
+    }
+    audio.key = ch ? voiceKey(ch) : null;
+  }
+  function listen(on) {
+    if (on && !audio.ctx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return;
+      const ac = audio.ctx = new Ctx();
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+      const master = ac.createGain(); master.gain.value = 0.9;
+      const wet = ac.createGain(); wet.gain.value = 0.55; const rv = reverb(ac);
+      audio.bus = lp; lp.connect(master); lp.connect(rv).connect(wet).connect(master); master.connect(ac.destination);
+    }
+    audio.on = on;
+    if (!audio.ctx) return;
+    if (on) { audio.ctx.resume(); soundChord(viewState().chord); }   // the chord of the view: the birth chart's in the natal tab, the sky's elsewhere
+    else soundChord(null);
+    $('listen-corner').classList.toggle('on', on); $('listen-corner').title = SD.i18n.t(on ? 'ui.listening' : 'ui.listen');
+    for (const b of document.querySelectorAll('#readout [data-act="listen"]')) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.title = SD.i18n.t(on ? 'ui.listening' : 'ui.listen'); }   // the chord's speaker in the reading: one sound, two switches
+  }
+  function followChord() { if (!audio.on || !S.state) return; const ch = viewState().chord; if (ch && voiceKey(ch) !== audio.key) soundChord(ch, 2.5); }   // a new note, or a voice changing register as the sky turns
+
+  /* ---------- export: square art ---------- */
+  async function downloadBlob(b, name) {
+    try {                                                   // inside the claude.ai viewer a file is handed over through its downloads capability
+      const dl = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('downloads') : null;
+      if (dl) { await dl.save({ filename: name, data: b }); return; }
+    } catch (e) { if (e && e.code === 'declined') return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  /* ---------- charts out and in: a small file of the saved charts and settings, to carry between devices and addresses ---------- */
+  function exportCharts() {
+    const payload = { app: 'siderarium', format: 1, exported: new Date().toISOString(), natal: S.natal, charts: S.charts,
+      settings: { lang: S.lang, houses: S.houses, field: S.field, bodies: store.get('bodies', 'lights'), relocate: S.relocate } };   // the charts and how they are shown; never where the device is
+    downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `siderarium-charts-${new Date().toISOString().slice(0, 10)}.json`);
+  }
+  /* a chart from outside is rebuilt from its known fields only, each one checked: a bad zone or date is refused, never run */
+  function validZone(tz) { try { new Intl.DateTimeFormat('en-GB', { timeZone: tz }); return typeof tz === 'string' && tz.length < 64; } catch (e) { return false; } }   // a declaration: it is used at the top of the module too
+  /* an id is letters, figures, - and _ only: it is written into the page as an attribute and compared, never read as text */
+  function soundId(v) { return typeof v === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(v) ? v : null; }
+  function uid() { return Math.random().toString(36).slice(2, 10) || 'c' + Date.now().toString(36); }
+  /* the same check for a chart from a file and for one read back from this browser's storage (stored: a chart loaded
+     before charts had ids keeps none). the date within the years the engine computes at once: from the year 1 to 3000 */
+  function soundChart(c, stored) {
+    if (!c || typeof c !== 'object' || !c.place || typeof c.place !== 'object' || typeof c.date !== 'string') return null;
+    const t = Date.parse(c.date); if (!Number.isFinite(t) || t < C_LO || t > T_HI) return null;
+    const lat = num(c.place.lat), lon = num(c.place.lon);
+    if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180)) return null;
+    const tz = validZone(c.place.tz) ? c.place.tz : null; if (!tz) return null;
+    const ed = +c.edited, edited = ed > 0 && ed <= Date.now() + 864e5 ? ed : undefined;   // when it was last saved or edited: a date from the future is not believed
+    const name = cleanText(c.name, 80), date = new Date(t).toISOString();
+    // a chart with no id, or one that could not be an id, takes one from what it is: the same chart read twice is one chart
+    const id = soundId(c.id) || (stored && c.id == null ? undefined : 'c' + [...`${date}|${lat}|${lon}|${tz}|${name || ''}`].reduce((h, ch) => (Math.imul(h, 33) ^ ch.codePointAt(0)) >>> 0, 5381).toString(36));
+    return { id, name, date, unknownTime: !!c.unknownTime, place: { name: cleanText(c.place.name, 80) || 'place', label: cleanText(c.place.label, 160) || undefined, lat, lon, tz }, edited };
+  }
+  /* the saved list as the browser kept it: every chart checked, one chart per id */
+  function soundCharts(list) {
+    const out = [], seen = new Set(); unread.length = 0;
+    for (const raw of Array.isArray(list) ? list : []) { const c = soundChart(raw); if (c && !seen.has(c.id)) { seen.add(c.id); out.push(c); } else if (!c && raw && typeof raw === 'object') unread.push(raw); }
+    return out;
+  }
+  /* the list is written back with what could not be read still in it: a chart this version refuses (a date outside its
+     years, a place without a zone) is never shown and never erased; it is tried again at every opening */
+  function saveCharts() { return store.set('charts', S.charts.concat(unread)); }
+  function importCharts(file) {
+    const i = SD.i18n, note = $('import-note');
+    file.text().then(txt => {
+      const d = JSON.parse(txt);
+      if (!d || d.app !== 'siderarium' || !Array.isArray(d.charts)) throw new Error('format');
+      let n = 0, u = 0, k = 0;                              // added, updated, kept as here
+      for (const raw of d.charts) {
+        const c = soundChart(raw); if (!c) continue;
+        const j = S.charts.findIndex(x => x.id === c.id);
+        if (j < 0) { S.charts.push(c); n++; continue; }
+        if (sameChart(S.charts[j], c)) continue;            // the same chart, the same data: nothing to do
+        if ((c.edited || 0) > (S.charts[j].edited || 0)) {  // the same chart edited later on the other device: the file's copy wins, here and on show
+          S.charts[j] = c; u++;
+          if (S.natal && S.natal.id === c.id) { S.natal = { ...c }; store.set('natal', S.natal); natalCache.key = null; }
+        } else k++;                                          // edited later here, or no date to tell: this device's copy stays, and the note says so
+      }
+      saveCharts();
+      const nat = soundChart(d.natal);
+      if (!S.natal && nat) { S.natal = nat; store.set('natal', S.natal); natalCache.key = null; reconcileNatal(); }   // the file's loaded chart, as the list now holds it
+      note.textContent = i.cap1(i.t('ui.imported')(n, u, k));
+      refreshMenu(); recompute();
+    }).catch(() => { note.textContent = i.cap1(i.t('ui.badFile')); });
+  }
+
+  /* ---------- the birth chart report: everything an interpreter, human or machine, needs, as plain text ---------- */
+  /* the reading spec: the owner's own format for a natal reading, set at the head of every copied or saved birth chart
+     report so that any AI it is pasted into reads the chart that way by default. Kept verbatim in English: it is an
+     instruction to the model, whatever the interface language. Section 9 is reserved: the owner's text stopped at "9." */
+  const READING_SPEC = `NATAL READING SPEC · apply to the chart below
+Derive missing houses or nodes and say so in one line; never ask for data you can infer.
+No preamble. Open with the one fact that governs the chart: usually the chart ruler's sign, house, dignity, retrogradation; add the Sun-Moon phase if notable. Then ## sections in this order:
+1. ANCORE LUNARI: the Moon's hard aspects, term defined in one line. Sign and house together, always. Hard aspects with orbs, then the supporting sextiles and trines.
+2. [SIGN NOTE]: the dominant sign against its stereotype, briefly. Only if one sign clearly dominates.
+3. NODES: South = provenance (past-life competence, the trap); North = this incarnation's mission. Sign and house of each. End with the tell: the sentence or reflex that shows the South Node running.
+4. SATURN: sign, house, dignity; flag if it disposits a cluster.
+5. VOCATION: MC sign, its ruler's placement, aspects to MC, 10th house planets.
+6. MONEY: 2nd house sign, its ruler's placement, planets inside. End with one line: the income model that actually works.
+7. THE CRITICAL ASPECT: the tightest hard aspect. How the two planets misfire together, concrete risk zones, 2-3 literal operating rules.
+8. OCCULT LAYER, only if present: Pluto, Neptune, Uranus, 8th and 12th houses. 8th = eros, shared resources, inheritance, power, depth-work; not death and crisis.
+9. OVERVIEW: element and modality balance and what it means in behaviour. Close with the current transits to the angles and nodes (given in the data).
+10. TAROT, Golden Dawn: Majors for signs and planets, Minors for decans (decan card with its title). Cover Sun, Moon, Ascendant, chart ruler, MC, Saturn, the critical aspect, the nodes. End with one single card for the whole nativity.
+Sections 1-8 each end with two italic lines:
+*Vibrazione bassa:* how the configuration misfires.
+*Vibrazione alta:* how to raise it; concrete and operational, not inspirational.
+Style: discursive prose, dense and exact. Explain each technical term once, briefly, for a first-time reader. State orbs. No confidence tags, no hedging, no "may suggest": commit to readings. Don't flatter the chart. End flat, no uplifting closer. Reply in the language the user writes in; with no other text, in the language of this report.
+11. TIKKUN, from the Tikkun data below (true node; the cards are a symbolic reading, not prediction): Karma (South Node) → Mission (North Node), with the Engine and any Threshold. For each card three lines: the letter (name and meaning), the card, how it applies to this chart. Then one paragraph on the movement from Karma to Mission. Then the signs on the road, one line each: repeated cards first, then the other placement cards, then the aspect cards (a path card that shares a planet's name has nothing to do with that planet). Then 3-4 sentences of synthesis, reading the road signs as help toward the Mission or friction against it. Then the Psalm 119 stanzas for the Mission and Engine letters as an optional practice.
+12. TEMPERAMENT, from the Temperament data below (computed after Lilly's significators with Greenbaum's weights; the verdict is given, do not recount it): the complexion and its mixture, the testimonies that carry it, the Lord of the Geniture, any intemperance. Read it as Ficino (De vita), Agrippa (Occult Philosophy) and the Picatrix read the four humours, and end with Ficino's regimen for it: what to call on, colours, music, odours, places, stones.`;
+  /* the mean lunar node (Meeus 47.7): the nodes are not among the bodies, and the spec reads them */
+  const meanNode = date => SD.engine.trueNode(date);   // the true node, as the tikkun reads it: one node throughout the report
+  function chartReportText() {
+    const st = natalState(); if (!st) return null;
+    const i = SD.i18n, C = SD.corr, n = S.natal, R = k => i.t('ui.rep.' + k);
+    const P = k => i.cap1(i.planet(k)), A = k => i.aspect(k);
+    const lonTxt = lon => { const L = ((lon % 360) + 360) % 360, sg = Math.floor(L / 30), d = L - sg * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(sg)} (${L.toFixed(2)}°)`; };
+    const pp = placeParts(new Date(n.date), n.place.tz), off = offsetOf(n.place.tz, new Date(n.date));
+    const L = [];
+    L.push(`# ${R('title')} · ${n.name || i.t('ui.noneSet')}`, '');
+    L.unshift(READING_SPEC, '', '---', '');                // the owner's reading format first: the AI reads the chart this way by default
+    L.push(R('intro').replace('{houses}', S.houses), '');
+    L.push(`## ${R('birth')}`);
+    L.push(`- ${R('name')}: ${n.name || '—'}`);
+    L.push(`- ${R('local')}: ${pp.year}-${pp.month}-${pp.day} ${n.unknownTime ? R('noon') : pp.hour + ':' + pp.minute} (${n.place.tz}, ${off})`);
+    L.push(`- ${R('utc')}: ${new Date(n.date).toISOString().replace('T', ' ').slice(0, 16)} UTC`);
+    L.push(`- ${R('place')}: ${n.place.label || i.placeName(n.place.name)} · ${(+n.place.lat).toFixed(4)}, ${(+n.place.lon).toFixed(4)}`);
+    if (st.relocated) L.push(`- ${R('relocated')}: ${i.placeName(st.relocated)}`);
+    L.push(`- ${R('system')}: ${R('zodiac')} · ${S.houses} · ${st.sect === 'day' ? R('dayChart') : R('nightChart')}`, '');
+    L.push(`## ${R('angles')}`);
+    L.push(`- ASC ${lonTxt(st.asc)}`, `- MC ${lonTxt(st.mc)}`, `- DSC ${lonTxt(st.asc + 180)}`, `- IC ${lonTxt(st.mc + 180)}`);
+    { const nn = meanNode(new Date(n.date)), sn = SD.engine.norm360(nn + 180), hIn = lon => i.roman(SD.engine.houseIn(st.cusps, lon));
+      L.push(`- ${R('northNode')}: ${lonTxt(nn)} · ${R('house')} ${hIn(nn)}`, `- ${R('southNode')}: ${lonTxt(sn)} · ${R('house')} ${hIn(sn)}`);
+      L.push(`- ${i.t('ui.r.fortune')}: ${lonTxt(st.fortune)} · ${R('house')} ${hIn(st.fortune)}`); }
+    L.push(`- ${i.cap1(i.t('ui.r.onAngles'))}: ${st.onAngles && st.onAngles.length ? st.onAngles.map(x => `${P(x.planet)} ${A('conjunction')} ${i.t('ui.r.angle.' + x.angle)} ${x.orb.toFixed(1)}°`).join(' · ') : i.t('ui.r.noneOnAngles')}`, '');
+    L.push(`## ${R('houses')}`);
+    for (let h = 1; h <= 12; h++) L.push(`- ${i.roman(h)} ${lonTxt(st.cusps[h])}`);
+    L.push('');
+    L.push(`## ${R('planets')}`);
+    L.push(`| ${R('planet')} | ${R('position')} | ${R('house')} | ${R('motion')} | ${R('dignity')} | ${R('condition')} | ${R('decan')} |`, '|---|---|---|---|---|---|---|');
+    for (const k of C.ORDER) {
+      const b = st.bodies[k];
+      const motion = b.station ? R('stationary') : b.retro ? R('retrograde') : R('direct');
+      const cond = [b.cazimi && 'cazimi', b.combust && R('combust'), b.beams && R('beams'), b.oob && R('oob'), b.angular && R('angular')].filter(Boolean).join(', ') || '—';
+      const dg = `${b.dignity.score >= 0 ? '+' : ''}${b.dignity.score} ${b.dignity.labels.map(x => i.t('dignity.' + x.split(' ')[0]) === 'dignity.' + x.split(' ')[0] ? x : x.replace(/^reception with (\w+)$/, (m, o) => `${i.t('dignity.reception')} ${i.planet(o)}`).replace(/^\w+$/, y => i.t('dignity.' + y))).join(', ')}`;
+      const dec = `${i.decanOrd(b.decan.decan)} ${i.t('cap.decanOf')} ${i.sign(b.sign)} · ${P(b.decan.ruler)} · ${i.card(b.decan)} · ${i.title(b.decan)}`;
+      L.push(`| ${P(k)} | ${lonTxt(b.lon)} | ${i.roman(b.house)} | ${motion} ${b.speed.toFixed(2)}°/d | ${dg} | ${cond} | ${dec} |`);
+    }
+    L.push('');
+    const m = st.bodies.moon, mc = st.moon;
+    L.push(`## ${R('moon')}`);
+    L.push(`- ${R('phase')}: ${mc.phaseAngle.toFixed(1)}° · ${Math.round(mc.illum * 100)}% · ${mc.waxing ? R('waxing') : R('waning')}`);
+    L.push(`- ${R('verdict')}: ${i.verdict(mc.verdict)}${mc.verdict === 'void' && mc.tolerable ? ` (${i.t('cap.tolerable')(i.sign(m.sign))})` : ''}`);
+    if (mc.next) L.push(`- ${R('nextMoon')}: ${A(mc.next.aspect)} ${P(mc.next.planet)} ${R('inDays')} ${mc.next.days.toFixed(2)}`);
+    if (mc.flags && mc.flags.length) L.push(`- ${R('flags')}: ${mc.flags.map(f => i.flag(f)).join(', ')}`);
+    L.push(`- ${R('mansion')}: ${i.ordinal(m.mansion.index)} · ${i.name(m.mansion.name)}`, '');
+    L.push(`## ${R('aspects')}`);
+    L.push(`| ${R('pair')} | ${R('aspect')} | ${R('orb')} | ${R('phase2')} | ${R('power')} |`, '|---|---|---|---|---|');
+    for (const a of st.aspects) L.push(`| ${P(a.a)} – ${P(a.b)} | ${A(a.aspect)} (${a.angle}°) | ${a.orb.toFixed(2)}° | ${a.applying ? R('applying') : R('separating')}${a.dissociate ? ', ' + R('dissociate') : ''} | ${a.power.toFixed(2)} |`);
+    L.push('');
+    const h = st.hour;
+    L.push(`## ${R('hour')}`);
+    L.push(`- ${R('dayRuler')}: ${P(h.dayRuler)} · ${R('angel')} ${i.name(h.dayAngel)}`);
+    L.push(`- ${R('hourRuler')}: ${P(h.hourRuler)} · ${R('angel')} ${i.name(h.angel)} · ${R('hourIndex')} ${h.index + 1} ${h.isDay ? R('ofDay') : R('ofNight')}${h.polar ? ' · ' + R('polar') : ''}`, '');
+    L.push(`## ${R('elements')}`);
+    L.push(st.elements.order.map(k => `${i.t('ui.el.' + k)} ${st.elements.pct[k]}%`).join(' · '));   // heaviest first, whole numbers that add up to 100: as the caption and the reading show them
+    { const W = { sun: 3, moon: 3, mercury: 1.5, venus: 1.5, mars: 1.5, jupiter: 1, saturn: 1, uranus: 0.4, neptune: 0.4, pluto: 0.4 }, m = { cardinal: 0, fixed: 0, mutable: 0 };   // the same weights as the elements
+      for (const k in W) m[C.SIGNS[st.bodies[k].sign].mode] += W[k];
+      if (!(st.natalView && S.natal && S.natal.unknownTime)) { m[C.SIGNS[Math.floor(st.asc / 30)].mode] += 2.5; m[C.SIGNS[Math.floor(st.mc / 30)].mode] += 1; }   // no birth time, no angles: as the elements
+      const tot = m.cardinal + m.fixed + m.mutable;
+      L.push(`${R('modalities')}: ${['cardinal', 'fixed', 'mutable'].map(k => `${R(k)} ${Math.round(m[k] / tot * 100)}%`).join(' · ')} (${R('weights')})`, ''); }
+    /* the Golden Dawn's cards for the points the spec reads: the sign's Major, the planet's Major, the decan's Minor with its title */
+    { const ruler = k => Object.keys(C.DOMICILE).find(p => C.CHALDEAN.includes(p) && C.DOMICILE[p].includes(C.SIGNS[Math.floor(k / 30)].key));
+      const rk = ruler(st.asc), nn = meanNode(new Date(n.date)), rows = [['sun', st.bodies.sun.lon], ['moon', st.bodies.moon.lon], ['ascendant', st.asc], [rk, st.bodies[rk].lon, R('chartRuler')], ['midheaven', st.mc], ['saturn', st.bodies.saturn.lon], ['northNode', nn], ['southNode', SD.engine.norm360(nn + 180)]];
+      L.push(`## ${R('tarot')}`);
+      L.push(`| ${R('point')} | ${R('position')} | ${R('signCard')} | ${R('planetCard')} | ${R('decanCard')} |`, '|---|---|---|---|---|');
+      for (const [k, lon, tag] of rows) {
+        const sg = Math.floor(lon / 30), d = C.decanOf(lon), name = C.PLANETS[k] ? P(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : R(k);
+        L.push(`| ${name}${tag ? ' (' + tag + ')' : ''} | ${lonTxt(lon)} | ${i.trumpSign(sg)} | ${C.PLANETS[k] && i.trumpPlanet(k) ? i.trumpPlanet(k) : '—'} | ${i.card(d)} · ${i.title(d)} |`);
+      }
+      L.push(''); }
+    if (st.tikkun) {                                        // the life mission, every card already computed, so the reader never invents a position
+      const k = st.tikkun, T = SD.tikkun.text(), M = SD.tikkun.major, Lt = SD.tikkun.letter;
+      const nm = x => x === 'ascendant' ? 'ASC' : x === 'midheaven' ? 'MC' : x === 'northNode' ? T.north : P(x);
+      const hs = h => h ? ` · ${R('house')} ${i.roman(h)}` : '';
+      L.push(`## ${T.label} · ${T.mean}`);
+      L.push(`- ${T.karma}: ${T.south} ${lonTxt(k.south.lon)}${hs(k.south.house)} · ${Lt(k.south.letter)} · ${M(k.south.card)}`);
+      L.push(`- ${T.mission}: ${T.north} ${lonTxt(k.north.lon)}${hs(k.north.house)} · ${Lt(k.north.letter)} · ${M(k.north.card)} · ${T.psalm} ${k.north.psalm}`);
+      L.push(`- ${T.engine}: ${P(k.engine.planet)}, ${i.t('ui.rep.rulerOf')} ${i.sign(k.north.sign)}, ${i.t('ui.rep.inSign')} ${i.sign(k.engine.sign)}${hs(k.engine.house)} · ${Lt(k.engine.letter)} · ${M(k.engine.card)} · ${T.psalm} ${k.engine.psalm}${k.engine.doubled ? ' · ' + T.doubled : ''}`);
+      for (const c of k.conj) L.push(`- ${T.conj}: ${P(c.planet)} ${A('conjunction')} ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${M(c.card)}`);
+      for (const t of k.threshold) L.push(`- ${T.threshold}: ${t.node === 'north' ? T.north : T.south} ${SD.tikkun.near(t)} · ${Lt(t.letter)} · ${M(t.card)}`);
+      L.push(`- ${T.mission}, ${i.t('ui.rep.inWords')}: ${T.long[k.north.sign]}${k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : ''}`);
+      L.push(`- ${T.road}: ${k.placements.map(p => `${M(p.card)}${p.count > 1 ? ' ×' + p.count : ''} (${p.keys.map(nm).join(', ')})${p.tikkun ? ' ★' : ''}`).join(' · ')}`);
+      L.push(`- ${T.aspects}: ${k.aspects.map(a => `${nm(a.a)} ${A(a.aspect)} ${nm(a.b)} ${a.orb.toFixed(1)}° → ${SD.tikkun.cardOf(a)}${a.path ? ` (${Lt(a.letter)})` : ''}, ${T[a.quality]}${a.weak ? ', ' + T.weak : ''}`).join(' · ')}`);
+      if (k.noTime) L.push(`- ${i.cap1(T.noTime)}`);
+      L.push(`- ★ = ${i.t('ui.rep.reinforces')}`, '');
+    }
+    if (st.temperament) {                                   // the temperament, computed: the reader reads it, never recounts it
+      const tp = st.temperament, TT = SD.temperament.text(), nm = t => TT.temp[t], q = r => SD.temperament.QUAL[r.temperament].split('').map(x => TT.q[{ H: 'hot', C: 'cold', M: 'moist', D: 'dry' }[x]]).join(', ');
+      L.push(`## ${i.cap1(TT.heading)}`);
+      L.push(`- ${R('verdict')}: ${i.cap1(SD.temperament.line(tp, tp.partial))}`);
+      if (tp.day) { const hm = d => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(tp.tz ? d : new Date(d.getTime() + n.place.lon / 15 * 3600e3)); L.push(`- ${TT.dayRuns} ${tp.day.map(x => `${SD.temperament.line(x.judgement)} (${hm(x.from)}–${hm(x.to)})`).join('; ')}`); }
+      for (const r of tp.rows) L.push(`- ${TT.row[r.step]} · ${tempDetail(st, r)}: ${nm(r.temperament)} (${q(r)}) · ${tempNum(r.w)}`);
+      L.push(`- ${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(' · ')}`);
+      L.push(`- ${TT.columns(tempNum(tp.columns.hot), tempNum(tp.columns.cold), tempNum(tp.columns.moist), tempNum(tp.columns.dry), SD.temperament.TEMPS.includes(tp.columns.verdict) ? nm(tp.columns.verdict) : TT.q[tp.columns.verdict])}`);
+      if (tp.lordOfGeniture) { const lg = tp.lordOfGeniture; L.push(`- ${TT.lord(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}`); }
+      for (const c of tp.intemperance) L.push(`- ${TT.excessOf([c.planet])}: ${c.aspect === 'body' ? TT.contact.body(P(c.planet), c.orb.toFixed(1) + '°') : TT.contact[c.to](P(c.planet), A(c.aspect), c.orb.toFixed(1) + '°', c.aspect)} (${TT.grade[c.grade]})`);
+      if (tp.relocated) L.push(`- ${TT.relocated}`);
+      L.push('');
+    }
+    L.push(`## ${R('layers')}`);
+    const pr = st.configs.primary;
+    if (pr) L.push(`- ${R('figure')}: ${P(pr.a)} ${A(pr.aspect)} ${P(pr.b)} · {${pr.n}/${pr.k}} · ${R('orb')} ${pr.orb.toFixed(2)}°${st.configs.cut ? ` · ${R('cut')} ${P(st.configs.cut.by)}` : ''}`);
+    L.push(`- ${R('chord')}: ${i.chordLong(st.chord)}${st.chord.notes.length ? ' · ' + st.chord.notes.map(x => i.note(x)).join(' ') : ''}`);
+    L.push(`- ${R('windows')}: ${Object.entries(st.windows).map(([k, v]) => `${i.window(k)} ${v.toFixed(2)}`).join(' · ')}`);
+    L.push(`- ${R('titleOf')}: ${i.state(st.title.state)} · ${i.house12(st.title.house)} · ${i.window(st.title.mode)}`);
+    L.push(`- ${R('veil')}: ${st.veil.v.toFixed(2)}${st.veil.factors.length ? ' · ' + st.veil.factors.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}`, '');
+    {                                                       // the sky of now against this chart: the real now, whatever the dial shows
+      const nowSt = SD.engine.compute(new Date(), S.place, { light: true, houses: S.houses });
+      const tr = SD.engine.computeTransits(nowSt, st).filter(x => x.power > 0.04), inter = SD.engine.computeInteractions(nowSt, st, tr);
+      const nn = meanNode(new Date(n.date)), pts = [['ascendant', st.asc], ['midheaven', st.mc], ['northNode', nn], ['southNode', SD.engine.norm360(nn + 180)]];
+      const asp = [[0, 'conjunction', 3], [180, 'opposition', 3], [90, 'square', 3], [120, 'trine', 2.5], [60, 'sextile', 2]], hits = [];
+      for (const k of C.ORDER) { if (k === 'moon') continue;     // the Moon crosses every point monthly: left out
+        for (const [pk, plon] of pts) { const d = SD.engine.sep(nowSt.bodies[k].lon, plon), a = asp.find(([deg, , o]) => Math.abs(d - deg) <= o); if (a) hits.push(`- ${P(k)} ${A(a[1])} ${R('natal')} ${pk === 'ascendant' ? 'ASC' : pk === 'midheaven' ? 'MC' : R(pk)} · ${Math.abs(d - a[0]).toFixed(2)}°${nowSt.bodies[k].retro ? ' · ' + R('retrograde') : ''}`); } }
+      L.push(`## ${R('anglesNodes')} · ${isoStamp(nowSt.date)} ${S.place.tz}`);
+      L.push(...(hits.length ? hits : [`- ${R('noneInOrb')}`]), '');
+      L.push(`## ${R('transits')} · ${isoStamp(nowSt.date)} ${S.place.tz}`);
+      L.push(`- ${R('verdict')}: ${i.t('ui.r.' + inter.verdict) === 'ui.r.' + inter.verdict ? inter.verdict : i.t('ui.r.' + inter.verdict)} · ${R('harmony')} ${inter.harmony.toFixed(2)} · ${R('strife')} ${inter.strife.toFixed(2)}`);
+      for (const a of tr.slice(0, 14)) L.push(`- ${P(a.a)} ${A(a.aspect)} ${R('natal')} ${C.PLANETS[a.b] ? P(a.b) : a.b === 'ascendant' ? 'ASC' : 'MC'} · ${a.orb.toFixed(2)}° ${a.applying ? R('applying') : R('separating')} · ${a.power.toFixed(2)}`);
+      L.push('');
+    }
+    L.push(`— ${R('footer')} · siderarium.com · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
+    return { text: L.join('\n'), name: n.name || 'chart' };
+  }
+  const reportText = () => S.mode === 'pair' && S.state && S.state.pair ? pairReportText() : chartReportText();
+  function chartReport() {
+    const r = reportText(); if (!r) return;
+    const base = r.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+    downloadBlob(new Blob([r.text], { type: 'text/markdown' }), `siderarium-report-${base}.md`);
+  }
+  /* the same report onto the clipboard, to paste into an interpreter; the old way when the clipboard refuses */
+  /* the copy icon: the chart report onto the clipboard, a tick for a moment as the answer */
+  async function copyWithTick(btn) {
+    const ok = await copyReport(); if (ok === false) return;
+    const lbl = btn.querySelector('.lbl'), was = lbl && lbl.textContent;   // a labelled button says it too: "copied", for a moment
+    btn.classList.add('done'); if (lbl) lbl.textContent = SD.i18n.cap1(SD.i18n.t('ui.copiedShort'));
+    setTimeout(() => { btn.classList.remove('done'); if (lbl && lbl.textContent === SD.i18n.cap1(SD.i18n.t('ui.copiedShort'))) lbl.textContent = was; }, 1600);
+  }
+  async function copyReport() {
+    const r = reportText(); if (!r) return false;
+    const note = $('import-note'), i = SD.i18n;
+    try { await navigator.clipboard.writeText(r.text); note.textContent = i.cap1(i.t('ui.copied')); return true; } catch (e) { /* fall through */ }
+    const ta = document.createElement('textarea'); ta.value = r.text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove();
+    note.textContent = i.cap1(i.t(ok ? 'ui.copied' : 'ui.copyFailed'));
+    return ok;
+  }
+  const stampOf = st => st.date.toISOString().slice(0, 16).replace(/[:T]/g, '');
+  /* a file name that says what it is: siderarium-<view>-<whose or where>-<yyyymmdd>.png */
+  function fileName(st, extra) {
+    const slug = t => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const view = { clock: 'sky', chart: 'chart', natal: 'natal', natalchart: 'natal', synastry: 'transits', pair: 'synastry' }[S.mode] || 'sky';
+    const who = st.pair ? `${st.pair.a}-${st.pair.b}` : (S.mode === 'natal' || S.mode === 'natalchart' || S.mode === 'synastry') && S.natal ? S.natal.name || 'chart' : st.loc.name;
+    const day = new Date(st.date.getTime()).toISOString().slice(0, 10).replace(/-/g, '');
+    return `siderarium-${view}-${slug(who) || 'chart'}-${day}${extra ? '-' + extra : ''}.png`;
+  }
+  /* the three image buttons answer the tap at once: the button says it is preparing, the page paints, and only then
+     the heavy drawing starts; afterwards it says what happened. a second tap while it works does nothing */
+  const nextPaint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+  async function busy(btn, work) {
+    if (!btn || btn.dataset.busy) return;
+    const label = btn.innerHTML, i = SD.i18n; btn.dataset.busy = '1'; btn.classList.add('busy'); btn.setAttribute('aria-busy', 'true');
+    btn.textContent = i.cap1(i.t('ui.preparing'));
+    await nextPaint();
+    let note = '';
+    try { note = (await work()) || ''; } catch (e) { note = ''; }
+    finally {
+      btn.classList.remove('busy'); btn.removeAttribute('aria-busy'); delete btn.dataset.busy;
+      if (note) { btn.textContent = i.cap1(note); setTimeout(() => { if (!btn.dataset.busy && btn.textContent === i.cap1(note)) btn.innerHTML = label; }, 2200); } else btn.innerHTML = label;
+    }
+  }
+  const renderOpts = extra => ({ exported: true, mode: S.mode === 'chart' || S.mode === 'natalchart' ? 'chart' : 'clock', fieldRes: 300, field: S.field, sigil: S.sigil, algol: S.algol, engrave: S.engrave, luminous: S.luminous, ...extra });
+  /* share: the art of the moment as an image, with its headline and the address; where the device cannot share files,
+     the text and address; where it cannot share at all, the image is saved and the text copied.
+     a browser opens its share sheet only within a few seconds of a tap: when the drawing takes longer, the image is
+     kept and the button asks for a second tap, which shares at once */
+  let shareReady = null, shareState = '';
+  const shareKey = () => { const st = viewState(), live = !S.fixed && !S.offsetMs && !S.playing && (S.mode === 'clock' || S.mode === 'chart');   // the live sky moves by the second: within the two minutes an image is kept, it is the same moment
+    return [S.mode, live ? 'live' : st.date.getTime(), S.sigil, S.algol, S.field, S.natal && S.natal.id, S.pair, S.lang].join('|'); };
+  function setShare(state) {
+    shareState = state; const i = SD.i18n, bar = $('share');
+    document.querySelectorAll('.share-btn').forEach(b => { b.classList.toggle('busy', state === 'busy'); b.classList.toggle('ready', state === 'ready'); b.setAttribute('aria-label', i.t(state === 'ready' ? 'ui.tapToShare' : 'ui.share')); });
+    if (bar && !bar.dataset.busy) bar.textContent = i.cap1(i.t(state === 'ready' ? 'ui.tapToShare' : state === 'busy' ? 'ui.preparing' : 'ui.shareBtn'));
+    bar && bar.classList.toggle('ready', state === 'ready'); bar && bar.classList.toggle('busy', state === 'busy');
+  }
+  async function makeShare() {
+    const st = viewState(), cv = document.createElement('canvas'); cv.width = cv.height = 1080;
+    SD.render.render(cv.getContext('2d'), st, 1080, (performance.now() - t0) / 1000, renderOpts());
+    const c = SD.render.captionLines(st), plain = t => String(t || '').replace(/<[^>]+>/g, '');
+    const text = [plain(c.state), plain(c.label)].filter(Boolean).join(' · '), url = 'https://siderarium.com/app/';
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    return { key: shareKey(), at: Date.now(), blob, name: fileName(st), text, url };
+  }
+  async function doShare(p) {
+    try {
+      const file = new File([p.blob], p.name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Siderarium', text: `${p.text} · ${p.url}` }); return 'shared'; }
+      if (navigator.share) { await navigator.share({ title: 'Siderarium', text: p.text, url: p.url }); return 'shared'; }
+    } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; if (e && e.name === 'NotAllowedError') return 'needTap'; }
+    await downloadBlob(p.blob, p.name);
+    try { await navigator.clipboard.writeText(`${p.text} · ${p.url}`); } catch (e) { /* the image is saved all the same */ }
+    return 'saved';
+  }
+  async function shareArt() {
+    if (shareState === 'busy') return;
+    if (shareReady && shareReady.key === shareKey() && Date.now() - shareReady.at < 120000) {   // the second tap: the image is ready, share now
+      const p = shareReady; shareReady = null; setShare(''); if ((await doShare(p)) === 'needTap') { shareReady = p; setShare('ready'); }
+      return;
+    }
+    shareReady = null; setShare('busy'); await nextPaint();
+    const t = performance.now(); let p;
+    try { p = await makeShare(); } catch (e) { setShare(''); return; }
+    if (performance.now() - t > 3500) { shareReady = p; setShare('ready'); return; }   // the tap's few seconds are spent: one more tap
+    setShare('');
+    if ((await doShare(p)) === 'needTap') { shareReady = p; setShare('ready'); }
+  }
+  const download = (cv, name) => new Promise(r => cv.toBlob(async b => { await downloadBlob(b, name); r(); }, 'image/png'));
+  async function exportPNG(px) {
+    const st = viewState(), cv = document.createElement('canvas');
+    cv.width = cv.height = px;
+    SD.render.render(cv.getContext('2d'), st, px, (performance.now() - t0) / 1000, renderOpts({ fieldRes: px >= 3000 ? 420 : 300, groundEl: S.groundEl }));
+    await download(cv, fileName(st, px > 2048 ? String(px) : ''));
+    return SD.i18n.t('ui.savedFile');
+  }
+  /* a wallpaper at this screen's size: the square render set in a portrait field of the same ground */
+  async function exportWallpaper() {
+    const st = viewState(), dpr = window.devicePixelRatio || 1;
+    const W = Math.round((screen.width || 1080) * dpr), H = Math.round((screen.height || 2340) * dpr);
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    SD.render.renderWallpaper(cv.getContext('2d'), st, W, H, 3, renderOpts());
+    await download(cv, fileName(st, 'wallpaper'));
+    return SD.i18n.t('ui.savedFile');
+  }
+
+  const ordinalWord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+
+  /* ---------- the readout: one reading system for the four views (DESIGN.md, "The readout system") ----------
+     A section opens with its answer: a 20 px title, a 17 px standfirst. The evidence follows as rows, one fact a row;
+     reference folds away under a summary that names what is inside; every note of method sits behind a labelled pill
+     that opens a pop-up. Each section is one element carrying data-sec, so a re-render replaces only what changed and
+     an open fold stays open. Astrology first, tarot and Kabbalah last; the Transits tab holds only the transits. */
+  const kvTable = rows => { const r = rows.filter(x => x && x[1]); return r.length ? `<table class="kv">${r.map(([k, v]) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</table>` : ''; };
+  const rankList = (items, cls, start) => items.length ? `<ol class="rank${cls ? ' ' + cls : ''}"${start ? ` start="${start}"` : ''}>${items.map(x => x.grp ? `<li class="grp">${x.grp}</li>`
+    : `<li${x.tone ? ` class="asp-${x.tone}"` : ''}><span class="nm">${x.name}</span><span class="n">${x.n || ''}</span>${(x.meta || []).filter(Boolean).map(m => `<span class="meta">${m}</span>`).join('')}</li>`).join('')}</ol>` : '';
+  const secOf = (view, key, inner, attrs) => `<section class="rs" data-sec="${view}.${key}"${attrs || ''}>${inner}</section>`;
+  const pillRow = (...b) => { const x = b.filter(Boolean); return x.length ? `<p class="pills">${x.join('')}</p>` : ''; };
+  const signed = (x, d) => (x > 0 ? '+' : x < 0 ? '\u2212' : '') + Math.abs(x).toFixed(d || 0);   // a true minus sign
+  const cardLink = (key, name) => `<a class="g card" data-g="${key}" href="#g-${key}">${name}</a>`;
+  const SIGN_TRUMP = [4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 17, 18], PLANET_TRUMP = { saturn: 21, jupiter: 10, mars: 16, sun: 19, venus: 3, mercury: 1, moon: 2 };
+  const trumpLink = n => cardLink('trump_' + n, SD.tikkun.major(n));
+  const decanLink = d => cardLink(`card_${d.suit}${d.num}`, SD.i18n.card(d));
+  const fmtIn = (d, tz, o) => new Intl.DateTimeFormat(SD.i18n.locale(), Object.assign({ timeZone: tz || 'UTC' }, o)).format(d);
+  const dayIn = (d, tz) => fmtIn(d, tz, { day: 'numeric', month: 'short' });                         // no weekday: "Sun 25 Oct" would link the Sunday to the Sun
+  const hmIn = (d, tz) => fmtIn(d, tz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const timeTag = (d, txt) => `<time class="nolink" datetime="${d.toISOString()}">${txt}</time>`;
+  const aspKeyHtml = () => { const R = k => SD.i18n.t('ui.r.' + k); return `<p class="asp-key nolink"><span class="asp asp-flow">${R('aspFlow')}</span><span class="asp asp-tension">${R('aspTension')}</span><span class="asp asp-afflict">${R('aspAfflict')}</span></p>`; };
+  /* the dial's legend in a rose view: a small rose twice, a soft trefoil around a four-lobed core, with the red core lit in
+     one and the blue ring around it in the other, each with its ink wires: the key shows where each layer sits */
+  const keyRose = (r0, k, n, ph) => { let d = ''; for (let i = 0; i < 48; i++) { const t = i * Math.PI / 24, r = r0 * (1 - k + k * Math.cos(n * t - ph)); d += `${i ? 'L' : 'M'}${(8 + r * Math.cos(t)).toFixed(1)} ${(8 - r * Math.sin(t)).toFixed(1)}`; } return d + 'Z'; };
+  const KEY_ROSE = keyRose(7.2, 0.12, 3, Math.PI / 2), KEY_CORE = keyRose(3.8, 0.16, 4, 0);   // the ring at least 1.7 units wide all round: it never pinches shut at 20 px
+  const roseKeyHtml = transits => { const K = k => SD.i18n.t('ui.r.roseKey')[k], [s, h] = transits ? ['hard', 'easy'] : ['strife', 'harmony'];
+    return `<p class="rose-key"><span class="k"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="pe pe-o" d="${KEY_ROSE}"/><path class="pe pe-s" d="${KEY_CORE}"/></svg>${K(s)}</span><span class="k"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="pe pe-h" fill-rule="evenodd" d="${KEY_ROSE} ${KEY_CORE}"/></svg>${K(h)}</span></p>`; };
+
+  /* paint: the first paint of a view sets every section; a later one replaces only the sections whose html changed, links
+     each one's terms (drawn once a section), restores its open folds and re-points an open pop-up to its new trigger */
+  const openSecs = new Set((v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : [])(store.get('openSecs', [])));
+  const painted = { view: null, keys: '', html: new Map() };
+  const restoreOpen = el => { const all = [...el.querySelectorAll('details[data-sec]')]; if (el.matches && el.matches('details[data-sec]')) all.push(el); for (const d of all) if (openSecs.has(d.dataset.sec)) d.open = true; };
+  const linkSection = el => { glossaryTerms(); try { SD.glossary.link(el, SD.i18n.locale().startsWith('es') ? 'es' : 'en', { marks: true }); } catch (e) { /* the glossary is a nicety */ } };
+  /* one tab stop for each glossary word in the whole reading: its drawn mention, else its first, among those not folded
+     away; the repeats stay links for a pointer or a finger. the linker keeps one a section; this keeps one a reading, so
+     the keyboard crosses the column in tens of stops, not hundreds */
+  const oneStop = () => {
+    const by = new Map();
+    for (const a of $('readout').querySelectorAll('a.g:not(.card)')) { const k = a.dataset.g; if (!by.has(k)) by.set(k, []); by.get(k).push(a); }
+    for (const list of by.values()) {
+      const seen = list.filter(a => !a.closest('details:not([open])')), keep = seen.find(a => a.hasAttribute('data-first')) || seen[0] || list[0];
+      for (const a of list) if (a === keep) a.removeAttribute('tabindex'); else a.tabIndex = -1;
+    }
+  };
+  let toggleBound = false;
+  const focusOf = host => {                                 // the focused control inside host, found again after a repaint
+    const a = document.activeElement; if (!a || a === document.body || !host.contains(a)) return null;
+    const sel = a.id ? '#' + a.id : a.dataset.act ? `[data-act="${a.dataset.act}"]` : a.dataset.def ? `[data-def="${a.dataset.def}"]` : a.dataset.tal ? `[data-tal="${a.dataset.tal}"]` : a.dataset.go ? `[data-go="${a.dataset.go}"]`
+      : a.tagName === 'SUMMARY' && a.parentElement.dataset.sec ? `details[data-sec="${a.parentElement.dataset.sec}"] > summary` : a.dataset.g ? `a.g[data-g="${a.dataset.g}"]` : null;
+    if (!sel) return null; const nth = [...host.querySelectorAll(sel)].indexOf(a);
+    return el => { const n = [...el.querySelectorAll(sel)][nth] || el.querySelector(sel); if (n) n.focus({ preventScroll: true }); };
+  };
+  function paintReadout(view, parts) {
+    parts = parts.map(([k, h]) => [k, h.replace(/ · /g, '\u00a0· ')]);   // a separator ends its line, never starts the next
+    const ro = $('readout'), keys = parts.map(p => p[0]).join('|');
+    if (!toggleBound) {                                      // 'toggle' does not bubble: caught on the way down, kept for the next visit
+      toggleBound = true;
+      ro.addEventListener('toggle', e => { const d = e.target; if (!d.dataset || !d.dataset.sec) return; if (d.open) openSecs.add(d.dataset.sec); else openSecs.delete(d.dataset.sec); store.set('openSecs', [...openSecs]); }, true);
+      ro.addEventListener('toggle', e => { if (e.target.tagName === 'DETAILS') oneStop(); }, true);   // a fold opened or shut: a word's one stop is never left inside a shut fold
+    }
+    let full = view !== painted.view || keys !== painted.keys, changed = full;
+    if (!full) for (const [k, html] of parts) {
+      if (painted.html.get(k) === html) continue;
+      changed = true;
+      const old = ro.querySelector(`:scope > [data-sec="${view}.${k}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
+      const el = t.content.firstElementChild; if (!old || !el) { full = true; break; }
+      const back = focusOf(old); old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(k, html); if (back) back(el);
+    }
+    if (full) {
+      if (view !== painted.view) ro.scrollTop = 0;            // a new view starts at its top (the desktop column scrolls on its own)
+      ro.innerHTML = parts.map(p => p[1]).join('\n');
+      Object.assign(painted, { view, keys, html: new Map(parts) }); ro.dataset.view = view;
+      for (const el of ro.children) { linkSection(el); restoreOpen(el); }
+    }
+    if (changed) oneStop();
+    if (SD.app_pop) SD.app_pop.repoint();
+  }
+  /* one section painted alone, the same way (the talismans' search repaints its section as it goes) */
+  function paintSection(view, key, html) {
+    html = html.replace(/ · /g, '\u00a0· ');
+    const ro = $('readout'); if (painted.view !== view || !painted.html.has(key) || painted.html.get(key) === html) return;
+    const old = ro.querySelector(`:scope > [data-sec="${view}.${key}"]`), t = document.createElement('template'); t.innerHTML = html.trim();
+    const el = t.content.firstElementChild; if (!old || !el) return;
+    const back = focusOf(old); old.replaceWith(el); linkSection(el); restoreOpen(el); painted.html.set(key, html); oneStop(); if (back) back(el);
+    if (SD.app_pop) SD.app_pop.repoint();
+  }
+
+  function updateReadout() {
+    const st = viewState();
+    if (S.mode === 'pair' && st && (st.pair || st.pairMissing)) { paintReadout('pair', pairParts(st)); return; }
+    const C = SD.corr, i = SD.i18n, R = k => i.t('ui.r.' + k), H = k => i.cap1(i.t('ui.h.' + k)), K = k => i.t('ui.kv.' + k);
+    const P = k => i.planet(k), A = k => i.aspect(k), E = SD.engine;
+    const view = st.transits ? 'transits' : st.natalView ? 'natal' : 'clock', sec = (key, inner, attrs) => secOf(view, key, inner, attrs);
+    const noTime = st.natalView && S.natal && S.natal.unknownTime, tz = st.loc.tz || 'UTC', hm = d => hmIn(d, tz);
+    const tone = a => E.aspectTone(a.aspect, a.a, a.b, a.orb) || '';
+    const motion = a => i.cap1(a.applying ? R('applying') : R('separating'));
+    const evName = e => i.event(e) !== e ? i.event(e) : e.split(' ').map(w => i.event(w)).join(' ');   // whole names first: 'new moon', 'lunar eclipse'
+    const deg = lon => { const d = E.norm360(lon) % 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′`; };
+    const sgnOf = lon => Math.floor(E.norm360(lon) / 30);
+
+    // ---- the moment (the clock) and the birth moment: operations, mode, realm, angel, sect; then the sound
+    const momentRows = () => kvTable([
+      [K('operations'), i.state(st.title.state)],
+      [K('mode'), `${i.cap1(i.window(st.title.mode))} (${K('mother')[st.title.mode]})`],
+      [K('realm'), noTime ? '' : `${i.house12(st.title.house)} (${R('house')}\u00a0${i.roman(st.title.house)})`],   // without a birth time the noon's house, hour and sect are not the native's
+      [K('angelHour'), noTime ? '' : i.name(st.hour.angel)],
+      [K('sect2'), noTime ? '' : K('sect')[st.sect]]]);
+    const speak = () => `<button type="button" class="speak${audio.on ? ' on' : ''}" data-act="listen" aria-pressed="${audio.on}" aria-label="${esc(i.cap1(i.t('ui.listenChord')))}" title="${esc(i.t(audio.on ? 'ui.listening' : 'ui.listen'))}">${SPEAKER}</button>`;   // the chord of this view: the birth chart's here, the sky's in the Clock
+    const ch = st.chord, soundRows = () => kvTable([
+      [K('chord'), ch && ch.name && ch.name !== 'none' ? `${i.chordLong(ch)}${ch.interval ? ', ' + i.interval(ch.interval) : ''}\u00a0${speak()}` : ''],
+      [K('notes'), ch.notes.length ? `${ch.notes.map(n => i.note(n)).join(' ')}${ch.planets ? `, ${R('from')} ${ch.planets.map(P).join(', ')}` : ''}` : ''],
+      [K('moonNote'), ch.moonNote ? i.note(ch.moonNote) : ''],
+      [K('ground'), ch.ground && ch.ground.length ? ch.ground.map(v => `${i.note(v.note)} (${P(v.planet)})`).join(', ') : ''],
+      [K('nextChord'), !st.natalView && st.nextChord ? `${i.chordName(st.nextChord.to)} ${K('at')(hm(st.nextChord.at))}` : '']]);
+    const birthWhen = () => {
+      const n = S.natal, ntz = n.place.tz || 'UTC', d = new Date(n.date);
+      const day = fmtIn(d, ntz, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const time = n.unknownTime ? i.t('ui.rep.noon') : fmtIn(d, ntz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' });
+      const place = esc(n.place.label || i.placeName(n.place.name));
+      return n.unknownTime ? `${i.cap1(day)} · ${place}` : `${i.cap1(day)} · ${time} · ${place}`;
+    };
+
+    // ---- the bodies: name | degrees | sign | house, the condition on a second line; the angles; Algol
+    const houseCol = !noTime, span = houseCol ? 4 : 3;
+    const bRow = (name, lon, h, sub) => `<tr><th class="k" scope="row">${name}</th><td class="n">${deg(lon)}</td><td class="v">${i.sign(sgnOf(lon))}</td>${houseCol ? `<td class="n">${h ? i.roman(h) : ''}</td>` : ''}</tr>${sub ? `<tr class="sub"><td></td><td colspan="${span - 1}">${sub}</td></tr>` : ''}`;
+    const condition = (k, b) => {
+      const conds = [b.retro ? i.flag('retrograde') : '', b.station ? i.flag('stationary') : '', b.cazimi ? i.flag('cazimi') : b.combust ? i.flag('combust') : b.beams ? i.flag('beams') : '', b.oob ? i.flag('oob') : ''].filter(Boolean);
+      if (C.PLANETS[k].kind === 'optic') return conds.length ? i.cap1(conds.join(', ')) : '';
+      return `${i.cap1(b.dignity.labels.map(l => i.dignity(l)).join(', ') || '—')} (${signed(b.dignity.score)})${conds.length ? ' · ' + conds.join(', ') : ''}`;
+    };
+    const al = E.algol(st.date, st.loc);
+    const alNote = al.eclipse > 0.3 ? i.cap1(R(st.natalView ? 'algolDimBirth' : 'algolDimNow')) : st.natalView ? '' : `${i.cap1(R('algolNext'))} ${timeTag(al.nextMin, `${dayIn(al.nextMin, tz)}, ${hm(al.nextMin)}`)}`;
+    const bodiesHtml = () => {
+      const head = `<tr class="head"><td></td><td colspan="2">${K('position')}</td>${houseCol ? `<td class="n">${K('house')}</td>` : ''}</tr>`;
+      const rows = C.ORDER.map(k => bRow(P(k), st.bodies[k].lon, st.bodies[k].house, condition(k, st.bodies[k]))).join('');
+      const angles = noTime ? '' : `<tr class="grp"><td colspan="${span}">${K('angles')}</td></tr>` + [['asc', st.asc, 1], ['ic', st.mc + 180, 4], ['dsc', st.asc + 180, 7], ['mc', st.mc, 10]].map(([k, lon, h]) => bRow(i.t('ui.r.angleName.' + k), lon, h)).join('');
+      const algol = `<tr class="grp"><td colspan="${span}">${K('fixedStar')}</td></tr>` + bRow('Algol', al.lon, noTime ? 0 : E.houseIn(st.cusps, al.lon), alNote);
+      const el = st.elements && !st.natalView ? `${i.cap1(K('elements'))}: ${st.elements.order.map(k => `${i.t('ui.el.' + k)}\u00a0${st.elements.pct[k]}%`).join(', ')}` : '';   // the sky's four, heaviest first; a birth chart's lead its caption, so its reading does not repeat them
+      return sec('bodies', `<h3>${H('bodies')}</h3>${el ? `<p class="verdict">${el}</p>` : ''}<table class="bodies">${head}${rows}${angles}${algol}</table>
+        <p class="ctl"><button class="toggle algol-toggle" data-act="algol" aria-pressed="${S.algol ? 'true' : 'false'}"><span class="sw" aria-hidden="true"></span><span>${i.cap1(R(S.algol ? 'algolShown' : 'algolShow'))}</span></button></p>`);
+    };
+
+    // ---- the aspects: the dial's figure and two rings first, then the rest by weight; the planets on the angles
+    const aspectsHtml = () => {
+      const cf = st.configs, dial = [cf.primary, ...cf.secondary].filter(Boolean);
+      const ranked = [...dial, ...st.aspects.filter(a => !dial.some(d => d.a === a.a && d.b === a.b))].slice(0, 12);
+      const items = ranked.map(a => { const n = dial.indexOf(a);
+        return { tone: tone(a), name: `${P(a.a)} ${A(a.aspect)} ${P(a.b)}`, n: `${a.orb.toFixed(2)}°`,
+          meta: [[motion(a), n < 0 ? '' : `${R(n ? 'ring' : 'figure')} {${a.n}/${a.k}}`, a.event ? evName(a.event) : '', a.dissociate ? i.flag('outOfSign') : ''].filter(Boolean).join(' · ')] }; });
+      const angles = st.onAngles && st.onAngles.length ? [{ grp: i.cap1(R('onAngles')) }, ...st.onAngles.map(x => ({ tone: E.aspectTone('conjunction', x.planet, x.angle) || '', name: `${P(x.planet)} ${A('conjunction')} ${R('angle.' + x.angle)}`, n: `${x.orb.toFixed(2)}°` }))] : [];
+      return sec('aspects', `<h3>${H('aspects')}</h3>${items.length ? aspKeyHtml() + rankList([...items, ...angles]) : `<p class="verdict">${i.cap1(i.t('ui.quietSky'))}</p>${rankList(angles)}`}`);
+    };
+
+    // ---- the Moon, the day and its hours, the events
+    const m = st.moon;
+    const conditionTxt = () => {
+      const flags = m.flags.filter(f => f !== 'void of course').map(f => i.flag(f === 'under the beams' ? 'beams' : f));
+      if (m.verdict === 'void') return `${i.cap1(i.flag('void of course'))}${m.tolerable ? `, ${i.t('cap.tolerable')(i.sign(st.bodies.moon.sign))}` : ''}${st.natalView ? '' : `: ${R('voidFit')}`}${flags.length ? '; ' + flags.join(', ') : ''}`;
+      if (st.natalView) return `${m.next ? i.cap1(K('applyingTo')(A(m.next.aspect), m.next.planet, P(m.next.planet))) : i.cap1(i.verdict(m.verdict))}${flags.length ? '; ' + flags.join(', ') : ''}`;
+      return `${i.cap1(i.verdict(m.verdict))}${m.next ? `: ${A(m.next.aspect)} ${P(m.next.planet)} ${R('in')} ${(m.next.days * 24).toFixed(1)}\u00a0h` : ''}${flags.length ? '; ' + flags.join(', ') : ''}`;
+    };
+    const veilTxt = () => { const f = st.veil.factors.filter(x => !(m.verdict === 'void' && /void/i.test(x.key))); return `${st.veil.v.toFixed(2)}${f.length ? ': ' + f.map(x => i.t('ui.veilOf.' + x.key)).join(', ') : ''}`; };
+    const mansionTxt = `${i.ordinal(st.bodies.moon.mansion.index)}, ${i.name(st.bodies.moon.mansion.name)}`;
+    const hourIdx = st.hour.index, table = st.hour.table;
+    const hourTxt = () => { const h = table && table[hourIdx], nx = table && table[hourIdx + 1];
+      return `${K('hourOf')(i.ordinal(hourIdx + 1), P(st.hour.hourRuler), st.hour.hourRuler)}, ${K('angelOf')(i.name(st.hour.angel))}${!st.natalView && h ? ` · ${hm(h.start)}–${nx ? hm(nx.start) : ''}` : ''}`; };
+    const events = () => {
+      const rows = st.events.map(e => [i.cap1(i.event(e.type === 'outer exact' ? 'exact' : e.type)), e.type === 'outer exact' && e.aspect ? `${P(e.aspect.a)} ${A(e.aspect.aspect)} ${P(e.aspect.b)}` : [e.planet ? P(e.planet) : '', e.kind ? evName(e.kind) : '', e.direction ? (K('turning')[e.direction] || i.event(e.direction)) : ''].filter(Boolean).join(', ')]);
+      if (!st.natalView && st.wheel) rows.push([K('wheel'), `${st.wheel.today ? `${i.t('ui.wheel.' + st.wheel.today)} ${R('today')}, ` : ''}${i.t('ui.wheel.' + st.wheel.next)}, ${fmtIn(st.wheel.nextDate, 'UTC', { day: 'numeric', month: 'long' })}, ${R('inDays')(st.wheel.days)}`]);
+      return rows.length ? `<h4>${st.natalView ? H('eventsBirth') : K('events')}</h4>${kvTable(rows)}` : '';
+    };
+    const dayHtml = () => {
+      const moon = kvTable([[K('condition'), conditionTxt()], [K('guardians'), !st.natalView && m.verdict === 'void' ? i.cap1(`${K('the')(st.hour.dayRuler, P(st.hour.dayRuler))}${st.hour.dayRuler === st.hour.hourRuler ? '' : ' ' + R('and') + ' ' + K('the')(st.hour.hourRuler, P(st.hour.hourRuler))}`) : ''],
+        [K('veil'), st.natalView ? '' : veilTxt()], [K('mansion'), mansionTxt]]);
+      const day = kvTable([[K('day'), `${P(st.hour.dayRuler)}, ${K('angelOf')(i.name(st.hour.dayAngel))}`], [K('hour'), noTime ? '' : hourTxt()],
+        [K('nextHour'), !st.natalView && table && table[hourIdx + 1] ? `${P(table[hourIdx + 1].ruler)}, ${K('at')(hm(table[hourIdx + 1].start))}` : '']]);
+      const all = !st.natalView ? (table ? `<details class="more" data-sec="clock.hours"><summary>${K('all24')}</summary><ol class="hours">${table.map(h => `<li${h.index === hourIdx ? ' class="now"' : ''}><span class="i">${h.index + 1}</span><span>${P(h.ruler)}</span><span class="t">${hm(h.start)}</span></li>`).join('')}</ol></details>` : `<p class="note">${i.cap1(i.t('ui.polar'))}</p>`) : '';
+      return sec('day', `<h3>${H(st.natalView ? 'dayNatal' : 'dayClock')}</h3><h4>${st.natalView ? H('moonBirth') : K('theMoon')}</h4>${moon}<h4>${st.natalView ? K('dayHourBirth') : K('dayHours')}</h4>${day}${all}${events()}`);
+    };
+
+    // ---- the tarot: what the card answers | the card (it opens its plate), its derivation beneath
+    const tarotHtml = () => {
+      const row = (label, card, sub) => `<tr><th class="k" scope="row">${label}</th><td class="card">${card}</td></tr><tr class="sub"><td></td><td>${sub}</td></tr>`;
+      const dec = b => `${i.cap1(i.decanOrd(b.decan.decan))} ${i.t('cap.decanOf')} ${i.sign(b.sign)}, ${P(b.decan.ruler)}`, asc = sgnOf(st.asc);
+      return sec('tarot', `<h3>${H('tarot')}</h3><table class="cards">${row(P('sun'), decanLink(st.bodies.sun.decan), dec(st.bodies.sun))}${row(P('moon'), decanLink(st.bodies.moon.decan), dec(st.bodies.moon))}${noTime ? '' : row(K('ascendant'), trumpLink(SIGN_TRUMP[asc]), i.sign(asc))}${row(K('day'), trumpLink(PLANET_TRUMP[st.hour.dayRuler]), P(st.hour.dayRuler))}${noTime ? '' : row(K('hour'), trumpLink(PLANET_TRUMP[st.hour.hourRuler]), P(st.hour.hourRuler))}</table>`);
+    };
+
+    // ---- the transits to a chart: one ranked list, the timing and the house beneath, the figure set off beneath that
+    const inter = st.interaction, owner = esc((st.transitInfo && st.transitInfo.name) || '');   // a name is written into the page as text, never as markup
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? i.t('ui.r.angleName.asc') : k === 'midheaven' ? i.t('ui.r.angleName.mc') : k;
+    const natalPt = k => owner ? i.t('cap.own')(owner, pt(k)) : `${i.t('cap.natalOf')} ${pt(k)}`;
+    const transitsHtml = () => {
+      const all = st.transits || [], shown = all.slice(0, 8), tags = new Map(), same = (x, t, n, asp) => x.a === t && x.b === n && x.aspect === asp;
+      for (const [n, f] of (inter ? inter.figures.slice(0, 6) : []).entries()) {
+        const both = [all.find(x => same(x, f.t, f.a, f.x.aspect)), all.find(x => same(x, f.t, f.b, f.y.aspect))].filter(Boolean).sort((p, q) => q.power - p.power);
+        const c = both.find(x => shown.includes(x)) || (n === 0 ? both[0] : null); if (!c) continue;
+        if (!shown.includes(c)) shown.push(c);
+        tags.set(c, (tags.get(c) || []).concat(f));
+      }
+      shown.sort((p, q) => q.power - p.power);
+      const spans = (st.transitInfo && st.transitInfo.spans) || {}, houses = (st.transitInfo && st.transitInfo.houses) || {};
+      const timing = a => { const sp = spans[a.a + '|' + a.b + '|' + a.aspect]; if (!sp) return '';
+        return [sp.exact ? `${i.t(sp.exact.getTime() < st.date.getTime() - 3600e3 ? 'cap.wasExact' : 'cap.exact')} ${timeTag(sp.exact, `${dayIn(sp.exact, tz)}, ${hm(sp.exact)}`)}` : '', sp.leave ? `${i.t('cap.untilOrb')} ${timeTag(sp.leave, dayIn(sp.leave, tz))}` : ''].filter(Boolean).join(' · '); };
+      const house = a => houses[a.a] && owner ? `${P(a.a)} ${i.t('cap.inHouseOf')(owner, i.roman(houses[a.a]))}` : '';
+      const figLine = f => `${i.cap1(R(f.tone))}: ${f.name === 'setOff' ? `${R('setsOff')} ${natalPt(f.a)} ${A(f.natalAspect)} ${P(f.b)}` : `${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${natalPt(f.a)} ${A(f.natalAspect)} ${P(f.b)}`}`;
+      const item = (a, full) => ({ tone: tone(a), name: `${P(a.a)} ${A(a.aspect)} ${natalPt(a.b)}`, n: `${a.orb.toFixed(2)}°`, meta: [[motion(a), full ? timing(a) : '', full ? house(a) : ''].filter(Boolean).join(' · '), ...(full ? (tags.get(a) || []).map(figLine) : [])] });
+      const rest = all.filter(a => !shown.includes(a));
+      const head = owner ? i.cap1(i.t('ui.h.transitsTo')(owner)) : H('transits');
+      const std = inter ? `<p class="verdict">${i.cap1(R('harmony'))} ${inter.harmony.toFixed(2)}, ${R('strife')} ${inter.strife.toFixed(2)}</p>` : '';
+      return sec('transits', `<h3>${head}</h3>${std}${shown.length ? aspKeyHtml() + rankList(shown.map(a => item(a, true))) : `<p>${i.cap1(i.t('ui.noContact'))}</p>`}${rest.length ? `<details class="more" data-sec="transits.rest"><summary>${R('moreInOrb')(rest.length)}</summary>${rankList(rest.map(a => item(a, false)), '', shown.length + 1)}</details>` : ''}${inter && !inter.figures.length && shown.length ? `<p class="note">${i.cap1(R('noFigure'))}.</p>` : ''}`);
+    };
+    const roseHead = () => { const line = roseLine(st, true);
+      return `<div class="r-head nolink" data-sec="transits.howto">${roseKeyHtml(true)}<p class="lede">${R('roseTransitsLine')} ${popBtn('roseTransits', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`; };
+    const stoneHtml = () => st.stone ? sec('stone', `<h3>${H('stone')}</h3><p class="verdict">${i.cap1(i.stone(st.stone.stone))}${st.stone.alternative ? ` ${i.t('cap.or')} ${i.stone(st.stone.alternative)}` : ''}</p><p class="note">${i.cap1(i.t('cap.stonesOf')(st.stone.planet, P(st.stone.planet)))}, ${i.t('cap.stoneRule.' + st.stone.rule)}${st.stone.why ? ` ${P(st.stone.why.a)} ${A(st.stone.why.aspect)} ${natalPt(st.stone.why.b)}` : ''}</p>${pillRow(popBtn('stone', R('howStone')))}`) : '';
+
+    // ---- the parts of each view, in order
+    const parts = [];
+    const add = (key, html) => { if (html) parts.push([key, html]); };
+    if (view === 'transits') {
+      add('howto', roseHead()); add('transits', transitsHtml()); add('stone', stoneHtml());
+      add('out', `<p class="out" data-sec="transits.out">${R('outLead')} <button type="button" data-go="clock">${R('openClock')}</button></p>`);
+    } else if (view === 'natal') {
+      const notes = [noTime ? R('timeUnknown') : '', st.relocated ? R('housesFrom')(esc(i.placeName(st.relocated))) : ''].filter(Boolean).map(x => `<p class="note">${x}</p>`).join('');
+      add('birth', sec('birth', `<h3>${H('birth')}</h3><p class="verdict">${birthWhen()}</p>${notes}${momentRows()}<h4>${K('sound')}</h4>${soundRows()}`));
+      add('bodies', bodiesHtml()); add('aspects', aspectsHtml());
+      if (st.temperament) add('temperament', temperamentHtml(st));
+      add('day', dayHtml()); add('tarot', tarotHtml());
+      if (st.tikkun) add('kabbalah', kabbalahHtml(st));
+    } else {
+      add('moment', sec('moment', `<h3>${H('moment')}</h3>${momentRows()}<h4>${K('sound')}</h4>${soundRows()}`));
+      add('bodies', bodiesHtml()); add('aspects', aspectsHtml()); add('day', dayHtml());
+      add('talismans', talismansHtml()); add('tarot', tarotHtml());
+    }
+    paintReadout(view, parts);
+    if (view === 'clock') talismansKick();
+  }
+
+  /* ---------- the reading of a pair: the rose, the three ties, the contacts, what is active now, the pair's chart,
+     the house overlays, and the two charts side by side, folded. With no second chart, only the way to choose one */
+  function pairParts(st) {
+    const C = SD.corr, i = SD.i18n, R = k => i.t('ui.r.' + k), H = k => i.cap1(i.t('ui.h.' + k)), K = k => i.t('ui.kv.' + k), P = k => i.planet(k), A = k => i.aspect(k);
+    const sec = (key, inner) => secOf('pair', key, inner);
+    if (st.pairMissing || !st.natal) return [['empty', `<div class="r-head" data-sec="pair.empty"><p class="lede">${R('pairEmpty')}</p><p><button type="button" class="cta" data-go="pick-second">${R('chooseSecond')}</button></p></div>`]];
+    const a = st, b = st.natal, pr = st.pair, own = (who, what) => i.t('cap.own')(who, what), Y = st.syn, inter = st.interaction, parts = [];
+    const pe = { a: esc(pr.a), b: esc(pr.b) };               // the two names as text for the page: every line below that writes a name takes it from here
+    const nt = pr.noTime || [], blind = !!(nt[0] || nt[1]);   // a chart without a birth time has no houses or angles
+    const add = (key, html) => { if (html) parts.push([key, html]); };
+    // the rose
+    { const line = roseLine(st);
+      add('rose', `<div class="r-head nolink" data-sec="pair.rose">${roseKeyHtml(false)}<p class="lede">${R('roseLine')} ${popBtn('rose', R('howRose'))}</p>${line ? `<p class="note">${i.cap1(line)}.</p>` : ''}</div>`); }
+    // the three ties: the relationship first (it changes them), then each tie's makers, signed
+    if (Y) {
+      const types = PAIR_TYPES, cur = pairTypeOf(pr.ids[0], pr.ids[1]);
+      const rel = `<p class="rel nolink"><label>${i.cap1(i.t('ui.rel.label'))} <select id="pair-type">${types.map(t => `<option value="${t}"${t === cur ? ' selected' : ''}>${i.t('ui.rel.' + t)}</option>`).join('')}</select></label>${Y.age.forced ? ` <span class="dim">${i.t('ui.rel.forced')}</span>` : ''}</p>`;
+      const scales = SD.render.tieScale(st), keys = ['friendship', 'business', 'pleasure'];
+      const ties = keys.map((k, n) => { const g = scales[n] || {}, makers = Y.cats[k].contacts.map(c => ({ name: contactWords(c, pe), n: signed(+(c.h - c.s).toFixed(2), 2) }));
+        return `<h4>${i.cap1(SD.render.catName(Y, k))}${g.word ? ` <span class="hv">· ${g.word}</span>` : ''}</h4>${makers.length ? rankList(makers, 'plain') : `<p class="note">${i.cap1(i.t('ui.catWord.neutral'))}</p>`}`; }).join('');
+      add('ties', sec('ties', `<h3>${H('ties')}</h3>${rel}${pillRow(popBtn('ties', R('howTies')))}${ties}`));
+    }
+    // the contacts, the figures they set off on the line beneath
+    if (Y) {
+      const cTone = c => { const t = c.h + c.s; if (c.x > 0 || !t) return c.x > 0 ? 'tension' : ''; const r = c.h / t; return r >= 0.6 ? 'flow' : r > 0.4 ? 'tension' : ['mars', 'saturn', 'pluto'].some(m => m === c.a || m === c.b) ? 'afflict' : 'tension'; };
+      const figs = inter ? inter.figures.slice(0, 6) : [], tagFor = new Map();
+      for (const f of figs) { const c = Y.contacts.find(x => !x.rev && !x.place && x.a === f.t && (x.b === f.a || x.b === f.b)); if (c) tagFor.set(c, (tagFor.get(c) || []).concat(f)); }
+      const figLine = f => `${i.cap1(R(f.tone))}: ${f.name === 'setOff' ? `${R('setsOff')} ${own(pe.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}` : `${R('closes')} ${R('fig.' + f.name)} ${R('with')} ${own(pe.b, P(f.a))} ${A(f.natalAspect)} ${P(f.b)}`}`;
+      const item = (c, full) => ({ tone: cTone(c), name: contactWords(c, pe), n: `${c.orb.toFixed(2)}°`, meta: [[c.discounted ? i.cap1(R('discounted')) : '', c.uncertain ? i.t('cap.syn.uncertain') : ''].filter(Boolean).join(' · '), ...(full ? (tagFor.get(c) || []).map(figLine) : [])] });
+      const top = Y.contacts.slice(0, 10), rest = Y.contacts.slice(10);
+      add('contacts', sec('contacts', `<h3>${H('contacts')}</h3><p class="verdict">${i.cap1(R('harmony'))} ${Y.harmony.toFixed(2)}, ${R('strife')} ${Y.strife.toFixed(2)}, ${R('adjustment')} ${Y.adjustment.toFixed(2)}</p>${pillRow(popBtn('pair', R('aboutContacts')))}${top.length ? aspKeyHtml() + rankList(top.map(c => item(c, true))) : `<p>${i.cap1(i.t('ui.noContact'))}</p>`}${rest.length ? `<details class="more" data-sec="pair.rest"><summary>${R('moreContacts')(rest.length)}</summary>${rankList(rest.map(c => item(c, false)), '', 11)}</details>` : ''}`));
+    }
+    // what is active now: each transiting planet on the pair's points, its exact passes and stations
+    { const act = st.synActive || [];
+      if (act.length) {
+        const d = dt => timeTag(dt, fmtIn(dt, st.loc.tz, { day: 'numeric', month: 'short', year: 'numeric' }));
+        const who = h => h.who === 'a' ? pe.a : pe.b, ptOf = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? i.t('ui.r.angleName.asc') : k === 'midheaven' ? i.t('ui.r.angleName.mc') : SD.tikkun.text().north;
+        const items = act.map(x => { const [h0, ...more] = x.hits;
+          const axes = [...new Set(x.hits.flatMap(h => h.axes.filter(c => c.aspect === 'opposition' || c.aspect === 'conjunction' || c.aspect === 'square').slice(0, 1).map(c => contactWords(c, pe))))];
+          return { tone: SD.engine.aspectTone(h0.aspect, x.planet, h0.key, h0.orb) || '', name: `${P(x.planet)} ${A(h0.aspect)} ${own(who(h0), ptOf(h0.key))}`, n: `${h0.orb.toFixed(2)}°`,
+            meta: [more.length ? i.cap1(`${R('also')} ${more.map(h => `${A(h.aspect)} ${own(who(h), ptOf(h.key))}, ${h.orb.toFixed(1)}°`).join('; ')}`) : '',
+              `${i.cap1(R('exactPasses'))} ${x.exact.map(d).join(', ') || '—'}${x.stations.length ? ` · ${R('stations')} ${x.stations.map(d).join(', ')}` : ''}`,
+              axes.length ? i.cap1(`${R('onAxis')} ${axes.join(' · ')}`) : ''] }; });
+        add('active', sec('active', `<h3>${H('active')}</h3>${rankList(items)}`));
+      } }
+    // the pair's chart
+    { const c = st.composite;
+      if (c) {
+        const deg = lon => `${Math.floor(SD.engine.norm360(lon) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(lon) / 30))}`, f = c.configs.primary;
+        const std = f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}, ${R('orb')} ${f.orb.toFixed(2)}°` : i.cap1(i.t('ui.quietSky'));
+        const kv = kvTable([[K('ascendant'), blind ? '' : deg(c.asc)], [K('midheaven'), blind ? '' : deg(c.mc)], [K('fortune'), blind ? '' : deg(c.fortune)], [K('element'), c.elements ? `${i.t('ui.el.' + c.elements.dominant)}\u00a0${c.elements.pct[c.elements.dominant]}%` : '']]);
+        const pos = C.ORDER.map(k => { const x = c.bodies[k], d = x.deg % 30; return `<tr><th class="k" scope="row">${P(k)}</th><td class="n">${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′</td><td class="v">${i.sign(x.sign)}</td><td class="n">${i.roman(x.house)}</td></tr>`; }).join('');
+        add('composite', sec('composite', `<h3>${H('composite')}</h3><p class="verdict">${std}</p>${kv}${pillRow(popBtn('composite', R('howComposite')))}<details class="more" data-sec="pair.positions"><summary>${K('positions')}</summary><table class="bodies">${pos}</table></details>`));
+      } }
+    // the house overlays: two rows
+    if (Y && Y.overlays && Y.overlays.length) {
+      const row = w => Y.overlays.filter(o => o.who === w).map(o => `${P(o.planet)}\u00a0${i.roman(o.house)}${o.unseen ? ` (${R('unseenShort')})` : ''}`).join(', ');
+      add('overlays', sec('overlays', `<h3>${H('overlays')}</h3>${kvTable([[R('inHouses')(esc(pr.a), esc(pr.b)), row('a')], [R('inHouses')(esc(pr.b), esc(pr.a)), row('b')]])}`));
+    }
+    // the two charts, folded
+    { const when = (x, no) => `${fmtIn(x.date, x.loc.tz, no ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}<br>${esc(i.placeName(x.loc.name))}`;   // no birth time: the date alone
+      const pos = (x, no) => `${Math.floor(x.deg % 30)}°${String(Math.floor(((x.deg % 30) % 1) * 60)).padStart(2, '0')}′ ${i.sign(x.sign).slice(0, 3)}${no ? '' : ' · ' + i.roman(x.house)}`;
+      const angle = (l, no) => no ? '—' : `${Math.floor(SD.engine.norm360(l) % 30)}° ${i.sign(Math.floor(SD.engine.norm360(l) / 30))}`;
+      const elem = x => x.elements ? `${i.t('ui.el.' + x.elements.dominant)}\u00a0${x.elements.pct[x.elements.dominant]}%` : '—';
+      const of = st.ownFigures || {}, figOf = f => f ? `${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}}` : i.cap1(i.t('ui.quietSky'));
+      const sect = x => x.sect === 'day' ? R('dayChartShort') : R('nightChartShort');
+      const rows = [[K('born'), when(a, nt[0]), when(b, nt[1])], [K('ascendant'), angle(a.asc, nt[0]), angle(b.asc, nt[1])], [K('midheaven'), angle(a.mc, nt[0]), angle(b.mc, nt[1])], ...C.ORDER.map(k => [P(k), pos(a.bodies[k], nt[0]), pos(b.bodies[k], nt[1])]), [K('element'), elem(a), elem(b)], [K('figure'), figOf(of.a), figOf(of.b)], [K('sect2'), i.cap1(sect(a)), i.cap1(sect(b))]];
+      const summary = `${esc(pr.a)}, ${sect(a)}, ${a.elements ? i.t('ui.el.' + a.elements.dominant) : ''} · ${esc(pr.b)}, ${sect(b)}, ${b.elements ? i.t('ui.el.' + b.elements.dominant) : ''}`;
+      add('charts', sec('charts', `<details class="fold" data-sec="pair.chartsFold"><summary><h3>${H('charts')}</h3><span class="s">${summary}</span></summary><table class="pair"><tr class="head"><td></td><td>${esc(pr.a)}</td><td>${esc(pr.b)}</td></tr>${rows.map(([k, x, y]) => `<tr><th scope="row">${k}</th><td>${x}</td><td>${y}</td></tr>`).join('')}</table></details>`)); }
+    return parts;
+  }
+  /* the rose in words: its leading symmetries and their share of the weight */
+  function roseLine(st, transits) {
+    const i = SD.i18n, R = k => i.t('ui.r.' + k), rs = SD.render.roseSummary(st); if (!rs) return '';
+    const top = rs.folds.filter((f, k) => k === 0 || f.share >= 0.15).slice(0, 2).map(f => `${R('fold')[f.n]} (${Math.round(100 * f.share)}%)`);
+    return i.t(transits ? 'ui.r.roseTransitsIs' : 'ui.r.roseIs')(rs.n, top.join(i.locale().startsWith('es') ? ', y ' : ', and '));
+  }
+  /* a contact between the two charts in words, whichever way it runs */
+  function contactWords(x, pr) {
+    const i = SD.i18n, C = SD.corr, P = k => i.planet(k), own = (who, what) => i.t('cap.own')(who, what);
+    const pt = k => C.PLANETS[k] ? P(k) : k === 'ascendant' ? i.t('ui.r.angleName.asc') : k === 'midheaven' ? i.t('ui.r.angleName.mc') : k === 'node' ? SD.tikkun.text().north : k;
+    if (x.place) return `${i.t('ui.r.byPlace')}: ${i.t('ui.r.place.' + x.place)}`;
+    if (x.b === 'house') { const [who, whose] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b]; return `${own(who, P('mars'))} ${i.t('ui.r.inThe')} ${own(whose, i.t('ui.r.house58'))}`; }
+    const [first, second] = x.rev ? [pr.b, pr.a] : [pr.a, pr.b];
+    return `${own(first, pt(x.a))} ${i.aspect(x.aspect)} ${own(second, pt(x.b))}`;
+  }
+  /* the three ties as scales, in the caption: a hairline with a tick wherever the word changes, a dot at the score, the word
+     under the dot in its colour; warm for antipathy, neutral for none, cool for sympathy */
+  function tieScales(st) {
+    const i = SD.i18n; if (!st.syn && !st.ties) return '';
+    return `<div class="scales">${SD.render.tieScale(st).map(g => `<div class="scale"><span class="sl">${i.cap1(g.label)}</span><div class="sline">${g.ticks.map(x => `<i style="left:${(x * 100).toFixed(1)}%"${x === 0.5 ? ' class="mid"' : ''}></i>`).join('')}<b style="left:${(g.pos * 100).toFixed(1)}%;background:${g.color}"></b></div><span class="sw" style="color:${g.color}">${g.word}</span></div>`).join('')}</div>`;
+  }
+  /* a transiting outer planet on a synastry point, as one line of the pair's report: the hit, the axis it belongs to, the exact passes and the stations */
+  function activeLine(x, st) {
+    const i = SD.i18n, pr = st.pair, P = k => i.cap1(i.planet(k)), A = a => i.aspect(a), d = dt => new Intl.DateTimeFormat(i.locale(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: st.loc.tz || 'UTC' }).format(dt);
+    const who = h => h.who === 'a' ? pr.a : pr.b, pt = k => SD.corr.PLANETS[k] ? i.planet(k) : k === 'ascendant' ? 'ASC' : k === 'midheaven' ? 'MC' : SD.tikkun.text().north;
+    const hits = x.hits.map(h => `${A(h.aspect)} ${i.t('cap.own')(who(h), pt(h.key))} ${h.orb.toFixed(1)}°`).join(' · ');
+    const axes = [...new Set(x.hits.flatMap(h => h.axes.filter(c => c.aspect === 'opposition' || c.aspect === 'conjunction' || c.aspect === 'square').slice(0, 1).map(c => contactWords(c, pr))))].join(' · ');
+    return `<p class="nolink">${P(x.planet)} ${hits}${axes ? ` <span class="dim">(${i.t('ui.r.onAxis')} ${axes})</span>` : ''}<br><span class="dim">${i.cap1(i.t('ui.r.exactOn'))} ${x.exact.map(d).join(', ') || '—'} · ${i.t('ui.r.stations')} ${x.stations.map(d).join(', ')}</span></p>`;
+  }
+  /* the report of a pair, for pasting into an interpreter: both charts' birth data, the three ties with their makers,
+     the grade of harmony and strife, the pull, the composite, every contact */
+  function pairReportText() {
+    const st = S.state; if (!st || !st.pair) return null;
+    const i = SD.i18n, C = SD.corr, R = k => i.t('ui.rep.' + k), P = k => i.cap1(i.planet(k)), A = k => i.aspect(k), pr = st.pair;
+    const lonTxt = lon => { const L = ((lon % 360) + 360) % 360, sg = Math.floor(L / 30), d = L - sg * 30; return `${Math.floor(d)}°${String(Math.floor((d % 1) * 60)).padStart(2, '0')}′ ${i.sign(sg)} (${L.toFixed(2)}°)`; };
+    const chartB = S.charts.find(c => c.id === S.pair), charts = [[pr.a, S.natal, st], [pr.b, chartB, st.natal]];
+    const L = [];
+    L.push(`# ${i.t('cap.synastryLabel')} · ${pr.a} × ${pr.b}`, '');
+    L.push(R('pairIntro').replace('{houses}', S.houses), '');
+    for (const [name, n, x] of charts) {
+      if (!n) continue;
+      const pp = placeParts(new Date(n.date), n.place.tz), off = offsetOf(n.place.tz, new Date(n.date));
+      L.push(`## ${R('birth')} · ${name}`);
+      L.push(`- ${R('local')}: ${pp.year}-${pp.month}-${pp.day} ${n.unknownTime ? R('noon') : pp.hour + ':' + pp.minute} (${n.place.tz}, ${off}) · ${R('utc')}: ${new Date(n.date).toISOString().replace('T', ' ').slice(0, 16)} UTC`);
+      L.push(`- ${R('place')}: ${n.place.label || i.placeName(n.place.name)} · ${(+n.place.lat).toFixed(4)}, ${(+n.place.lon).toFixed(4)} · ${x.sect === 'day' ? R('dayChart') : R('nightChart')}`);
+      L.push(`- ASC ${lonTxt(x.asc)} · MC ${lonTxt(x.mc)} · ${i.t('ui.r.fortune')} ${lonTxt(x.fortune)}`);
+      L.push(`| ${R('planet')} | ${R('position')} | ${R('house')} | ${R('dignity')} |`, '|---|---|---|---|');
+      for (const k of C.ORDER) { const b = x.bodies[k]; L.push(`| ${P(k)} | ${lonTxt(b.lon)} | ${i.roman(b.house)} | ${b.dignity.score >= 0 ? '+' : ''}${b.dignity.score} ${b.dignity.labels.join(', ')}${b.retro ? ' · ' + R('retrograde') : ''} |`); }
+      L.push('');
+    }
+    const Y = st.syn, D = st.attraction, cap = SD.render.captionLines(st), plain = t => String(t || '').replace(/<[^>]+>/g, '');
+    if (Y) {
+      const ageTxt = Y.age.known ? Y.age.ages.map(a => Math.floor(a)).join(' / ') : '—';
+      L.push(`## ${i.cap1(i.t('cap.synastryLabel'))}: ${plain(cap.state)}`);
+      L.push(`- ${i.cap1(i.t('ui.rel.label'))}: ${i.t('ui.rel.' + (Y.type === 'family' ? 'parent' : Y.type))}${Y.age.forced ? ' · ' + i.t('ui.rel.forced') : ''} · ${i.t('ui.rel.ages')} ${ageTxt}`);
+      L.push(`- ${plain(cap.title)}`);
+      L.push(`- ${i.cap1(i.t('ui.r.harmony'))} ${Y.harmony.toFixed(2)} · ${i.t('ui.r.strife')} ${Y.strife.toFixed(2)} · ${i.t('ui.r.adjustment')} ${Y.adjustment.toFixed(2)} · balance ${Y.balance.toFixed(2)} · intensity ${Y.intensity.toFixed(2)}`);
+      L.push(`- ${plain(cap.detail4)}`, `- ${plain(cap.pairLine)}`, `- ${i.t('cap.syn.temper.' + Y.temperWord)} (${Y.temper.toFixed(2)})`);
+      for (const k of ['friendship', 'business', 'pleasure']) { const t = Y.cats[k]; L.push(`- ${i.cap1(SD.render.catName(Y, k))}: ${SD.render.tieScale(st).find(g => g.key === k).word}${t.contacts.length ? ' · ' + t.contacts.map(x => `${contactWords(x, pr)} ${x.h >= x.s ? '+' : '−'}${Math.abs(x.h - x.s).toFixed(2)}`).join('; ') : ''}`); }
+      L.push('');
+      if (Y.overlays) { L.push(`## ${i.cap1(i.t('ui.h.overlays'))}`); for (const o of Y.overlays) L.push(`- ${i.t('cap.own')(o.who === 'a' ? pr.a : pr.b, P(o.planet))} ${i.t('cap.inHouseOf')(o.who === 'a' ? pr.b : pr.a, i.roman(o.house))}${o.unseen ? ' · ' + i.t('ui.r.unseen') : ''}`); L.push(''); }
+      if ((st.synActive || []).length) { L.push(`## ${i.cap1(i.t('ui.h.active'))}`); for (const x of st.synActive) L.push('- ' + plain(activeLine(x, st)).replace(/\s+/g, ' ')); L.push(''); }
+    }
+    { const rl = roseLine(st); if (rl) L.push(`## ${i.cap1(i.t('ui.h.rose'))}`, i.cap1(rl) + '.', ''); }
+    const c = st.composite;
+    if (c) {
+      L.push(`## ${i.cap1(i.t('ui.h.composite'))}`);
+      L.push(`${i.t('ui.r.compositeNote')}`, '');
+      L.push(`- ASC ${lonTxt(c.asc)} · MC ${lonTxt(c.mc)} · ${i.t('ui.r.fortune')} ${lonTxt(c.fortune)}`);
+      const f = c.configs.primary; if (f) L.push(`- ${i.cap1(i.t('ui.r.pairFigure'))}: ${P(f.a)} ${A(f.aspect)} ${P(f.b)} {${f.n}/${f.k}} · ${f.orb.toFixed(2)}°`);
+      L.push(`| ${R('planet')} | ${R('position')} | ${R('house')} |`, '|---|---|---|');
+      for (const k of C.ORDER) L.push(`| ${P(k)} | ${lonTxt(c.bodies[k].lon)} | ${i.roman(c.bodies[k].house)} |`);
+      L.push('');
+    }
+    L.push(`## ${i.cap1(i.t('ui.h.contacts'))}`);
+    L.push(`| ${R('pair')} | ${R('aspect')} | ${R('orb')} | ${R('power')} |`, '|---|---|---|---|');
+    for (const x of (st.syn ? st.syn.contacts : st.transits)) L.push(`| ${contactWords(x, pr)}${x.discounted ? ' (' + i.t('ui.r.discounted') + ')' : ''}${x.uncertain ? ' (' + i.t('cap.syn.uncertain') + ')' : ''} | ${A(x.aspect)} | ${x.orb.toFixed(2)}° | ${(x.w !== undefined ? x.w : x.power).toFixed(2)} |`);
+    L.push('');
+    L.push(`— ${R('footer')} · siderarium.com · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
+    return { text: L.join('\n'), name: `${pr.a}-${pr.b}` };
+  }
+
+  /* the life mission: karma to mission, the engine, the conjunctions and threshold, the signs on the road, the aspect cards */
+  /* the head of the natal reading: the mission in one line and one sentence */
+  /* the long notes live in pop-ups: a labelled pill in the reading, the text on tap (DESIGN.md, "The readout system") */
+  function noteText(k) {
+    const i = SD.i18n, R = x => i.t('ui.r.' + x), TT = () => SD.temperament.text(), Y = S.state && S.state.syn, tp = () => (viewState() || {}).temperament;
+    if (k.startsWith('humour.')) {                           // the humour's reading; with a mixture, how the humours mix, and Ficino's melancholy mixtures
+      const t = k.slice(7), T = TT(), x = tp(), mix = x ? x.firsts.concat(x.seconds) : [t];
+      return T.reading[t] + (mix.length > 1 ? `\n\n§ ${T.mixedIs}\n\n${T.mixed}${mix.includes('melancholic') ? '\n\n' + T.melancholyMix : ''}` : '');
+    }
+    const N = { roseTransits: () => R('roseTransitsNote'), rose: () => R('roseNote'), stone: () => R('stoneNote'),
+      ties: () => R(Y && !Y.age.sexual ? 'tiesNoteFamily' : 'tiesNote'), composite: () => R('compositeNote'), pair: () => R('pairNote'),
+      temperament: () => TT().intro, intemperance: () => TT().intemperanceNote, symbolic: () => SD.tikkun.text().symbolic.replace(/^[^:]+:\s*/, ''),
+      talHow: () => i.t('ui.tal.how'), talSources: () => i.t('ui.tal.note'), cautionMars: () => i.t('ui.tal.cautionMars'), cautionSaturn: () => i.t('ui.tal.cautionSaturn') };
+    return N[k] ? N[k]() : null;
+  }
+  const popBtn = (k, label) => `<button type="button" class="pill nolink" data-def="note:${k}" aria-expanded="false" aria-haspopup="dialog">${label}</button>`;
+  /* the temperament (SD.temperament): what each testimony is, in words */
+  function tempDetail(st, r) {
+    const i = SD.i18n, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), B = st.bodies;
+    const phase = k => k === 'mercury' ? `, ${SD.engine.norm360(B.mercury.lon - B.sun.lon) > 180 ? TT.oriental : TT.occidental}` : '';   // Mercury's heat goes by his phase
+    const placed = k => k === 'sun' ? `${P('sun')}, ${TT.season[Math.floor(B.sun.lon / 90)]}` : k === 'moon' ? `${P('moon')}, ${TT.quarter[Math.floor(st.moon.phaseAngle / 90)]}` : `${P(k)} ${TT.in} ${i.sign(B[k].sign)}`;
+    switch (r.step) {
+      case 'S1': return i.cap1(TT.season[r.season]);
+      case 'S2': case 'S5': return i.sign(r.sign);
+      case 'S3': return P(r.planet) + phase(r.planet);
+      case 'S4': return P(r.planet) + phase(r.planet) + (r.shared > 1 ? `, ${TT.shared(r.shared)}` : '');
+      case 'S6': return i.cap1(TT.quarter[r.quarter]);
+      case 'S7': case 'S8': case 'S12': return placed(r.planet);
+      case 'S9': return r.again ? i.cap1(TT.again[r.again]) : r.planet === 'northNode' ? TT.north : r.planet === 'southNode' ? TT.south : P(r.planet) + phase(r.planet);
+      default: return `${r.aspect === 'conjunction' ? P(r.planet) + phase(r.planet) : placed(r.planet)} · ${i.aspect(r.aspect)} ${r.orb.toFixed(1)}°`;
+    }
+  }
+  const tempNum = x => String(+(x / 12).toFixed(2));                 // the tallies are kept in twelfths
+  /* the temperament: the verdict; the humour's reading and the method behind pills; the conditions of this chart; Ficino's
+     regimen; the intemperance and the Lord of the Geniture; the testimonies folded under their tally */
+  function temperamentHtml(st) {
+    const i = SD.i18n, tp = st.temperament, TT = SD.temperament.text(), P = k => i.cap1(i.planet(k)), nm = t => TT.temp[t], R = k => i.t('ui.r.' + k);
+    const hm = d => new Intl.DateTimeFormat(i.locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tp.tz || 'UTC' }).format(tp.tz ? d : new Date(d.getTime() + S.natal.place.lon / 15 * 3600e3));   // no zone: the local mean time of the longitude
+    const many = tp.firsts.length > 1;
+    const cite = v => { const m = v.match(/^(.*?)\s*\(([^()]*)\)$/); return m ? `${m[1]} <span class="sep">${m[2]}</span>` : v; };   // the chapter, quiet, after the value
+    const regimen = t => `<h4>${TT.regimen}${many ? ` <span class="hv">· ${nm(t)}</span>` : ''}</h4>${kvTable(['call', 'colours', 'music', 'odours', 'places', 'stones'].map(k => [i.cap1(TT.reg[k]), i.cap1(cite(TT.regimens[t][k]))]))}`;
+    const notes = [tp.polar ? TT.polar : '', tp.relocated ? TT.relocated : '',
+      tp.day ? `${TT.dayRuns} ${tp.day.map((x, n) => `${SD.temperament.line(x.judgement)} ${n + 1 < tp.day.length ? TT.until(hm(x.to)) : TT.after(hm(x.from))}`).join('; ')}.` : ''].filter(Boolean).map(x => `<p class="note">${x}</p>`).join('');
+    const contact = c => c.aspect === 'body' ? TT.contact.body(P(c.planet), `${c.orb.toFixed(1)}°`) : TT.contact[c.to](P(c.planet), i.aspect(c.aspect), `${c.orb.toFixed(1)}°`, c.aspect);
+    const lg = tp.lordOfGeniture;
+    const facts = kvTable([[tp.intemperate ? TT.excessOf(tp.intemperate.planets) : TT.intemperanceIs, tp.intemperate ? `${tp.intemperance.map(contact).join('; ')} ${popBtn('intemperance', R('lillyRule'))}` : ''],
+      [TT.lordIs, lg ? `${TT.lordVal(P(lg.planet), lg.total)}${lg.participant ? '; ' + TT.participates(P(lg.participant), lg.totals[lg.participant]) : ''}` : '']]);
+    const rows = tp.rows.map(r => `<tr><td>${TT.row[r.step]}<span class="det">${tempDetail(st, r)}</span></td><td class="v">${nm(r.temperament)}</td><td class="n">${(r.w / 12).toFixed(2)}</td></tr>`).join('');
+    const c = tp.columns, cv = SD.temperament.TEMPS.includes(c.verdict) ? nm(c.verdict) : TT.q[c.verdict];
+    const tally = `${TT.tally}: ${tp.rank.map(t => `${nm(t)} ${tempNum(tp.T[t])}`).join(', ')}`;
+    return secOf('natal', 'temperament', `<h3>${i.cap1(i.t('ui.h.temperament'))}</h3>
+      <p class="verdict">${i.cap1(SD.temperament.line(tp, tp.partial))}</p>
+      ${pillRow(...tp.firsts.map(t => popBtn('humour.' + t, R('humourOf')(nm(t)))), popBtn('temperament', R('aboutMethod')))}${notes}
+      ${tp.firsts.map(regimen).join('')}${facts}
+      <details class="fold" data-sec="natal.testimonies"><summary><h4>${TT.testimonies}</h4><span class="s">${tally}</span></summary>
+        <table class="temper"><tr class="head"><td></td><td>${i.cap1(TT.humour)}</td><td class="n">${i.cap1(TT.weight)}</td></tr>${rows}</table>
+        <p class="note">${TT.columns(tempNum(c.hot), tempNum(c.cold), tempNum(c.moist), tempNum(c.dry), cv)}.${tp.columnsThird ? ' ' + TT.columnsThird(nm(tp.columnsThird)) : ''}</p></details>`);
+  }
+  /* the life mission (tikkun) and its cards, one section: the mission, the cards of the tikkun, the signs on the road folded
+     under the cards that recur, the aspect cards. Every card name opens its plate; the role words open their definitions */
+  function kabbalahHtml(st) {
+    const i = SD.i18n, k = st.tikkun, T = SD.tikkun.text(), P = p => i.cap1(i.planet(p)), A = a => i.aspect(a), R = x => i.t('ui.r.' + x);
+    const lt = l => `${T.name[l]} <span class="he" lang="he" dir="rtl">${SD.tikkun.GLYPH[l]}</span>, ${T.letter[l]}`;   // the name, the letter itself, what it depicts
+    const dl = (key, word) => `<button type="button" class="deflink" data-def="${key}" aria-expanded="false">${word}</button>`;
+    const hs = h => h ? `, ${i.roman(h)}` : '';
+    const row = (a, card, sub) => `<tr><td>${a}</td><td class="card">${card}</td></tr>${sub ? `<tr class="sub"><td></td><td>${sub}</td></tr>` : ''}`;
+    const t1 = [row(dl('karma', T.karma), trumpLink(k.south.card), `${T.south}, ${i.sign(k.south.sign)}${hs(k.south.house)} · ${lt(k.south.letter)}`),
+      row(dl('mission', T.mission), trumpLink(k.north.card), `${T.north}, ${i.sign(k.north.sign)}${hs(k.north.house)} · ${lt(k.north.letter)}`),
+      row(dl('engine', T.engine), trumpLink(k.engine.card), `${P(k.engine.planet)}, ${i.sign(k.engine.sign)}${hs(k.engine.house)} · ${lt(k.engine.letter)}${k.engine.doubled ? ` · ${T.doubled}` : ''}`),
+      ...k.conj.map(c => row(dl('conj', T.conj), trumpLink(c.card), `${P(c.planet)}, ${c.node === 'north' ? T.north : T.south} ${c.orb.toFixed(1)}° · ${lt(c.letter)}`)),
+      ...k.threshold.map(t => row(dl('threshold', T.threshold), trumpLink(t.card), `${SD.tikkun.near(t)} · ${lt(t.letter)}`))].join('');
+    const order = (k.noTime ? [] : ['ascendant']).concat(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn']).concat(k.noTime ? [] : ['midheaven']);
+    const lonOf = x => x === 'ascendant' ? st.asc : x === 'midheaven' ? st.mc : st.bodies[x].lon, nm = x => x === 'ascendant' ? i.cap1(R('ascendant')) : x === 'midheaven' ? i.cap1(R('midheaven')) : x === 'northNode' ? T.north : P(x);
+    const t2 = order.map(x => { const s = Math.floor(SD.engine.norm360(lonOf(x)) / 30); return `<tr><td>${nm(x)}</td><td>${i.sign(s)}</td><td class="card">${trumpLink(SD.tikkun.SIGN[s][1])}</td></tr>`; }).join('');
+    const recur = k.placements.filter(p => p.count > 1).map(p => T.recurs(trumpLink(p.card), p.count, p.keys.map(nm).join(', ')));
+    const cards = a => a.path ? trumpLink(a.card) : a.cards.map(trumpLink).join(' + ');
+    const t3 = k.aspects.map(a => `<tr class="asp-${SD.engine.aspectTone(a.aspect, a.a, a.b, a.orb) || ''}"><td><span class="nm">${nm(a.a)} ${A(a.aspect)} ${nm(a.b)}</span></td><td class="card">${cards(a)}</td></tr><tr class="sub"><td colspan="2">${a.orb.toFixed(1)}° · ${T[a.quality]}${a.weak ? `, ${T.weak}` : ''}${a.path ? ` · ${lt(a.letter)}` : ''}</td></tr>`).join('');
+    const realm = k.north.house ? ` ${T.livedIn} ${i.realm(k.north.house)}.` : '';
+    return secOf('natal', 'kabbalah', `<h3>${T.label}</h3>
+      <p class="verdict">${i.cap1(T.short[k.north.sign])} · ${trumpLink(k.north.card)}</p>
+      <p class="prose">${T.long[k.north.sign]}${realm}</p>
+      ${pillRow(popBtn('symbolic', R('howCards')))}${k.noTime ? `<p class="note">${i.cap1(T.noTime)}.</p>` : ''}
+      <h4>${T.cards}</h4><table class="cards">${t1}</table>
+      <details class="fold" data-sec="natal.road"><summary><h4>${T.road}</h4><span class="s">${recur.length ? recur.join(' ') : R('noRepeat')}</span></summary><table class="cards">${t2}</table></details>
+      <h4>${T.aspects}</h4><table class="cards asp">${t3}</table>`);
+  }
+  /* the update button: ask the server for a newer service worker, let it install (it takes over at once), then reload.
+     the pages come network-first, so the reload brings the newest files; offline it simply reloads the cached app */
+  async function updateApp() {
+    const b = $('update'); if (b.classList.contains('busy')) return; b.classList.add('busy');
+    try {
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg) {
+        await reg.update();
+        const w = reg.installing || reg.waiting;
+        if (w) await new Promise(res => { const t = setTimeout(res, 4000); w.addEventListener('statechange', () => { if (w.state === 'activated') { clearTimeout(t); res(); } }); });
+      }
+    } catch (e) { /* offline or no service worker: a plain reload still helps */ }
+    location.reload();
+  }
+
+  /* "copy for AI" is shown wherever there is a chart to put into words: a birth chart (its view, its printed chart, its
+     transits) and a pair with its second chart */
+  const copyable = () => !!S.natal && (['natal', 'natalchart', 'synastry'].includes(S.mode) || (S.mode === 'pair' && !!(S.state && S.state.pair)));
+  function updateControls() {
+    $('copy-ai').hidden = !copyable();
+    if (document.activeElement !== $('when')) { $('when').value = placeStamp(S.state.date); $('when').classList.remove('bad'); }
+    $('zone').textContent = offsetOf(S.place.tz || 'UTC', S.state.date);
+    const live = S.offsetMs === 0 && !S.fixed && !S.playing;
+    $('live').classList.toggle('on', live);
+    $('now-float').hidden = live || S.mode === 'natal' || S.mode === 'natalchart';   // the birth dial does not move with the clock; the chart button holds that corner                           // the way back, in sight whenever the clock has been moved
+    if (document.activeElement !== $('preview')) $('preview').value = Math.max(0, Math.min(STRIP_H * 60, Math.round(S.offsetMs / 60000)));
+    $('play').classList.toggle('on', S.playing);
+    $('play').textContent = SD.i18n.cap1(SD.i18n.t(S.playing ? 'ui.pause' : 'ui.run'));
+    $('speed').textContent = S.speed < 1 ? `${S.speed * 60}m/s` : `${S.speed}h/s`;
+    $('speed').setAttribute('aria-label', `${SD.i18n.cap1(SD.i18n.t('ui.speedLabel'))}: ${$('speed').textContent}`);   // the name keeps the figure the button shows
+    $('here').classList.toggle('on', S.place.name === 'here');
+    if (PLACES[S.place.name] && $('city').value !== S.place.name) $('city').value = S.place.name;
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode || (S.mode === 'natalchart' && b.dataset.mode === 'natal')));
+    { const ct = $('chart-toggle'), on = S.mode === 'natalchart', i = SD.i18n; ct.classList.toggle('on', on); ct.setAttribute('aria-pressed', on ? 'true' : 'false'); ct.dataset.i18n = on ? 'ui.asArt' : 'ui.asChart'; ct.setAttribute('aria-label', i.cap1(i.t(ct.dataset.i18n))); ct.title = i.cap1(i.t(ct.dataset.i18n)); }
+    document.body.classList.toggle('natal', S.mode === 'natal' || S.mode === 'natalchart');
+    document.body.classList.toggle('pair', S.mode === 'pair');
+    document.body.classList.toggle('transits', S.mode === 'synastry');   // the Transits tab: no 72-hour strip, that is the clock's
+    $('sigil').classList.toggle('on', S.sigil); $('sigil').setAttribute('aria-pressed', String(!!S.sigil));
+    if (hintSync()) size();
+    slideSeg();
+  }
+  /* the segmented control: an indicator slides under the lit view (two of them in natal chart) */
+  function slideSeg() {
+    const seg = document.querySelector('.seg'), ind = seg && seg.querySelector('.seg-ind'); if (!ind) return;
+    const on = [...seg.querySelectorAll('button[data-mode].on')];
+    if (!on.length) { ind.style.width = '0px'; return; }
+    const l = Math.min(...on.map(b => b.offsetLeft)), r = Math.max(...on.map(b => b.offsetLeft + b.offsetWidth));
+    ind.style.left = l + 'px'; ind.style.width = (r - l) + 'px';
+  }
+
+  /* ---------- the menu: view, settings, nativity and saved charts ---------- */
+  /* ---------- the glossary panel: built once per language, opened at a term ---------- */
+  let glossaryLang = null;
+  /* install: always from the clock itself, so the icon on the home screen opens the clock. the website's "Install on your
+     phone" lands here with ?install=1 and this card opens over the dial at once. where the browser offers its own prompt
+     (Chrome, Edge, Android) the card carries an Install button; elsewhere the steps for this device, in plain words.
+     the card never shows once the app runs installed */
+  let installEvt = null;
+  const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; const n = $('install-native'); if (n && !$('install-sheet').hidden) n.hidden = false; });
+  window.addEventListener('appinstalled', () => { installEvt = null; const r = $('install-row'); if (r) r.hidden = true; const h = $('install-how'); if (h) h.innerHTML = `<p>${esc(SD.i18n.t('ui.install.done'))}</p>`; const n = $('install-native'); if (n) n.hidden = true; });
+  function openInstall() {
+    const i = SD.i18n, ua = navigator.userAgent, how = $('install-how'), L = k => i.t('ui.install.' + k);
+    const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const safari = ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|GSA|Instagram|FBAN|FBAV/.test(ua);
+    const inApp = /Instagram|FBAN|FBAV|Line\/|WhatsApp|; wv\)/.test(ua);
+    const steps = arr => `<ol>${arr.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    how.innerHTML = standalone() ? `<p>${esc(L('done'))}</p>` : `<p>${esc(L('lead'))}</p>` + (inApp ? `<p class="warn">${esc(L('inapp'))}</p>` : '')
+      + (installEvt ? '' : ios ? (safari ? steps(L('ios')) : `<p class="warn">${esc(L('iosOther'))}</p>` + steps(L('ios'))) : /Android/.test(ua) ? steps(L('android')) : steps(L('desktop')));
+    $('install-native').hidden = !installEvt || standalone();
+    $('menu').hidden = true; $('install-sheet').hidden = false;
+  }
+  function setupInstall() {
+    const row = $('install-row'); if (!row) return;
+    row.hidden = standalone();
+    $('install-btn').addEventListener('click', openInstall);
+    $('install-close').addEventListener('click', () => { $('install-sheet').hidden = true; });
+    $('install-sheet').addEventListener('click', e => { if (e.target.id === 'install-sheet') $('install-sheet').hidden = true; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') $('install-sheet').hidden = true; });
+    $('install-native').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { /* closed */ } installEvt = null; $('install-sheet').hidden = true; });
+    if (params.get('install') === '1' && !S.wall) {                   // arrived from the website's button: the address loses the flag (iPhone saves the address it is on)
+      try { const u = new URL(location.href); u.searchParams.delete('install'); history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash); } catch (e) { /* the card opens all the same */ }
+      if (!standalone()) setTimeout(openInstall, 400);    // the clock first, then the card over it
+    }
+  }
+  /* ---------- planetary talismans timing ----------
+     the next moments to make each planet's talisman at the clock's place (SD.talismans), counted from the real now. the
+     search runs in the page's idle time, a few milliseconds at a slice, and is kept in this browser for the day and the
+     place; a moment already past drops from the list. each date opens the clock at that moment, with its sound. */
+  const tal = { key: null, out: null, partial: null, token: 0, from: 0 };
+  const talKey = () => [SD.talismans.RULES.version, S.place.lat.toFixed(3), S.place.lon.toFixed(3), S.houses, Math.floor(Date.now() / 864e5)].join('|');
+  const talPlain = (v, d = 0) => typeof v === 'string' ? v.length <= 60 && !/[<>"'&`\\]/.test(v) : v === null || typeof v !== 'object' || (d < 8 && Object.values(v).every(x => talPlain(x, d + 1)));
+  const talSpent = out => Object.values(out).some(r => r.best.concat(r.lesser).some(e => e.end <= Date.now()));   // a listed moment has gone by: count again from now
+  function talismansKick() {
+    if (!SD.talismans) return;
+    const key = talKey();
+    if (tal.key === key && !(tal.out && talSpent(tal.out))) return;
+    tal.key = key; tal.out = null; tal.partial = null;
+    const cached = store.get('talismans', null);
+    // the day's list as this browser kept it: taken only if it is made of plain keys and numbers and draws without a fault
+    if (cached && typeof cached === 'object' && cached.key === key && cached.out && typeof cached.out === 'object' && talPlain(cached.out)) {
+      try { if (!talSpent(cached.out)) { tal.out = cached.out; tal.from = +cached.from || Date.now(); renderTalismans(); return; } }
+      catch (e) { /* not a list this version made */ }
+      tal.out = null; store.del('talismans');
+    }
+    const token = ++tal.token, from = Math.floor(Date.now() / 6e4) * 6e4, place = { ...S.place };
+    const s = SD.talismans.searcher(place, from, { houses: S.houses });
+    tal.from = from;
+    const later = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 600 }) : setTimeout(f, 40));
+    (function chunk() {
+      if (token !== tal.token) return;
+      const until = performance.now() + 8;                 // at most 8 ms at a time: a tap is never kept waiting
+      let done = false, broke = false;
+      try { done = s.step(() => performance.now() < until); } catch (e) { done = broke = true; }
+      tal.partial = s.planets;
+      if (!done) { renderTalismans(); return later(chunk); }
+      tal.out = s.planets;
+      if (!broke && !s.failed) store.set('talismans', { key, from, out: s.planets });   // a search that failed anywhere is tried again on the next visit
+      renderTalismans();
+    })();
+  }
+  function renderTalismans() { paintSection('clock', 'talismans', talismansHtml()); }
+  /* the talismans: one sentence, the rules and the sources behind pills, then seven rows present from the first paint, so the
+     page never jumps while the search runs; a found planet's row opens on its windows, the soonest named on the row */
+  function talismansHtml() {
+    const i = SD.i18n, T = k => i.t('ui.tal.' + k), P = k => i.cap1(i.planet(k)), tz = S.place.tz || 'UTC', loc = i.locale();
+    const day = new Intl.DateTimeFormat(loc, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: tz });
+    const hm = new Intl.DateTimeFormat(loc, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz });
+    const cap = t => t.replace(/^./, c => c.toUpperCase());
+    const res = tal.out || tal.partial, now = Date.now();
+    const edges = e => { const a = Math.ceil(e.start / 6e4) * 6e4, z = Math.floor(e.end / 6e4) * 6e4; return [a, z]; };   // whole minutes inside the window, never past its edges
+    const dayTxt = d => day.formatToParts(d).map(p => p.type === 'literal' ? p.value.replace(',', '') : p.value).join('');   // 'Wed 29 Mar 2028'
+    const when = e => { const [a, z] = edges(e); return `${cap(dayTxt(a))}, ${hm.format(a)}–${hm.format(z)}`; };
+    const dig = e => e.dignity.includes('exaltation') ? T('exalted') : e.dignity.includes('domicile') ? T('ownSign') : e.dignity.includes('triplicity') ? T('triplicity') : T('term');
+    const line = (e, k) => {
+      const where = T(e.angle === 'asc' ? 'rising' : 'culminating')(k, P(k), i.sign(e.sign));
+      const mn = e.moon.mansion ? `${i.ordinal(e.moon.mansion.index)} ${i.t('cap.mansion')}, ${i.name(e.moon.mansion.name)}` : '';   // her mansion: its use depends on the work (Agrippa II.33)
+      const moon = T('moonLine')(i.sign(e.moon.sign), mn, i.aspect(e.moon.aspect), e.moon.to === k ? '' : e.moon.to, e.moon.to === k ? T('itself') : P(e.moon.to));
+      const by = e.cautionBy || {}, cBy = T('cBy'), x = { P, asp: a => i.aspect(a), ord: n => i.ordinal(n) };   // name the planet behind a caution, and say fall or detriment for the Moon
+      const said = c => c === 'moonFall' ? cBy.moonFall(i.sign(e.moon.sign), e.moon.sign === 7) : by[c] && cBy[c] ? cBy[c](by[c].by, by[c].how, x) : T('c')[c] || c;
+      const caut = e.cautions.length ? ` · <span class="asp asp-tension">${e.cautions.map(said).join(', ')}</span>` : '';
+      const [a, z] = edges(e), at = Math.min(Math.max(e.at, a), z);
+      return `<li><a href="#" class="tal-at" data-tal="${new Date(at).toISOString()}">${when(e)}</a> (${T('minutes')(Math.round((z - a) / 6e4))})<span class="tal-why nolink">${where}, ${dig(e)} · ${e.day ? T('dayHour')(k, P(k)) : T('hourOf')(k, P(k))} · ${moon}${caut}</span></li>`;
+    };
+    const rows = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'].map(k => {
+      const r = res && res[k];
+      if (!r || !r.done) return `<div class="tal-planet"><span class="p">${P(k)}</span><span class="w">${T('searching')}</span></div>`;   // a list half searched is not yet the best three
+      if (r.error) return `<div class="tal-planet"><span class="p">${P(k)}</span><span class="w">${T('failed')(k, P(k))}</span></div>`;
+      const best = r.best.filter(e => e.end > now), lesser = r.lesser.filter(e => e.end > now);
+      const soonest = [...best].sort((u, v) => u.start - v.start)[0] || [...lesser].sort((u, v) => u.start - v.start)[0];
+      const summary = soonest ? when(soonest) : T('noneShort')(Math.round(SD.talismans.RULES.horizon[k] / 365));
+      let body = '';
+      if (best.length) body += `<p class="tal-sub">${T('firstRate')}</p><ul class="tal">${best.map(e => line(e, k)).join('')}</ul>`;
+      if (lesser.length) body += `<p class="tal-sub">${T('lesserHead')}</p><ul class="tal">${lesser.map(e => line(e, k)).join('')}</ul>`;
+      const first = [...best, ...lesser].reduce((m, e) => Math.min(m, e.start), Infinity);
+      if (r.wait && r.wait.until > now && (!isFinite(first) || first - now > 60 * 864e5)) body += `<p class="note">${T('wait')(k, P(k), timeTag(new Date(r.wait.until), dayTxt(r.wait.until)))}</p>`;
+      if (!body) return `<div class="tal-planet"><span class="p">${P(k)}</span><span class="w">${summary}</span></div>`;
+      if (k === 'mars' || k === 'saturn') body += pillRow(popBtn(k === 'mars' ? 'cautionMars' : 'cautionSaturn', T('cautionPill')));
+      return `<details class="tal-planet" data-sec="tal.${k}"><summary><span class="p">${P(k)}</span><span class="w">${summary}</span></summary>${body}</details>`;
+    }).join('');
+    return secOf('clock', 'talismans', `<h3>${i.cap1(T('h'))}</h3><p>${T('lead')(S.place.name === 'here' ? '' : esc(i.placeName(S.place.name)))}</p>${pillRow(popBtn('talHow', T('howPill')), popBtn('talSources', T('sourcesPill')))}<div class="tal-list">${rows}</div>`, ' id="talismans"');
+  }
+  /* a date of the list: the clock at that moment, the dial in view, and its chord (the tap lets the sound start) */
+  function openMoment(d) {
+    S.playing = false; S.fixed = d; S.offsetMs = 0;
+    if (S.mode !== 'clock') { S.mode = 'clock'; store.set('mode', S.mode); }
+    updateControls(); recompute();
+    try { listen(true); } catch (e) { /* the clock opens all the same */ }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  /* a tarot card named anywhere in the reading: a lightbox over the page, at once, with the plate, its Golden Dawn line and
+     its meaning; the plate taps through to the full scan; a tap outside, Close or Escape shuts it */
+  function openCard(key) {
+    glossaryTerms();
+    const i = SD.i18n, lang = i.locale().startsWith('es') ? 'es' : 'en', x = SD.glossary.dynamic(lang).find(e => e.key === key);
+    if (!x) { openGlossary(key); return; }
+    let v = document.querySelector('.card-view');
+    if (!v) {
+      v = document.createElement('div'); v.className = 'card-view'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true');
+      v.addEventListener('click', e => { const im = e.target.closest('img'); if (im) { openPlate(im.dataset.full, im.alt); return; } if (e.target === v || e.target.closest('.cv-close')) { v.hidden = true; if (v.opener && v.opener.isConnected) v.opener.focus({ preventScroll: true }); } });
+      v.addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault(); v.querySelector('.cv-close').focus(); } });
+      document.addEventListener('keydown', e => { if (e.key !== 'Escape' || v.hidden) return; const pv = document.querySelector('.plate-view'); if (pv && !pv.hidden) return; v.hidden = true; if (v.opener && v.opener.isConnected) v.opener.focus({ preventScroll: true }); });
+      document.body.appendChild(v);
+    }
+    const m = SD.tarotMeanings && SD.tarotMeanings[lang] && SD.tarotMeanings[lang][key];
+    v.innerHTML = `<div class="cv-card"><button class="cv-close">${esc(i.cap1(i.t('ui.close')))}</button><img src="${x.img.replace('img/tarot/', 'img/tarot/sm/')}" data-full="${x.img}" alt="${esc(x[lang][0])}" width="440" height="760"><div class="cv-text"><h2>${esc(x[lang][0])}</h2><p class="gd">${esc(x[lang][1])}</p>${m ? `<p class="meaning">${esc(m)}</p>` : ''}</div></div>`;
+    if (v.hidden !== false || !v.opener) v.opener = document.activeElement;
+    v.hidden = false; v.scrollTop = 0; v.querySelector('.cv-close').focus({ preventScroll: true });
+  }
+  /* a tarot plate at full size, over everything; any tap or Escape closes it */
+  function openPlate(src, alt) {
+    let v = document.querySelector('.plate-view');
+    if (!v) { v = document.createElement('div'); v.className = 'plate-view'; v.setAttribute('role', 'dialog'); v.addEventListener('click', () => { v.hidden = true; }); document.addEventListener('keydown', e => { if (e.key === 'Escape') v.hidden = true; }); document.body.appendChild(v); }
+    v.innerHTML = `<img src="${src}" alt="${esc(alt || '')}">`; v.hidden = false;
+  }
+  function buildGlossary() {
+    const i = SD.i18n, lang = i.locale().startsWith('es') ? 'es' : 'en', GL = SD.glossary;
+    if (glossaryLang === lang) return; glossaryLang = lang;
+    const groups = { ...GL.groups[lang], tarot: i.t('ui.tarot.group') };
+    glossaryTerms(); const tarot = GL.dynamic(lang);
+    const order = [...GL.order.slice(0, GL.order.indexOf('time') + 1), 'tarot', ...GL.order.slice(GL.order.indexOf('time') + 1)];
+    $('glossary-index').innerHTML = order.map(g => `<a href="#gg-${g}">${groups[g]}</a>`).join('');
+    $('glossary-body').innerHTML = order.map(g => {
+      const items = (g === 'tarot' ? tarot : GL.entries.filter(x => x.group === g));
+      // a plate: the card at a size that reads (a 440 px copy, tap for the full scan), the Golden Dawn line, then its meaning
+      const meaning = x => { const m = SD.tarotMeanings && SD.tarotMeanings[lang] && SD.tarotMeanings[lang][x.key]; return m ? `<p class="meaning nolink">${esc(m)}</p>` : ''; };
+      const plate = x => x.img ? `<dd class="plate"><img loading="lazy" decoding="async" src="${x.img.replace('img/tarot/', 'img/tarot/sm/')}" data-full="${x.img}" alt="${esc(x[lang][0])}" width="440" height="760"><div><p class="gd">${esc(x[lang][1])}</p>${meaning(x)}</div></dd>` : `<dd>${esc(x[lang][1])}</dd>`;
+      return `<h2 id="gg-${g}">${groups[g]}</h2>${g === 'tarot' ? `<p class="meta nolink">${esc(i.t('ui.tarot.note'))}</p>` : ''}<dl>${items.map(x => `<dt id="g-${x.key}">${esc(x[lang][0])}</dt>${plate(x)}`).join('')}</dl>`;
+    }).join('');
+    SD.glossary.link($('glossary-body'), lang);                 // the entries link to one another
+    if (!$('glossary-body').dataset.plates) { $('glossary-body').dataset.plates = '1'; $('glossary-body').addEventListener('click', e => { const im = e.target.closest('dd.plate img'); if (im) openPlate(im.dataset.full, im.alt); }); }
+  }
+  /* the tarot plates: one entry per decan card (36) and per trump (22), named in the reader's language, each with its
+     Rider plate. built per language from the correspondences and the strings; the files are the Commons scans. */
+  function tarotEntries(lang) {
+    const i = SD.i18n, C = SD.corr, T = k => i.t('ui.tarot.' + k), out = [];
+    const FILE = { wands: 'Wands', cups: 'Cups', swords: 'Swords', pentacles: 'Pents' };
+    for (const d of C.DECANS) {
+      const name = i.card(d), title = i.title(d);
+      out.push({ key: `card_${d.suit}${d.num}`, group: 'tarot', img: `img/tarot/${FILE[d.suit]}${String(d.num).padStart(2, '0')}.jpg`, [lang]: [name, T('minor')(title, i.cap1(i.decanOrd(d.decan)), i.sign(d.sign), i.cap1(i.planet(d.ruler)))], aliases: {} });
+    }
+    const trumpFile = ['00_Fool', '01_Magician', '02_High_Priestess', '03_Empress', '04_Emperor', '05_Hierophant', '06_Lovers', '07_Chariot', '08_Strength', '09_Hermit', '10_Wheel_of_Fortune', '11_Justice', '12_Hanged_Man', '13_Death', '14_Temperance', '15_Devil', '16_Tower', '17_Star', '18_Moon', '19_Sun', '20_Judgement', '21_World'];
+    const signTrump = [4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 17, 18];       // Aries the Emperor … Pisces the Moon
+    const planetTrump = { saturn: 21, jupiter: 10, mars: 16, sun: 19, venus: 3, mercury: 1, moon: 2 };
+    const elemTrump = { air: [0, 'fool'], water: [12, 'hanged'], fire: [20, 'judgement'] };
+    const push = (n, name, of) => out.push({ key: `trump_${n}`, group: 'tarot', img: `img/tarot/RWS_Tarot_${trumpFile[n]}.jpg`, [lang]: [name, `${T('trumpOf')} ${of}, ${T('inGD')}.`], aliases: {} });
+    for (let s = 0; s < 12; s++) push(signTrump[s], i.trumpSign(s), i.sign(s));
+    for (const [p, n] of Object.entries(planetTrump)) push(n, p === 'saturn' ? T('universe') : i.trumpPlanet(p), i.cap1(i.planet(p)));
+    for (const [el, [n, k]] of Object.entries(elemTrump)) push(n, T(k), T('elem.' + el));
+    return out.sort((a, b) => (a.key < b.key ? -1 : 1));
+  }
+  /* the card entries must exist before the first readout is linked, and again when the language changes */
+  function glossaryTerms() { try { const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en'; if (!SD.glossary.dynamic(lang).length) SD.glossary.setDynamic(lang, tarotEntries(lang)); } catch (e) { /* the glossary is a nicety */ } }
+  /* hold the Natal tab (or right-click it): a menu of the saved charts; choosing one loads it on the clock */
+  let pickHeld = 0;                                          // when the chart menu was last shown by a long press
+  let openPick = null;                                       // opens the chart menu under a tab: set by bindChartPick
+  function bindChartPick() {
+    const menu = $('chart-pick'); if (!menu) return;
+    const btnA = document.querySelector('[data-mode="natal"]'), btnB = document.querySelector('[data-mode="pair"]');
+    let timer = null, which = 'first', btn = btnA;
+    const show = () => {
+      pickHeld = performance.now();
+      const i = SD.i18n, onId = which === 'first' ? (S.natal && S.natal.id) : S.pair;
+      const list = which === 'second' && S.natal ? S.charts.filter(c => c.id !== S.natal.id) : S.charts;
+      menu.innerHTML = (list.length ? list.map(c => `<button type="button" data-id="${esc(c.id)}"${onId === c.id ? ' class="on"' : ''}>${esc(c.name || '—')}</button>`).join('') : `<div class="empty">${i.cap1(i.t(which === 'second' ? 'ui.noOther' : 'ui.noCharts'))}</div>`)   // the second place with nothing to offer: the list may hold the first chart, so it is not "no saved charts"
+        + `<button type="button" class="new" data-new="1">+ ${esc(i.cap1(i.t('ui.newChart')))} ${esc(i.t('ui.chartWord'))}</button>`;   // and a way to add one, for either place
+      const r = btn.getBoundingClientRect();
+      menu.hidden = false;
+      const w = menu.offsetWidth, left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left));
+      const mh = menu.offsetHeight, top = r.bottom + 6 + mh <= window.innerHeight - 8 ? r.bottom + 6 : Math.max(8, r.top - 6 - mh);
+      menu.style.left = `${left}px`; menu.style.top = `${top}px`;
+      try { navigator.vibrate && navigator.vibrate(12); } catch (e) { /* no haptics */ }
+    };
+    const disarm = () => { clearTimeout(timer); timer = null; };
+    openPick = (w, b) => { which = w; btn = b; show(); pickHeld = 0; const f = menu.querySelector('button:not(.on)') || menu.querySelector('button'); if (f) f.focus({ preventScroll: true }); };
+    for (const [b, w] of [[btnA, 'first'], [btnB, 'second']]) {
+      if (!b) continue;
+      const arm = e => { if (e.button && e.button !== 0) return; which = w; btn = b; clearTimeout(timer); timer = setTimeout(() => { show(); try { window.getSelection && window.getSelection().removeAllRanges(); } catch (x) { /* none */ } }, 480); };
+      b.addEventListener('pointerdown', arm); b.addEventListener('pointerup', disarm); b.addEventListener('pointerleave', disarm); b.addEventListener('pointercancel', disarm);
+      b.addEventListener('contextmenu', e => { e.preventDefault(); disarm(); which = w; btn = b; show(); });
+    }
+    menu.addEventListener('click', e => {
+      if (e.target.closest('button[data-new]')) { menu.hidden = true; openBirth(true, which === 'second', null, which === 'second' ? btnB : btnA); return; }   // a blank form; the loaded chart stays until the new one is saved. leaving it goes back to the tab
+      const b = e.target.closest('button[data-id]'); if (!b) return;
+      const chart = S.charts.find(c => c.id === b.dataset.id); menu.hidden = true; if (!chart) return;
+      if (which === 'second') { S.pair = chart.id; store.set('pair', S.pair); S.mode = 'pair'; }
+      else { S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null; if (!natalModes.includes(S.mode)) S.mode = 'natal'; }
+      store.set('mode', S.mode); recompute(); updateControls(); requestAnimationFrame(slideSeg);
+    });
+    document.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('#chart-pick, [data-mode="natal"], [data-mode="pair"]')) menu.hidden = true; });
+    window.addEventListener('keydown', e => { if (e.key === 'Escape') menu.hidden = true; });
+  }
+  function openGlossary(key) {
+    buildGlossary();
+    $('glossary').hidden = false; $('about').hidden = true;
+    const t = key && document.getElementById('g-' + key);
+    document.querySelectorAll('#glossary-body .lit').forEach(x => x.classList.remove('lit'));
+    if (t) { t.scrollIntoView({ block: 'start', behavior: 'instant' }); t.classList.add('lit'); }   // the entry at once, no slide; it stays lit until the next word is followed
+    else $('glossary').scrollTop = 0;
+  }
+  const linkTerms = root => { try { glossaryTerms(); SD.glossary.link(root, SD.i18n.locale().startsWith('es') ? 'es' : 'en', { marks: false }); } catch (e) { /* the glossary is a nicety */ } };
+  function natalSummary() {
+    const i = SD.i18n;
+    if (!S.natal) return i.cap1(i.t('ui.noneSet'));
+    const p = placeParts(new Date(S.natal.date), S.natal.place.tz);
+    return `${S.natal.name ? S.natal.name + ' · ' : ''}${fmtDate({ y: +p.year, m: +p.month, d: +p.day })} ${S.natal.unknownTime ? '' : p.hour + ':' + p.minute + ' '}· ${i.placeName(S.natal.place.name)}`;
+  }
+  function refreshMenu() {
+    const i = SD.i18n;
+    $('set-lang').value = S.lang; $('set-houses').value = S.houses; $('set-field').value = !S.engrave ? 'glow' : S.field === 'guilloche' ? 'guilloche' : 'engraved'; $('set-bodies').value = S.luminous ? 'lights' : 'metal';
+    $('set-relocate').value = S.relocate ? '1' : '0';
+    $('natal-summary').innerHTML = `${esc(natalSummary())}${S.natal ? ` <button class="copy-btn" aria-label="${esc(i.t('ui.copyReport'))}" title="${esc(i.t('ui.copyReport'))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" class="ico-copy"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="ico-done"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : ''}`;
+    $('natal-saveas').disabled = !S.natal; $('natal-report').disabled = !S.natal; $('natal-copy').disabled = !S.natal;
+    const ul = $('charts');
+    const nm = c => c.name || '—';                          // an imported chart may have no name
+    ul.innerHTML = S.charts.length ? S.charts.map(c => `<li data-id="${esc(c.id)}"${S.natal && S.natal.id === c.id ? ' class="on"' : ''}><input type="radio" name="chart-use" class="use" data-act="load" aria-label="${esc(i.cap1(i.t('ui.useChart')) + ': ' + nm(c))}" title="${i.t('ui.useChart')}"${S.natal && S.natal.id === c.id ? ' checked' : ''}><span class="name" data-act="load" role="button" tabindex="0" title="${i.t('ui.useChart')}">${esc(nm(c))}</span><span class="ops"><button data-act="edit" aria-label="${esc(i.cap1(i.t('ui.edit')) + ' ' + nm(c))}">${i.cap1(i.t('ui.edit'))}</button><button data-act="dup" aria-label="${esc(i.cap1(i.t('ui.dup')) + ' ' + nm(c))}">${i.cap1(i.t('ui.dup'))}</button><button data-act="delete" aria-label="${esc(i.cap1(i.t('ui.del')) + ' ' + nm(c))}">${i.cap1(i.t('ui.del'))}</button></span></li>`).join('')
+      : `<li class="empty">${i.cap1(i.t('ui.noCharts'))}</li>`;
+  }
+  const esc = t => String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  function openMenu(open) {
+    $('menu').hidden = !open; $('menu-open').classList.toggle('on', open);
+    if (!open) { $('chart-new').hidden = true; $('natal-saveas').setAttribute('aria-expanded', 'false'); }   // the Save-as row goes with the menu: its name was offered for the chart then loaded
+    if (open) refreshMenu();
+  }
+  const chartFace = c => c ? JSON.stringify([c.name || '', c.date, !!c.unknownTime, c.place && c.place.name, c.place && +c.place.lat, c.place && +c.place.lon, c.place && c.place.tz]) : '';
+  const sameChart = (a, b) => chartFace(a) === chartFace(b);
+  /* the loaded chart and its copy in the list are one chart. when they differ (another tab edited the list and closed; a
+     file's chart kept as on this device; a write the browser refused), the later edit wins and both are made alike: the
+     dial and the form never show two versions. with no date to tell, the list's copy */
+  function reconcileNatal() {
+    const j = S.natal && S.natal.id ? S.charts.findIndex(c => c.id === S.natal.id) : -1;
+    if (j < 0 || sameChart(S.charts[j], S.natal)) return;
+    if ((S.natal.edited || 0) > (S.charts[j].edited || 0)) { S.charts[j] = { ...S.natal }; saveCharts(); }
+    else { S.natal = { ...S.charts[j] }; store.set('natal', S.natal); }
+    natalCache.key = null;
+  }
+  function upsertChart(chart) {
+    const k = S.charts.findIndex(c => c.id === chart.id);
+    if (k >= 0) S.charts[k] = chart; else S.charts.push(chart);
+    saveCharts();
+  }
+  function saveChartAs(name) {
+    name = cleanText(name, 80);
+    if (!S.natal || !name) return;
+    const chart = { ...S.natal, id: uid(), name, edited: Date.now() };
+    upsertChart(chart); S.natal = chart; store.set('natal', S.natal); refreshMenu();
+  }
+  function bindMenu() {
+    $('menu-open').addEventListener('click', () => openMenu($('menu').hidden));
+    $('menu-close').addEventListener('click', () => openMenu(false));
+    document.addEventListener('pointerdown', e => { if (!$('menu').hidden && !e.target.closest('#menu, #menu-open')) openMenu(false); });
+    $('set-lang').addEventListener('change', e => setLang(e.target.value));
+    $('set-houses').addEventListener('change', e => { S.houses = e.target.value; store.set('houses', S.houses); natalCache.key = null; scan.key = null; recompute(); });
+    $('set-field').addEventListener('change', e => { S.engrave = e.target.value !== 'glow'; S.field = e.target.value === 'guilloche' ? 'guilloche' : 'waves'; store.set('field', e.target.value); S.dirty = true; });
+    $('set-bodies').addEventListener('change', e => { S.luminous = e.target.value === 'lights'; store.set('bodies', e.target.value); S.dirty = true; });
+    $('set-relocate').addEventListener('change', e => { S.relocate = e.target.value === '1'; store.set('relocate', S.relocate); natalCache.key = null; recompute(); });
+    $('natal-edit').addEventListener('click', () => { openMenu(false); openBirth(); });
+    $('natal-new').addEventListener('click', () => { openMenu(false); openBirth(true); });   // a blank form; the loaded chart stays until the new one is saved
+    $('natal-report').addEventListener('click', chartReport);
+    $('natal-copy').addEventListener('click', copyReport);
+    const showKey = e => { e.preventDefault(); openMenu(true); const sec = $('read-title'); if (sec) sec.scrollIntoView({ block: 'start' }); };
+    $('what-link').addEventListener('click', showKey);
+    $('caption').addEventListener('click', e => { if (e.target.closest('a.what')) showKey(e); });
+    $('charts-export').addEventListener('click', exportCharts);
+    $('charts-import').addEventListener('click', () => $('charts-file').click());
+    $('charts-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) importCharts(f); e.target.value = ''; });
+    const saveAsRow = open => { $('chart-new').hidden = !open; $('natal-saveas').setAttribute('aria-expanded', String(open)); if (!open) $('natal-saveas').focus({ preventScroll: true }); };
+    $('natal-saveas').addEventListener('click', () => { const open = $('chart-new').hidden; saveAsRow(open); if (open) { const nm = S.natal && S.natal.name; $('chart-name').value = nm ? SD.i18n.t('ui.copyOf')(nm) : ''; $('chart-name').focus(); $('chart-name').select(); } });   // a new name offered: saving under the same one would make two charts alike
+    const commitNew = () => { const name = $('chart-name').value.trim(); if (!name) return; saveChartAs(name); saveAsRow(false); };
+    $('chart-ok').addEventListener('click', commitNew);
+    $('chart-name').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitNew(); } if (e.key === 'Escape') { e.stopPropagation(); saveAsRow(false); } });   // Enter's own press would land on Save as, which has the focus by then, and open the row again
+    $('charts').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('span[data-act]')) { e.preventDefault(); e.target.click(); } });
+    $('charts').addEventListener('click', e => {
+      const b = e.target.closest('[data-act]'); if (!b || (e.target.tagName === 'INPUT' && !e.target.classList.contains('use'))) return;
+      const li = b.closest('li'), id = li.dataset.id, chart = S.charts.find(c => c.id === id); if (!chart) return;
+      if (b.dataset.act === 'load') { S.natal = { ...chart }; store.set('natal', S.natal); natalCache.key = null; if (!natalModes.includes(S.mode)) S.mode = 'natal'; store.set('mode', S.mode); recompute(); refreshMenu(); openMenu(false); }
+      else if (b.dataset.act === 'edit') { openMenu(false); openBirth(chart); }   // the whole chart, in the form
+      else if (b.dataset.act === 'dup') {               // a copy to edit without touching the original
+        const copy = { ...chart, place: chart.place && { ...chart.place }, id: uid(), name: cleanText(SD.i18n.t('ui.copyOf')([...(chart.name || '—')].slice(0, 80 - [...SD.i18n.t('ui.copyOf')('')].length).join('')), 80), edited: Date.now() };
+        S.charts.splice(S.charts.indexOf(chart) + 1, 0, copy); saveCharts(); refreshMenu();
+      } else if (b.dataset.act === 'delete') {
+        if (b.dataset.armed) {                             // deleted is deleted: from the list, from the dial if it was the chart on show, from the pair if it was its second
+          S.charts = S.charts.filter(c => c.id !== id); saveCharts();
+          if (S.pair === id) { S.pair = null; store.set('pair', null); }
+          if (S.natal && S.natal.id === id) { S.natal = null; store.set('natal', null); natalCache.key = null; if (natalModes.includes(S.mode)) { S.mode = 'clock'; store.set('mode', S.mode); } }
+          recompute(); refreshMenu();
+        }
+        else { const I = SD.i18n, nm = chart.name || '—'; b.dataset.armed = '1'; b.textContent = I.cap1(I.t('ui.confirm')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.confirm'))} ${nm}`); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = I.cap1(I.t('ui.del')); b.setAttribute('aria-label', `${I.cap1(I.t('ui.del'))} ${nm}`); } }, 3000); }
+      }
+    });
+  }
+
+  function bind() {
+    document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => { S.offsetMs += Number(b.dataset.step) * 3600e3; recompute(); }));
+    $('live').addEventListener('click', () => { S.offsetMs = 0; S.fixed = null; S.playing = false; recompute(); });
+    $('now-float').addEventListener('click', () => $('live').click());
+    $('chart-toggle').addEventListener('click', () => { if (!S.natal) return; S.mode = S.mode === 'natalchart' ? 'natal' : 'natalchart'; store.set('mode', S.mode); updateControls(); S.quick = true; recompute(); });   // in Natal: the birth as the dial, or as a printed chart
+    $('play').addEventListener('click', () => {
+      S.playing = !S.playing;
+      if (!S.playing) recompute(); else updateControls();  // on pause, the full reading of the moment where it stopped
+    });
+    const SPEEDS = [0.25, 1, 4, 24];
+    $('speed').addEventListener('click', () => { S.speed = SPEEDS[(SPEEDS.indexOf(S.speed) + 1) % SPEEDS.length]; updateControls(); });
+    const fill = fillCity = () => { const pn = SD.i18n.placeName; $('city').innerHTML = ZONES.map(z => `<option value="${z.name}">${offsetOf(z.tz)} · ${pn(z.name)}</option>`).join('') + (PLACES[S.place.name] ? '' : `<option value="" selected>${esc(pn(S.place.name))}</option>`); };
+    fill();
+    $('city').addEventListener('change', e => { if (!PLACES[e.target.value]) return; if (S.place.name === 'here') store.del('talismans'); locSeq++; S.place = PLACES[e.target.value]; store.set('place', S.place); recompute(); });   // a city instead of the position: the position leaves the device's storage, and one still being read is not taken
+    const commit = e => {
+      if (e.target.value.trim() === placeStamp(S.state.date)) { e.target.classList.remove('bad'); return; }   // untouched: the moment stays as it is (an autumn hour that comes twice is not moved to its second pass)
+      const txt = normStamp(e.target.value), v = fromPlaceStamp(txt);
+      if (v) { e.target.value = placeStamp(v); S.playing = false; S.fixed = v; S.offsetMs = 0; recompute(); e.target.classList.remove('bad'); }   // the stamp as the place reads it: a skipped spring time shows an hour later
+      else e.target.classList.add('bad');
+    };
+    liveFormat($('when'), 'stamp'); $('when').addEventListener('input', e => e.target.classList.remove('bad'));   // red only until the next keystroke
+    liveFormat($('birth-date'), 'date'); liveFormat($('birth-time'), 'time');   // the separators form as the digits come (from 1 to 13 Nov 2026 these two calls sat inside the comment above)
+    $('birth-date').addEventListener('input', () => { if ($('birth-date').classList.contains('bad')) dateError(false); readBirthDate(); });   // and the date in words as soon as it reads as one
+    $('birth-unknown').addEventListener('change', syncUnknown);
+    $('birth-date').addEventListener('change', showBirthDate);   // leaving the field: the date read and shown back in the language's order, or marked
+    $('birth-date').addEventListener('keydown', e => { if (e.key === 'Enter') showBirthDate(); });
+    { let prev = '24';                                      // the chooser after the time: 4:30 then pm is 4:30 pm (16:30); 12:30 then am is 00:30
+      $('birth-ampm').addEventListener('focus', () => { prev = $('birth-ampm').value; });
+      $('birth-ampm').addEventListener('change', () => {
+        const el = $('birth-time'), sel = $('birth-ampm'), mode = sel.value, t24 = normTime(el.value.replace(/[ap]\.?\s*m?\.?\s*$/i, ''), prev);
+        if (t24) { const [h, m] = t24.split(':').map(Number);
+          if (mode === '24') el.value = t24;                // back to 24 h: 4:30 pm becomes 16:30
+          else if (prev === '24') { el.value = `${h % 12 || 12}:${pad2(m)}`; if (h === 0 || h > 12) sel.value = h >= 12 ? 'pm' : 'am'; }   // the hand's choice stands for an hour from 1 to 12; 16:30 can only be pm and 00:30 only am, so there the chooser follows the figures
+        }                                                   // am ⇄ pm: the figures stay, the half of the day changes
+        delete el.dataset.apWas; prev = sel.value; }); }   // chosen by the hand: it stays
+    $('when').addEventListener('change', commit);
+    $('when-go').addEventListener('click', () => commit({ target: $('when') }));
+    $('when').addEventListener('keydown', e => { if (e.key === 'Enter') { commit(e); e.target.blur(); } });
+    $('here').addEventListener('click', () => locate(true));
+    bindChartPick(); setupInstall();
+    document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+      if (pickHeld && performance.now() - pickHeld < 900) { pickHeld = 0; return; }   // only the click that ends a hold is swallowed; a later tap always goes through
+      let m = b.dataset.mode;
+      if ((m === 'natal' || m === 'synastry' || m === 'pair') && !S.natal) { openBirth(true, false, m); return; }   // no chart yet: a new one, then the view that was asked for
+      // a second tap on the lit Natal or Synastry tab opens its list of charts (holding it still works)
+      if ((m === 'natal' && (S.mode === 'natal' || S.mode === 'natalchart')) || (m === 'pair' && S.mode === 'pair')) { openPick && openPick(m === 'pair' ? 'second' : 'first', b); return; }
+      S.mode = m; store.set('mode', S.mode);                // one tab, one view: whatever was lit goes dark
+      document.querySelectorAll('[data-mode]').forEach(x => x.classList.toggle('on', x.dataset.mode === m));   // the tab answers at once
+      if (m === 'pair' && openPick && !S.charts.some(c => c.id !== S.natal.id)) openPick('second', b);   // Synastry with no other chart to pair: its menu at once, which says so and offers a new one
+      requestAnimationFrame(() => setTimeout(() => { S.quick = true; recompute(); }, 0));   // the work after the paint; the first frame quick, the full plate on the next
+    }));
+    if ($('birth-open')) $('birth-open').addEventListener('click', openBirth);   // the button is gone from the place row; the form opens from the Natal tab and the menu
+    $('birth-close').addEventListener('click', closeBirth);
+    $('birth').addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); closeBirth(); } else if (e.key === 'Escape') e.stopPropagation(); });   // Escape leaves the form (after closing the towns' list, if it is open)
+    $('birth-save').addEventListener('click', saveBirth);
+    window.addEventListener('storage', e => {                // another tab saved, edited or deleted a chart: this one follows, and never writes back an old list
+      if (e.key !== 'cw.charts') return;
+      const before = S.pair && S.charts.find(c => c.id === S.pair);
+      S.charts = soundCharts(store.get('charts', []));
+      const mine = S.natal && S.natal.id && S.charts.find(c => c.id === S.natal.id), pairNow = S.pair && S.charts.find(c => c.id === S.pair);
+      let moved = !sameChart(before, pairNow);               // the pair's second chart is read from the list: a change there redraws
+      if (mine && !sameChart(mine, S.natal)) { S.natal = { ...mine }; natalCache.key = null; moved = true; }   // the loaded chart edited there: shown as edited here (cw.natal is that tab's to write)
+      if (!$('menu').hidden) refreshMenu();
+      if (moved) recompute();
+    });
+    bindPlaceSearch();
+    $('birth-clear').addEventListener('click', () => { S.natal = null; store.set('natal', null); if (natalModes.includes(S.mode)) { S.mode = 'clock'; store.set('mode', S.mode); } closeBirth(); recompute(); });
+    $('wallpaper').addEventListener('click', e => busy(e.currentTarget, exportWallpaper));
+    $('update').addEventListener('click', updateApp);
+    for (const cv of [canvas, plate]) if (cv && cv.addEventListener) cv.addEventListener('contextrestored', () => { SD.render.resetCaches(); S.dirty = true; });   // a canvas the browser dropped is drawn again
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { SD.render.resetCaches(); S.dirty = true; } });   // back from the background: fresh plates
+    $('share').addEventListener('click', shareArt);
+    $('copy-ai').addEventListener('click', e => copyWithTick(e.currentTarget));   // the chart as text for an AI, beside the image to share
+    $('caption').addEventListener('click', e => { if (e.target.closest('.share-btn')) shareArt(); const cb = e.target.closest('.copy-btn'); if (cb) copyWithTick(cb); });
+    $('copy-link').addEventListener('click', e => copyWithTick(e.currentTarget));
+    $('natal-summary').addEventListener('click', e => { const cb = e.target.closest('.copy-btn'); if (cb) copyWithTick(cb); });
+    $('readout').addEventListener('change', e => {           // the relationship type of the pair on show
+      if (e.target.id !== 'pair-type' || !S.state.pair) return;
+      const [a, b] = S.state.pair.ids; store.set(pairKey(a, b), e.target.value); recompute(); });
+    $('save').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(2048)));
+    $('sigil').addEventListener('click', () => { S.sigil = !S.sigil; S.dirty = true; updateControls(); });
+    $('hint1-add').addEventListener('click', e => openBirth(true, false, null, e.currentTarget));   // the menu's "new", one tap from the first screen
+    $('hint1-close').addEventListener('click', () => { if (!store.set('hint1', true)) S.hintOff = true; updateControls(); const b = document.querySelector('.seg button.on'); if (b) b.focus({ preventScroll: true }); });   // a browser that keeps nothing still puts it away for this visit
+    $('readout').addEventListener('click', e => { const a = e.target.closest('[data-tal]'); if (!a) return; e.preventDefault(); openMoment(new Date(a.dataset.tal)); });
+    $('readout').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (!g) return; e.preventDefault();   // the links out of the reading: to the Clock, or to choose the second chart
+      if (g.dataset.go === 'clock') { const b = document.querySelector('.seg [data-mode="clock"]') || document.querySelector('[data-mode="clock"]'); if (b) { b.click(); window.scrollTo({ top: 0, behavior: 'instant' }); b.focus({ preventScroll: true }); } }
+      else if (g.dataset.go === 'pick-second' && openPick) openPick('second', g); });
+    // the pop-up (DESIGN.md, "The readout system"): one at a time, titled with the words that opened it; anchored under its
+    // trigger, or above it near the foot of the screen; on a phone a text over sixty words rises as a sheet. It holds a method
+    // note ("note:stone"), a tikkun word ("karma") or a glossary entry ("g:void"). The trigger again, ×, a tap outside,
+    // Escape or a change of width closes it; a sheet gives the focus back to its trigger
+    let defOpen = null;
+    const closeDef = back => { if (!defOpen) return; const d = defOpen; defOpen = null; cancelAnimationFrame(d.raf); d.box.remove(); if (d.scrim) d.scrim.remove(); d.btn.setAttribute('aria-expanded', 'false'); if (back && d.btn.isConnected) d.btn.focus({ preventScroll: true }); };
+    const popContent = (key, btn) => {
+      const lang = SD.i18n.locale().startsWith('es') ? 'es' : 'en';
+      if (key.startsWith('g:')) { const k = key.slice(2), g = SD.glossary.byKey(k) || SD.glossary.dynamic(lang).find(x => x.key === k); return g ? { title: g[lang][0].replace(/\s*\(.*\)$/, ''), text: g[lang][1], gloss: k } : null; }
+      const title = btn.textContent.trim();
+      if (key.startsWith('note:')) return { title, text: noteText(key.slice(5)) };
+      return { title, text: (SD.tikkun.text().defs || {})[key] };
+    };
+    const openDef = (btn, key, kb) => {
+      key = key || btn.dataset.def;
+      const same = defOpen && defOpen.key === key && defOpen.btn === btn; closeDef(); if (same) return;
+      const c = popContent(key, btn); if (!c || !c.text) return;
+      const i = SD.i18n, txt = String(c.text), sheet = PHONE.matches && txt.split(/\s+/).length > 60;
+      const box = document.createElement('div'); box.className = 'popdef' + (sheet ? ' sheet' : ''); box.id = 'popdef'; box.tabIndex = -1;
+      box.setAttribute('role', sheet ? 'dialog' : 'note'); box.setAttribute('aria-labelledby', 'popdef-t'); if (sheet) box.setAttribute('aria-modal', 'true');
+      const t = document.createElement('span'); t.className = 'pt'; t.id = 'popdef-t'; t.textContent = i.cap1(c.title); box.appendChild(t);
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'pclose'; x.setAttribute('aria-label', i.cap1(i.t('ui.close'))); x.textContent = '×'; box.appendChild(x);
+      for (const para of txt.split(/\n\n+/)) { const p = document.createElement('p'); if (para.startsWith('§ ')) { p.className = 'ps'; p.textContent = para.slice(2); } else p.textContent = i.cap1(para); box.appendChild(p); }
+      if (c.gloss) { const f = document.createElement('p'), b = document.createElement('button'); f.className = 'pfoot'; b.type = 'button'; b.dataset.gloss = c.gloss; b.textContent = i.t('ui.inGlossary'); f.appendChild(b); box.appendChild(f); }
+      let scrim = null;
+      if (sheet) { scrim = document.createElement('div'); scrim.className = 'pop-scrim'; document.body.appendChild(scrim); }
+      document.body.appendChild(box);
+      btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', 'popdef');
+      const host = btn.closest('#readout > [data-sec], #caption'), sel = key.startsWith('g:') ? `a.g[data-g="${key.slice(2)}"]` : `[data-def="${key}"]`;
+      defOpen = { btn, box, scrim, key, w: window.innerWidth, sel, host: host ? (host.id === 'caption' ? '#caption' : `#readout > [data-sec="${host.dataset.sec}"]`) : null, nth: host ? [...host.querySelectorAll(sel)].indexOf(btn) : 0 };
+      if (!sheet) follow();
+      if (sheet || kb) box.focus({ preventScroll: true });
+      box.addEventListener('keydown', e => { if (e.key !== 'Tab') return; const f = [box, ...box.querySelectorAll('button')], i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus(); });
+    };
+    const place = () => {                                   // under the trigger, or above it near the foot; never taller than the room it has
+      const d = defOpen; if (!d || d.scrim) return;
+      const r = d.btn.getBoundingClientRect(); if (d.r && d.r.top === r.top && d.r.left === r.left && d.sy === window.scrollY) return;
+      d.r = r; d.sy = window.scrollY; d.box.style.maxHeight = '';
+      const vw = document.documentElement.clientWidth, vh = window.innerHeight, w = d.box.offsetWidth, h = d.box.offsetHeight;
+      const below = vh - 8 - (r.bottom + 8), above = r.top - 16, down = h <= below || below >= above, room = Math.max(120, down ? below : above), hh = Math.min(h, room);
+      if (h > room) d.box.style.maxHeight = room + 'px';
+      d.box.style.left = (Math.max(16, Math.min(vw - 16 - w, r.left)) + window.scrollX) + 'px'; d.box.style.top = ((down ? r.bottom + 8 : r.top - 8 - hh) + window.scrollY) + 'px';
+    };
+    const follow = () => { if (!defOpen || defOpen.scrim) return; place(); defOpen.raf = requestAnimationFrame(follow); };   // the column scrolls, the page above it grows: the pop-up stays with its word
+    const repoint = () => {                                 // after a repaint: the same word or pill in the same section, else close
+      const d = defOpen; if (!d || d.btn.isConnected) return;
+      const h = d.host && document.querySelector(d.host), list = h ? [...h.querySelectorAll(d.sel)] : [], nb = list[d.nth] || list[0];
+      if (!nb) { closeDef(); return; }
+      d.btn = nb; nb.setAttribute('aria-expanded', 'true'); nb.setAttribute('aria-controls', 'popdef');
+    };
+    SD.app_pop = { openDef, closeDef, repoint, open: () => defOpen };          // the readout's re-render re-points or closes an open pop-up
+    document.addEventListener('click', e => {
+      if (e.target.closest('.popdef .pclose')) { closeDef(true); return; }
+      const gb = e.target.closest('.popdef [data-gloss]'); if (gb) { const k = gb.dataset.gloss, back = defOpen && defOpen.btn; closeDef(); openGlossary(k); $('glossary').back = back; $('glossary-close').focus({ preventScroll: true }); return; }
+      const b = e.target.closest('[data-def]'); if (b) { e.preventDefault(); openDef(b, null, e.detail === 0); return; }
+      if (defOpen && !e.target.closest('.popdef') && !defOpen.btn.contains(e.target)) closeDef(!!defOpen.scrim);
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDef(true); });
+    window.addEventListener('resize', () => { if (defOpen && defOpen.w !== window.innerWidth) closeDef(); });   // a phone's toolbar changes the height while scrolling: only a new width closes it
+    $('readout').addEventListener('click', e => { if (e.target.closest('[data-act="listen"]')) listen(!audio.on); });
+    $('readout').addEventListener('click', e => { if (!e.target.closest('[data-act="algol"]')) return; S.algol = !S.algol; store.set('algol', S.algol); S.dirty = true; updateReadout(); });   // the Demon Star on the art, kept between visits
+    // on a touch screen a swipe that starts on the slider is the page being scrolled: the slider takes the time only once
+    // the finger has moved mostly sideways, or on a plain tap. a scroll that takes the gesture over gives the time back
+    let pv = null;
+    const pvTake = v => { S.playing = false; S.offsetMs = Number(v) * 60000; recompute(); };
+    $('preview').addEventListener('pointerdown', e => { pv = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY, off: S.offsetMs, side: false } : null; });
+    $('preview').addEventListener('pointermove', e => { if (pv && !pv.side) { const dx = Math.abs(e.clientX - pv.x), dy = Math.abs(e.clientY - pv.y); if (dx > 8 && dx > dy) { pv.side = true; pvTake(e.target.value); } } });
+    $('preview').addEventListener('pointerup', e => { if (pv && !pv.side) pvTake(e.target.value); pv = null; });
+    $('preview').addEventListener('pointercancel', () => { if (pv) { S.offsetMs = pv.off; recompute(); } pv = null; });
+    $('preview').addEventListener('input', e => { if (pv && !pv.side) return; pvTake(e.target.value); });
+    $('save-hd').addEventListener('click', e => busy(e.currentTarget, () => exportPNG(4096)));
+    $('listen-corner').addEventListener('click', () => listen(!audio.on));
+    $('about-open').addEventListener('click', () => { $('about').hidden = !$('about').hidden; $('about-open').classList.toggle('on', !$('about').hidden); if (!$('about').hidden) openMenu(false); });
+    $('about-close').addEventListener('click', () => { $('about').hidden = true; $('about-open').classList.remove('on'); });
+    $('glossary-open').addEventListener('click', () => { openGlossary(); openMenu(false); });
+    $('glossary-close').addEventListener('click', () => { $('glossary').hidden = true; const b = $('glossary').back; $('glossary').back = null; if (b && b.isConnected) b.focus({ preventScroll: true }); });
+    document.addEventListener('click', e => { const a = e.target.closest('a.g, [data-g]'); if (!a) return; e.preventDefault(); if (/^(card_|trump_)/.test(a.dataset.g || '')) openCard(a.dataset.g); else if (a.closest('#readout, #caption') && SD.app_pop) SD.app_pop.openDef(a, 'g:' + a.dataset.g, e.detail === 0); else openGlossary(a.dataset.g); });   // a tarot card opens as a lightbox, at once
+    const fullScreen = () => {                              // the f key: the bare dial, full screen where the browser allows it
+      document.body.classList.toggle('bare');
+      if (document.body.classList.contains('bare') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      else if (document.fullscreenElement) document.exitFullscreen();
+    };
+    window.addEventListener('keydown', e => {
+      if (S.wall) return;                                   // a wallpaper has no keys
+      if (!$('birth').hidden) { if (e.key === 'Escape' && !e.defaultPrevented) closeBirth(); return; }   // the birth form is open: its keys are its own. Escape inside it is handled there; with the focus fallen to the page, here
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === ' ' && e.target.closest && e.target.closest('button, a[href], summary, [role="button"], .popdef, .card-view')) return;   // Space activates the focused control
+      if (e.key === 'f') fullScreen();
+      if (e.key === 's') $('sigil').click();
+      if (e.key === 'l') $('listen-corner').click();
+      if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+      if (e.key === 'ArrowRight') { S.offsetMs += (e.shiftKey ? 24 : 1) * 3600e3; recompute(); }
+      if (e.key === 'ArrowLeft') { S.offsetMs -= (e.shiftKey ? 24 : 1) * 3600e3; recompute(); }
+      if (e.key === 'Escape') { document.body.classList.remove('bare'); $('about').hidden = true; $('about-open').classList.remove('on'); if (!$('birth').hidden) closeBirth(); $('glossary').hidden = true; openMenu(false); }
+    });
+    window.addEventListener('resize', () => { size(); slideSeg(); });
+    $('readout').addEventListener('transitionend', e => { if (e.propertyName === 'width') size(); });   // the stage is only final once the panel has opened
+    if (params.get('hd') !== '1') $('save-hd').hidden = true;
+  }
+
+  /* ---------- the nativity: birth data, kept on this device only ---------- */
+  /* the form: blank for a new chart (true), filled to edit a saved chart (the chart itself), or filled with the loaded
+     chart as it stands (nothing). a chart that is in the saved list is edited in place: the same chart, wherever it is
+     used. forPair: a new second chart for the pair. then: the view to show once a new chart is saved. the form is a
+     dialog: the page behind it is inert, focus goes to its heading, and on leaving it goes back where it came from */
+  const birthState = { opener: null, orig: null, then: null, rowId: null };
+  function openBirth(target, forPair = false, then = null, opener = null) {
+    const blank = target === true, t = blank ? null : (target || S.natal || null), listed = t && t.id && S.charts.find(c => c.id === t.id);
+    const n = listed || t;                                    // a saved chart is filled from the list, which another tab may have changed
+    S.birthNew = !n; S.birthForPair = !!forPair;
+    S.birthEdit = listed ? n.id : null;
+    birthState.then = then; birthState.rowId = target && target !== true ? target.id : null;
+    birthState.opener = opener || (document.activeElement && document.activeElement !== document.body ? document.activeElement : null);
+    if (n) {
+      const p = placeParts(new Date(n.date), n.place.tz);
+      $('birth-name').value = n.name || '';
+      $('birth-date').value = fmtDate({ y: +p.year, m: +p.month, d: +p.day }); $('birth-time').value = n.unknownTime ? '' : `${p.hour}:${p.minute}`; $('birth-ampm').value = '24';
+      $('birth-unknown').checked = !!n.unknownTime;
+      choosePlace(n.place);
+      birthState.orig = { stamp: `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`, unknown: !!n.unknownTime, tz: n.place.tz, date: n.date, name: n.name || '', place: JSON.stringify([n.place.name, +n.place.lat, +n.place.lon, n.place.tz]) };   // what the form opened with: what the hand left alone is not written back
+    } else { $('birth-name').value = ''; $('birth-date').value = ''; $('birth-time').value = ''; $('birth-ampm').value = '24'; $('birth-unknown').checked = false; choosePlace(null); birthState.orig = null; }
+    syncUnknown(); readBirthDate();
+    const h = $('birth-title'), key = n ? 'ui.editNativity' : 'ui.newNativity';
+    h.dataset.i18n = key; h.textContent = SD.i18n.cap1(SD.i18n.t(key));
+    $('birth-clear').hidden = !(n && n === S.natal && !S.birthEdit);   // Clear forgets the loaded chart that is in no list; a saved chart is deleted from the list, a blank form has nothing to clear
+    delete $('birth-date').dataset.free; delete $('birth-time').dataset.free; delete $('birth-time').dataset.apWas;
+    dateError(false);
+    $('birth-note').textContent = ''; delete $('birth-note').dataset.i18n;
+    $('birth').hidden = false; $('birth').scrollTop = 0;     // always from the top: the heading, the name, the date
+    setInert(true);
+    h.focus({ preventScroll: true });
+    loadPlaces().catch(() => {});                           // the list, fetched once, cached with the app
+  }
+  function setInert(on) {                                   // the page behind the open form: unreachable by keyboard and by touch
+    let el = $('birth');
+    while (el && el.parentElement) { for (const sib of el.parentElement.children) if (sib !== el && sib.tagName !== 'SCRIPT') sib.inert = on; el = el.parentElement; if (el === document.body) break; }
+  }
+  function backToRow(id) {                                  // a chart edited from the list: the list again, its Edit in hand
+    openMenu(true);
+    const b = [...$('charts').querySelectorAll('li[data-id]')].find(li => li.dataset.id === id);
+    const e = (b && b.querySelector('button[data-act="edit"]')) || $('menu-close');   // gone from the list meanwhile: the menu still has the focus
+    e.focus({ preventScroll: true }); if (b) e.scrollIntoView({ block: 'nearest' });
+  }
+  function closeBirth() {
+    $('birth').hidden = true; setInert(false);
+    S.birthEdit = null; S.birthForPair = false;               // nothing left behind for the next form
+    const row = birthState.rowId, back = birthState.opener; birthState.rowId = null; birthState.opener = null;
+    if (row) { backToRow(row); return; }
+    const to = back && back.isConnected && back.getClientRects().length ? back : $('menu-open');   // the control that opened it, or the way back to the charts
+    to.focus({ preventScroll: true });
+  }
+  /* the date's own error, under the field, announced; the field marked for every reader */
+  function dateError(on) {
+    const el = $('birth-date'), err = $('birth-date-err');
+    el.classList.toggle('bad', on);
+    if (on) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
+    err.textContent = on ? SD.i18n.cap1(SD.i18n.t('ui.badDate')) : ''; err.hidden = !on;
+  }
+  /* the date as it was read, in words under the field: figures alone can be read day first or month first, "23 April
+     1975" only one way. empty while the field does not read as a date */
+  function readBirthDate() {
+    const p = parseDate($('birth-date').value), el = $('birth-date-read'); let t = '';
+    if (p) try { t = new Intl.DateTimeFormat(SD.i18n.locale(), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(p.y, p.m - 1, p.d))); } catch (e) { /* the field still shows the date in figures */ }
+    if (el.textContent !== t) el.textContent = t;
+  }
+  function syncUnknown() { const off = $('birth-unknown').checked; $('birth-time').disabled = off; $('birth-ampm').disabled = off; }   // no time to give: the field and its chooser stand aside (saveBirth reads neither then, so what was typed before is not saved)
+
+  /* ---------- the birthplace: a gazetteer of every town of a thousand people (GeoNames, CC BY 4.0), searched as you type ----------
+     each entry carries its time zone, so the birth is read in the zone of its own place with the rules of its year. */
+  const gaz = { rows: null, loading: null };              // neither: the last fetch did not bring the list (offline, a broken answer), which is said as such, never as "no such place"
+  const fold = t => String(t).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  /* the names a hand types for cities the gazetteer lists by their English or local name: Italian and Spanish first,
+     then a few English and local ones it lacks. found as the name itself, so Roma is Rome and not Roma in Lesotho,
+     Firenze is Florence, Nueva York is New York City, Cologne is Köln and not Cologne in Piedmont. [gazetteer name, country, names] */
+  const PLACE_ALIASES = [
+    ['Rome', 'IT', 'Roma'], ['Milan', 'IT', 'Milano'], ['Turin', 'IT', 'Torino'], ['Florence', 'IT', 'Firenze', 'Florencia'], ['Naples', 'IT', 'Napoli', 'Nápoles'],
+    ['Venice', 'IT', 'Venezia', 'Venecia'], ['Genoa', 'IT', 'Genova', 'Génova'], ['Padua', 'IT', 'Padova'], ['Mantua', 'IT', 'Mantova'], ["Reggio nell'Emilia", 'IT', 'Reggio Emilia'],
+    ['London', 'GB', 'Londra', 'Londres'], ['Edinburgh', 'GB', 'Edimburgo'], ['Dublin', 'IE', 'Dublino'],
+    ['Paris', 'FR', 'Parigi'], ['Marseille', 'FR', 'Marsiglia', 'Marsella'], ['Lyon', 'FR', 'Lione'], ['Nice', 'FR', 'Nizza', 'Niza'], ['Bordeaux', 'FR', 'Burdeos'],
+    ['Strasbourg', 'FR', 'Strasburgo', 'Estrasburgo'], ['Avignon', 'FR', 'Avignone', 'Aviñón'],
+    ['Berlin', 'DE', 'Berlino'], ['Munich', 'DE', 'Monaco di Baviera', 'München'], ['Köln', 'DE', 'Colonia', 'Cologne'], ['Frankfurt am Main', 'DE', 'Francoforte', 'Fráncfort', 'Frankfurt'],
+    ['Hamburg', 'DE', 'Amburgo', 'Hamburgo'], ['Dresden', 'DE', 'Dresda', 'Dresde'], ['Leipzig', 'DE', 'Lipsia'], ['Nuremberg', 'DE', 'Norimberga', 'Nürnberg'], ['Stuttgart', 'DE', 'Stoccarda'],
+    ['Mainz', 'DE', 'Magonza', 'Maguncia'], ['Trier', 'DE', 'Treviri', 'Tréveris'], ['Aachen', 'DE', 'Aquisgrana', 'Aquisgrán'],
+    ['Vienna', 'AT', 'Viena', 'Wien'], ['Salzburg', 'AT', 'Salisburgo', 'Salzburgo'],
+    ['Zürich', 'CH', 'Zurigo'], ['Geneva', 'CH', 'Ginevra', 'Ginebra', 'Genève'], ['Basel', 'CH', 'Basilea'], ['Bern', 'CH', 'Berna'], ['Lausanne', 'CH', 'Losanna', 'Lausana'], ['Luzern', 'CH', 'Lucerna', 'Lucerne'],
+    ['Brussels', 'BE', 'Bruxelles', 'Bruselas'], ['Antwerp', 'BE', 'Anversa', 'Amberes', 'Antwerpen'], ['Gent', 'BE', 'Gand', 'Gante', 'Ghent'], ['Brugge', 'BE', 'Bruges', 'Brujas'], ['Liège', 'BE', 'Liegi', 'Lieja'],
+    ['Luxembourg', 'LU', 'Lussemburgo', 'Luxemburgo'], ['The Hague', 'NL', "L'Aia", 'La Haya', 'Den Haag'],
+    ['Copenhagen', 'DK', 'Copenaghen', 'Copenhague', 'København'], ['Stockholm', 'SE', 'Stoccolma', 'Estocolmo'],
+    ['Lisbon', 'PT', 'Lisbona', 'Lisboa'], ['Porto', 'PT', 'Oporto'],
+    ['Barcelona', 'ES', 'Barcellona'], ['Sevilla', 'ES', 'Siviglia', 'Seville'], ['Zaragoza', 'ES', 'Saragozza', 'Saragossa'], ['A Coruña', 'ES', 'La Coruña'], ['Girona', 'ES', 'Gerona'],
+    ['Lleida', 'ES', 'Lérida'], ['Ourense', 'ES', 'Orense'], ['Donostia / San Sebastián', 'ES', 'San Sebastián'], ['Castelló de la Plana', 'ES', 'Castellón de la Plana', 'Castellón'],
+    ['Palma', 'ES', 'Palma de Mallorca'], ['Alicante', 'ES', 'Alacant'],
+    ['Prague', 'CZ', 'Praga', 'Praha'], ['Warsaw', 'PL', 'Varsavia', 'Varsovia', 'Warszawa'], ['Kraków', 'PL', 'Cracovia', 'Cracow'], ['Wrocław', 'PL', 'Breslavia'], ['Gdańsk', 'PL', 'Danzica', 'Danzig'],
+    ['Moscow', 'RU', 'Mosca', 'Moscú', 'Moskva'], ['Saint Petersburg', 'RU', 'San Pietroburgo', 'San Petersburgo'], ['Kyiv', 'UA', 'Kiev'], ['Lviv', 'UA', 'Leopoli', 'Leópolis'], ['Odesa', 'UA', 'Odessa'],
+    ['Athens', 'GR', 'Atene', 'Atenas'], ['Thessaloníki', 'GR', 'Salonicco', 'Tesalónica', 'Salonica'], ['Belgrade', 'RS', 'Belgrado'], ['Bucharest', 'RO', 'Bucarest'],
+    ['Ljubljana', 'SI', 'Lubiana', 'Liubliana'], ['Koper', 'SI', 'Capodistria'], ['Zagreb', 'HR', 'Zagabria'], ['Split', 'HR', 'Spalato'], ['Rijeka', 'HR', 'Fiume'], ['Zadar', 'HR', 'Zara'], ['Pula', 'HR', 'Pola'],
+    ['Istanbul', 'TR', 'Estambul'], ['İzmir', 'TR', 'Smirne', 'Esmirna', 'Smyrna'], ['Jerusalem', 'IL', 'Gerusalemme', 'Jerusalén'], ['Damascus', 'SY', 'Damasco'],
+    ['Cairo', 'EG', 'Il Cairo', 'El Cairo'], ['Algiers', 'DZ', 'Algeri', 'Argel'], ['Tunis', 'TN', 'Tunisi', 'Túnez'], ['Cape Town', 'ZA', 'Città del Capo', 'Ciudad del Cabo'],
+    ['Beijing', 'CN', 'Pechino', 'Pekín', 'Peking'], ['New Delhi', 'IN', 'Nuova Delhi', 'Nueva Delhi'], ['Mumbai', 'IN', 'Bombay'],
+    ['New York City', 'US', 'New York', 'Nuova York', 'Nueva York'], ['New Orleans', 'US', 'Nuova Orleans', 'Nueva Orleans'], ['Philadelphia', 'US', 'Filadelfia'],
+    ['Mexico City', 'MX', 'Città del Messico', 'Ciudad de México', 'México'], ['São Paulo', 'BR', 'San Paolo'],
+  ];
+  function loadPlaces() {
+    if (gaz.rows) return Promise.resolve(gaz.rows);
+    if (gaz.loading) return gaz.loading;
+    gaz.loading = fetch('data/places.txt').then(r => { if (!r.ok) throw new Error(r.status); return r.text(); }).then(txt => {
+      const L = txt.split('\n'), tz = L[1].split('\t'), cc = {}, a1 = {};
+      const cf = L[2].split('\t'); for (let i = 0; i + 1 < cf.length; i += 2) cc[cf[i]] = cf[i + 1];
+      const af = L[3].split('\t'); for (let i = 0; i + 1 < af.length; i += 2) a1[af[i]] = af[i + 1];
+      const rows = [];
+      for (let i = 4; i < L.length; i++) {
+        const f = L[i].split('\t'); if (f.length < 8) continue;
+        rows.push({ name: f[0], key: fold(f[0]) + (f[1] ? ' ' + fold(f[1]) : ''), cc: f[2], region: a1[f[2] + '.' + f[3]] || '', country: cc[f[2]] || f[2], lat: +f[4], lon: +f[5], tz: tz[+f[6]], pop: +f[7] });
+      }
+      const top = new Map(); for (const r of rows) { const k = r.name + '|' + r.cc, o = top.get(k); if (!o || r.pop > o.pop) top.set(k, r); }   // the largest town of that name in that country
+      for (const [name, cc, ...al] of PLACE_ALIASES) { const r = top.get(name + '|' + cc); if (r) r.alias = al.map(fold); }
+      if (!rows.length) throw new Error('no places');      // an answer that is not the list (a portal's page under the same address) is a failed load, not an empty world
+      gaz.rows = rows; gaz.loading = null; return rows;
+    }).catch(e => { gaz.loading = null; throw e; });
+    return gaz.loading;
+  }
+  function searchPlaces(q) {
+    q = fold(q.trim()); if (!q || !gaz.rows) return [];
+    const out = [];
+    for (const r of gaz.rows) {
+      const k = r.key; let sc = 0;
+      if (k === q || k.startsWith(q + ' ')) sc = 3; else if (k.startsWith(q)) sc = 2; else if (k.includes(' ' + q) || k.includes('-' + q)) sc = 1;
+      if (r.alias) for (const a of r.alias) sc = Math.max(sc, a === q || a.startsWith(q + ' ') ? 3 : a.startsWith(q) ? 2 : 0);   // a name the hand types for it counts as its own
+      if (sc) out.push({ r, sc });
+    }
+    return out.sort((a, b) => b.sc - a.sc || b.r.pop - a.r.pop).slice(0, 8).map(x => x.r);
+  }
+  const placeLabel = r => `${r.name}${r.region ? ', ' + r.region : ''}${r.country ? ', ' + r.country : ''}`;
+  function nearestZone(lat, lon) {                        // for coordinates typed by hand: the zone of the nearest listed town
+    if (!gaz.rows) return S.place.tz;
+    let best = null, bd = 1e9;
+    for (const r of gaz.rows) { const dx = (r.lon - lon) * Math.cos(lat * Math.PI / 180), dy = r.lat - lat, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = r; } }
+    return best ? best.tz : S.place.tz;
+  }
+  function choosePlace(pl) {                              // pl: a saved place {name, label?, lat, lon, tz} or a gazetteer row, or null
+    S.birthPlace = pl ? { name: pl.name, label: pl.label || (pl.country ? placeLabel(pl) : undefined), lat: pl.lat, lon: pl.lon, tz: pl.tz } : null;
+    $('birth-place').value = pl ? (S.birthPlace.label || SD.i18n.placeName(pl.name)) : '';
+    $('birth-lat').value = pl ? pl.lat : ''; $('birth-lon').value = pl ? pl.lon : '';
+    $('birth-lat').dataset.auto = pl ? String(pl.lat) : ''; $('birth-lon').dataset.auto = pl ? String(pl.lon) : '';   // written by the choice, not by hand
+    $('birth-chosen').textContent = pl ? `${pl.tz} · ${(+pl.lat).toFixed(3)}, ${(+pl.lon).toFixed(3)}` : '';
+    closePlaces();
+  }
+  function closePlaces() {                                // the towns' list put away, and the box told so
+    const box = $('birth-place');
+    $('birth-results').hidden = true; box.setAttribute('aria-expanded', 'false'); box.removeAttribute('aria-activedescendant');
+    $('birth-place-status').textContent = '';              // nothing on show, nothing left to be read
+  }
+  /* the birthplace box is a combobox over the towns' list (WAI-ARIA 1.2, list autocomplete): the focus stays in the box,
+     the arrows walk the rows (and wrap), Enter takes the row they are on, or the first; Escape puts the list away, and
+     only a second Escape leaves the form. the rows cannot be tabbed into: Tab goes on to the next field. what the list
+     holds is also said aloud (so many places, loading, not found, could not be loaded) through a polite live region.
+     a list that failed to load is asked for again at the next keystroke and when the browser is back online */
+  function bindPlaceSearch() {
+    const box = $('birth-place'), list = $('birth-results'), status = $('birth-place-status'); let timer = null, active = -1;
+    const T = k => SD.i18n.cap1(SD.i18n.t(k)), say = t => { if (status.textContent !== t) status.textContent = t; };
+    const opts = () => [...list.querySelectorAll('button[data-i]')];
+    const mark = n => {                                   // the row the arrows are on: lit, and named to the box, which keeps the focus
+      const o = opts(); active = o.length ? (n + o.length) % o.length : -1;
+      o.forEach((b, k) => { b.classList.toggle('active', k === active); b.setAttribute('aria-selected', k === active ? 'true' : 'false'); });
+      if (active >= 0) { box.setAttribute('aria-activedescendant', o[active].id); o[active].scrollIntoView({ block: 'nearest' }); } else box.removeAttribute('aria-activedescendant');
+    };
+    const show = () => {
+      const q = box.value; active = -1; box.removeAttribute('aria-activedescendant');
+      if (!q.trim()) { closePlaces(); return; }
+      const rows = gaz.rows ? searchPlaces(q) : [], key = !gaz.rows ? (gaz.loading ? 'ui.placesLoading' : 'ui.placesFailed') : rows.length ? null : 'ui.noPlace';   // not loaded is not "not found"
+      list.innerHTML = key ? `<li role="presentation"><button type="button" role="option" aria-disabled="true" aria-selected="false" tabindex="-1" disabled>${T(key)}</button></li>`
+        : rows.map((r, i) => `<li role="presentation"><button type="button" role="option" id="birth-opt-${i}" data-i="${i}" tabindex="-1" aria-selected="false">${esc(r.name)}<span class="where">${esc((r.region ? ', ' + r.region : '') + ', ' + r.country)}</span></button></li>`).join('');
+      list.hidden = false; list.rows = rows; box.setAttribute('aria-expanded', 'true');
+      say(key ? T(key) : SD.i18n.t('ui.placesFound')(rows.length));
+    };
+    const late = () => { if (document.activeElement === box || !list.hidden) show(); };   // an answer that comes after the hand has left the box does not open the list behind it
+    const refresh = () => { if (!gaz.rows && !gaz.loading) loadPlaces().then(late, late); else if (gaz.loading) gaz.loading.then(late, late); show(); };   // no list yet, and none on its way: asked for again
+    box.addEventListener('input', () => { S.birthPlace = null; $('birth-chosen').textContent = '';
+      for (const id of ['birth-lat', 'birth-lon']) { const f = $(id); if (f.dataset.auto && f.value === f.dataset.auto) { f.value = ''; f.dataset.auto = ''; } }   // another town typed: the last one's coordinates go with it; coordinates typed by hand stay
+      clearTimeout(timer); timer = setTimeout(refresh, 90); });
+    box.addEventListener('keydown', e => {
+      if (e.isComposing) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (list.hidden) { if (!box.value.trim()) return; clearTimeout(timer); refresh(); }   // put away with Escape: the arrows bring it back
+        const o = opts(); if (o.length) mark(e.key === 'ArrowDown' ? active + 1 : active < 0 ? o.length - 1 : active - 1);
+        e.preventDefault();                                 // the caret stays where it is
+      } else if (e.key === 'Enter') { const o = opts(), b = list.hidden ? null : o[active] || o[0]; if (b) b.click(); e.preventDefault(); }   // only from a list on show: a list put away holds the last search
+      else if (e.key === 'Escape' && !list.hidden) { closePlaces(); e.preventDefault(); }
+    });
+    list.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; choosePlace(list.rows[+b.dataset.i]); if (e.detail === 0) box.focus({ preventScroll: true }); });   // chosen from the keyboard: back to the box, whose button is gone (a tap leaves the phone's keyboard down)
+    const away = () => setTimeout(() => { const a = document.activeElement; if (a !== box && !list.contains(a)) closePlaces(); }, 150);   // put away once the focus is in neither: a row being pressed keeps its list
+    box.addEventListener('blur', away); list.addEventListener('focusout', away);
+    window.addEventListener('online', () => { if (!$('birth').hidden && !gaz.rows && !gaz.loading) { loadPlaces().then(late, late); late(); } });   // the connection is back while the form is open: the list is asked for again
+  }
+  function saveBirth() {
+    const i = SD.i18n, note = k => { $('birth-note').dataset.i18n = k; $('birth-note').textContent = i.cap1(i.t(k)); };   // keyed, so a change of language translates it
+    const pd = parseDate($('birth-date').value), unknown = $('birth-unknown').checked, timeTxt = unknown ? '12:00' : normTime($('birth-time').value, $('birth-ampm').value);
+    if (!pd) { dateError(true); $('birth-date').focus(); return; }
+    const dateTxt = isoDate(pd);
+    if (!unknown && !/^\d{2}:\d{2}$/.test(timeTxt)) { note('ui.badTime'); $('birth-time').focus(); return; }
+    $('birth-date').value = fmtDate(pd); dateError(false); if (!unknown) { $('birth-time').value = timeTxt; $('birth-ampm').value = '24'; delete $('birth-time').dataset.apWas; }
+    const lat = parseFloat($('birth-lat').value), lon = parseFloat($('birth-lon').value), hand = Number.isFinite(lat) && Number.isFinite(lon);
+    let place = null;
+    if (S.birthPlace) place = { ...S.birthPlace, lat: hand ? lat : S.birthPlace.lat, lon: hand ? lon : S.birthPlace.lon };   // the coordinates may be corrected by hand
+    else if (hand) place = { name: cleanText($('birth-place').value, 80) || `${lat.toFixed(2)}, ${lon.toFixed(2)}`, lat, lon, tz: nearestZone(lat, lon) };
+    if (!place) { note('ui.needPlace'); $('birth-place').focus(); return; }
+    const o = birthState.orig, same = o && `${dateTxt} ${timeTxt}` === o.stamp && unknown === o.unknown && place.tz === o.tz;   // the moment is the local time and the zone: another town in the same zone does not move it
+    const d = same ? new Date(o.date) : fromStamp(`${dateTxt} ${timeTxt}`, place.tz);   // nothing of the moment changed: the stored instant stays, to the second (an autumn hour that comes twice keeps its pass)
+    if (!d) { dateError(true); $('birth-date').focus(); return; }
+    const name = cleanText($('birth-name').value, 80) || '';
+    const refused = () => { note('ui.noStorage'); recompute(); };   // the browser keeps nothing: the form stays open, the chart lives for this visit and the screen shows it
+    if (S.birthEdit) {                                       // a saved chart edited: the same chart, changed in place, wherever it is used
+      const k = S.charts.findIndex(c => c.id === S.birthEdit);   // the list in memory: another tab's changes reach it through the storage event; a list the browser could not write is never re-read over it
+      const L = S.charts[k], placeNow = JSON.stringify([place.name, +place.lat, +place.lon, place.tz]);
+      const c = k >= 0 ? { ...L,                             // only what the hand changed is written: another tab's edit of the rest stands
+        name: name !== o.name ? name || L.name : L.name,    // a cleared name keeps the old one: a saved chart has a name
+        place: placeNow !== o.place ? place : L.place,
+        date: same ? L.date : d.toISOString(), unknownTime: same ? L.unknownTime : unknown, edited: Date.now() }
+        : { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid(), edited: Date.now() };   // deleted meanwhile: kept as a new chart, the loaded one untouched
+      if (k >= 0) S.charts[k] = c; else { S.charts.push(c); birthState.rowId = c.id; }   // back to the list on its new row
+      const kept = saveCharts();
+      if (k >= 0 && S.natal && S.natal.id === c.id) { S.natal = { ...c }; store.set('natal', S.natal); natalCache.key = null; }
+      if (!kept) { refused(); return; }
+      if ((S.natal && S.natal.id === c.id) || (S.mode === 'pair' && S.pair === c.id)) birthState.rowId = null;   // a chart on show (the loaded one, or the pair's second in Synastry): back to the dial, which shows the change; another chart: back to the list, which does
+      closeBirth(); recompute(); return;
+    }
+    if (S.birthForPair) {                                   // a new second chart for the pair: kept and chosen as the second; the first chart stays
+      const c = { date: d.toISOString(), place, unknownTime: unknown, name: name || '—', id: uid(), edited: Date.now() };
+      upsertChart(c); S.pair = c.id; store.set('pair', S.pair); S.birthNew = false;
+      closeBirth(); S.mode = 'pair'; store.set('mode', S.mode); recompute(); return;
+    }
+    const wasNew = S.birthNew, then = birthState.then;
+    S.natal = { date: d.toISOString(), place, unknownTime: unknown, name: name || undefined, id: name ? (!S.birthNew && S.natal && S.natal.id) || uid() : undefined, edited: Date.now() };
+    S.birthNew = false;
+    if (name) upsertChart(S.natal);                         // a named nativity is kept in the saved charts
+    const kept = store.set('natal', S.natal); natalCache.key = null;
+    if (!kept) { refused(); return; }
+    closeBirth();
+    if (wasNew) { if (then) S.mode = then; else if (S.mode !== 'natal' && S.mode !== 'synastry') S.mode = 'synastry'; }   // a new chart: the view asked for, else its transits; an edit keeps the view
+    store.set('mode', S.mode); recompute();
+  }
+
+  /* the moment as the place reads it: yyyy-mm-dd hh:mm in the place's time zone */
+  function placeParts(d, tz) {
+    const f = new Intl.DateTimeFormat('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz || 'UTC' });
+    return Object.fromEntries(f.formatToParts(d).map(p => [p.type, p.value]));
+  }
+  function placeStamp(d) { const p = placeParts(d, S.place.tz); return `${fmtDate({ y: +p.year, m: +p.month, d: +p.day })} ${p.hour}:${p.minute}`; }   // on screen: the language's order
+  function isoStamp(d) { const p = placeParts(d, S.place.tz); return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`; }   // in the copied report: yyyy-mm-dd, for whatever reads it
+  /* dates as each language writes them (the owner, November 2026): English year first, 1975/04/23; Spanish day first,
+     23/04/1975, and Italian too when it comes. a date typed in any order, with or without separators, is read and shown
+     back in the language's order, so the hand sees at once how it was read; inside, a date is always yyyy-mm-dd.
+     reading: a first group of four figures is the year; otherwise day and month come in the language's order (in
+     English, which writes the year first, month first on a US device and day first elsewhere), and the other order only
+     when that one cannot be a date (23/04 read month first). the year always in four figures: 23/04/75 is refused. */
+  const digitsOf = t => String(t).replace(/\D/g, '');
+  const DATE_ORDER = { en: 'ymd', es: 'dmy', it: 'dmy' };
+  const dateOrder = () => DATE_ORDER[S.lang] || 'ymd';
+  const pad2 = x => String(x).padStart(2, '0');
+  const isoDate = p => `${String(p.y).padStart(4, '0')}-${pad2(p.m)}-${pad2(p.d)}`;
+  function fmtDate(p) { const y = String(p.y).padStart(4, '0'), m = pad2(p.m), d = pad2(p.d), o = dateOrder(); return o === 'dmy' ? `${d}/${m}/${y}` : o === 'mdy' ? `${m}/${d}/${y}` : `${y}/${m}/${d}`; }
+  /* eight figures run together: the one reading that is a date. when both are, the later year wins: the other reading is
+     then always a year from 1001 to 1231, and a chart is far likelier cast for the later one (20051105 is 2005-11-05,
+     16051105 is 1605-11-05, 18111022 is 1811-10-22). in the same year, the language's own order (10111011) */
+  const yearFirst8 = s => { const n = (a, b) => +s.slice(a, b), ymd = realDate(n(0, 4), n(4, 6), n(6, 8)), dm = realDate(n(4, 8), n(2, 4), n(0, 2)) || realDate(n(4, 8), n(0, 2), n(2, 4));
+    if (!ymd || !dm) return ymd;
+    return n(0, 4) !== n(4, 8) ? n(0, 4) > n(4, 8) : dateOrder() === 'ymd'; };
+  const realDate = (y, m, d) => { const x = new Date(Date.UTC(y, m - 1, d)); return y >= 1000 && y <= 3000 && x.getUTCFullYear() === y && x.getUTCMonth() === m - 1 && x.getUTCDate() === d; };   // 31 February refused, never rolled over
+  function parseDate(txt) {
+    if (/[^\d\s\/.\-]/.test(String(txt).trim())) return null;   // only / - . and space part a date: 1975/O4/23 is refused, never read as April
+    let g = String(txt).trim().split(/[^0-9]+/).filter(Boolean);
+    if ((g.length === 1 && g[0].length === 8) || (g.length === 2 && g[0].length === 4 && g[1].length === 4)) {   // eight figures, run together or in two fours (2304/1975, 1975/0423): one rule
+      const s = g.join(''); g = yearFirst8(s) ? [s.slice(0, 4), s.slice(4, 6), s.slice(6, 8)] : [s.slice(0, 2), s.slice(2, 4), s.slice(4, 8)];
+    }
+    if (g.length === 4 && g[0].length === 2 && g[1].length === 2 && g[2].length <= 2 && g[3].length <= 2) g = [g[0] + g[1], g[2], g[3]];   // a year the layout split in two (18/12/01/27, 18/12/1/27): joined again
+    if (g.length !== 3) return null;
+    if (g[0].length === 4) { const [y, m, d] = g.map(Number); return g[1].length <= 2 && g[2].length <= 2 && realDate(y, m, d) ? { y, m, d } : null; }   // year first, in any language
+    if (g[2].length !== 4 || g[0].length > 2 || g[1].length > 2) return null;
+    const a = +g[0], b = +g[1], y = +g[2], o = dateOrder();
+    const monthFirst = o === 'mdy' || (o === 'ymd' && /^en-US\b/i.test(navigator.language || ''));
+    const [m1, d1] = monthFirst ? [a, b] : [b, a];
+    if (realDate(y, m1, d1)) return { y, m: m1, d: d1 };
+    return realDate(y, d1, m1) ? { y, m: d1, d: m1 } : null;
+  }
+  function normDate(txt) { const p = parseDate(txt); return p ? isoDate(p) : String(txt).trim(); }
+  /* the birth date field on leaving it: shown back in the language's order, or marked when it cannot be read */
+  function showBirthDate() {
+    const el = $('birth-date'), v = el.value.trim();
+    if (!v) { dateError(false); return; }
+    const p = parseDate(v);
+    if (p) { el.value = fmtDate(p); delete el.dataset.free; dateError(false); } else dateError(true);
+    readBirthDate();
+  }
+  /* a time typed as 24-hour (16:30, 1630, 9:05) or as 12-hour with am or pm, typed (4:30 pm, 4.30p.m., 4pm) or chosen
+     beside the field; always returned as 24-hour hh:mm, or '' when it cannot be a time */
+  const TIME_RE = /^\s*(?:(\d{1,4})|(\d{1,2})\s*[:.h]\s*(\d{1,2})(\s*h)?|(\d{1,2})\s*h)\s*(?:([ap])\.?\s*(?:m\.?)?)?\s*$/i;
+  function timeParts(txt) {                                 // {h, m, ap} as written, or null: a letter anywhere but am / pm at the end (10:3p, 2p:15, 1o:30) is refused
+    const t = String(txt).match(TIME_RE); if (!t) return null;
+    let h, m;
+    if (t[1] != null) { const d = t[1]; h = d.length <= 2 ? +d : +d.slice(0, -2); m = d.length <= 2 ? 0 : +d.slice(-2); }
+    else if (t[2] != null) { if ((t[6] || t[4]) && t[3].length < 2) return null; h = +t[2]; m = +t[3]; }   // 9:5 is 09:05, but before am / pm or h the minutes have two figures (4:30 pm, 16:30 h): 07:5a and 16:3h are slips
+    else { h = +t[5]; m = 0; }                               // 16h
+    return { h, m, ap: t[6] ? (t[6].toLowerCase() === 'a' ? 'am' : 'pm') : null };
+  }
+  const ampmOf = txt => { const p = timeParts(txt); return p && p.ap; };
+  /* the chooser's labels as the language writes them, lower case: am / pm, a. m. / p. m. */
+  function ampmLabels() { const sel = $('birth-ampm'); if (!sel) return; for (const o of sel.options) o.textContent = SD.i18n.t('ui.' + (o.value === '24' ? 'h24' : o.value)); }
+  function normTime(txt, mode = '24') {
+    const p = timeParts(txt); if (!p) return '';
+    let { h, m } = p; mode = p.ap || mode;
+    if (mode !== '24') { if (h < 1 || h > 12) return ''; h = h % 12 + (mode === 'pm' ? 12 : 0); }
+    if (h > 23 || m > 59) return '';
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  /* a moment typed in the clock: a date alone means noon; an hour alone (2026-07-12 14) means on the hour */
+  const normStamp = txt => {
+    const s = String(txt).trim(), w = s.match(/^([^\sT]+)(?:[\sT]+(.*))?$/i);   // the date up to the first space (or T), then the time: never one run of figures cut across the two
+    if (!w) return s;
+    let dt = w[1], tt = (w[2] || '').trim();
+    if (!tt && /^\d{9,12}$/.test(dt)) { tt = dt.slice(8); dt = dt.slice(0, 8); }   // twelve figures run together: the first eight are the date
+    const p = parseDate(dt);                                  // the birth form's reader: 18/12/1/27 is 1812-01-27, 2026-13-40 and 31 February are refused
+    if (!p) return s;
+    if (!tt) return `${isoDate(p)} 12:00`;
+    const tm = normTime(tt);                                  // the birth form's reader too: 9:5 is 09:05, 4:30 pm is 16:30, 14 is 14:00, 1o:30 is refused
+    return tm ? `${isoDate(p)} ${tm}` : s;
+  };
+  /* while typing, the separators appear on their own: 1975/04/23, 23/04/1975, 14:30, 9:05. the date is laid out as
+     yyyy… when it opens with 19 or 20, as dd/mm/yyyy (or mm/dd) otherwise; the time as h:mm when its first two digits
+     exceed 23. on leaving the field the date is shown in the language's order (showBirthDate); inside it is always
+     yyyy-mm-dd and hh:mm (normDate, normTime). */
+  const datePat = d => {
+    if (d.length >= 8) return yearFirst8(d.slice(0, 8)) ? 'dddd/dd/dd' : 'dd/dd/dddd';   // all eight: laid out as they will be read
+    const two = k => d.length >= k + 2 ? +d.slice(k, k + 2) : null, a = two(0), b = two(2), c = two(4);
+    const dayMonth = a == null || b == null || (a >= 1 && a <= 31 && b >= 1 && b <= 31 && (a <= 12 || b <= 12));   // day and month, in either order, can open it
+    const yearMonth = d.length < 4 || (+d.slice(0, 4) >= 1000 && (c == null || (c >= 1 && c <= 12)));   // a year of four figures, then a month
+    if (dayMonth !== yearMonth) return dayMonth ? 'dd/dd/dddd' : 'dddd/dd/dd';
+    return (dateOrder() === 'ymd' || /^(19|20)/.test(d) || d.length < 2) ? 'dddd/dd/dd' : 'dd/dd/dddd';   // both still can: English writes the year first; elsewhere a year when it opens with 19 or 20
+  };
+  const timePat = d => d.length === 3 ? 'd:dd' : 'dd:dd';   // three digits are h:mm and are laid out so (130 shows 1:30, saved 01:30); a fourth re-forms them hh:mm (1305 → 13:05), so 2510 stays 25:10 and is refused   // three digits: 905 reads 9:05 (130 reads 1:30 in 12-hour); four are always hh:mm, so 2510 stays 25:10 and is refused
+  const PATTERNS = { date: datePat, time: timePat, stamp: d => datePat(d.slice(0, 8)) + ' ' + timePat(d.slice(8)) };
+  function liveFormat(el, kind) {
+    /* the caret stays where the hand put it: a digit changed in the middle is changed in place, and the separators
+       re-form around it. backspace over a separator deletes the digit before it. digits alone are laid out as they
+       come; a separator or a letter typed by hand hands the field to the hand: the text stays as typed (7/3/1975,
+       4:30 pm) and is read when the field is left, as pasted text is (showBirthDate, normStamp, normTime). a separator
+       that contradicts the layout's guess (25 laid out 2:5, then ':') takes the digits back as typed: 25: */
+    const twelveOf = () => kind === 'time' && el.id === 'birth-time' && $('birth-ampm') && $('birth-ampm').value !== '24';
+    const shape = (digits, twelve) => { const pattern = twelve ? timePat(digits, 12) : PATTERNS[kind](digits); let out = '', k = 0; for (const ch of pattern) { if (k >= digits.length) break; if (ch === 'd') out += digits[k++]; else out += ch; } return out; };
+    const free = on => { if (on) el.dataset.free = '1'; else delete el.dataset.free; };
+    let prev = el.value;
+    el.addEventListener('focus', () => { prev = el.value; free(el.value && shape(digitsOf(el.value), twelveOf()) !== el.value); });   // a value the layout would not make was written by hand: it stays so
+    el.addEventListener('input', e => {
+      if (kind === 'time' && $('birth-ampm') && el.id === 'birth-time') {   // "pm" typed moves into the chooser, once the whole reads as a time ending in it (10:3p moves nothing)
+        const sel = $('birth-ampm'), ap = ampmOf(el.value);
+        if (ap) { if (el.dataset.apWas == null) el.dataset.apWas = sel.value; sel.value = ap; }
+        else if (el.dataset.apWas != null) { sel.value = el.dataset.apWas; delete el.dataset.apWas; }   // the typed pm gone, or no longer a time (2p, then 2p:15): the chooser as it was
+      }
+      const twelve = twelveOf();
+      const v = el.value, pos = el.selectionStart == null ? v.length : el.selectionStart;
+      if (!v) { free(false); prev = v; return; }
+      if (el.dataset.free && !/\D/.test(v)) free(false);     // only digits left: the layout takes over again
+      if (pos < v.length) {                                   // an edit inside the line is left as typed; the separators form only at the end
+        if (e.inputType === 'deleteContentBackward' && !el.dataset.free && digitsOf(v) === digitsOf(prev)) {   // but a separator deleted there takes the digit before it, as at the end
+          let digits = digitsOf(v), before = digitsOf(v.slice(0, pos)).length;
+          if (before > 0) {
+            digits = digits.slice(0, before - 1) + digits.slice(before); before--;
+            const out = shape(digits, twelveOf()); let c = 0; for (let n = 0; c < out.length && n < before; c++) if (/\d/.test(out[c])) n++;
+            el.value = out; try { el.setSelectionRange(c, c); } catch (err) { /* number keyboards */ }
+            prev = out; return;
+          }
+        }
+        prev = v; return;
+      }
+      if ((e.inputType === 'insertText' && e.data && e.data.length > 1) || /^insert(FromPaste|FromDrop|ReplacementText)$/.test(e.inputType || '')) { free(true); prev = v; return; }   // pasted or filled whole
+      if (!el.dataset.free && e.inputType === 'insertText' && e.data && /\D/.test(e.data)) {   // a separator or a letter typed by hand
+        const sepCount = (prev.split(' ')[0].match(/\D/g) || []).length;
+        let raw = prev + e.data;
+        if (/[:.h]/i.test(e.data) && (kind === 'time' || (kind === 'stamp' && prev.includes(' '))) && /:/.test(prev)) raw = (kind === 'stamp' ? prev.slice(0, prev.indexOf(' ') + 1) + digitsOf(prev.slice(prev.indexOf(' ') + 1)) : digitsOf(prev)) + e.data;   // a second colon: the hour as typed
+        else if (kind !== 'time' && !/[\s\p{L}]/u.test(e.data) && sepCount >= 2 && !prev.includes(' ')) raw = prev;   // a third separator in a date means nothing: dropped. a letter stays, to be refused (1975/04/2l)
+        free(raw !== prev);
+        if (raw !== v) { el.value = raw; try { el.setSelectionRange(raw.length, raw.length); } catch (err) { /* number keyboards */ } }
+        prev = raw; return;
+      }
+      if (el.dataset.free) { prev = v; return; }
+      let digits = digitsOf(v), before = digitsOf(v.slice(0, pos)).length;
+      if (e.inputType === 'deleteContentBackward' && digits === digitsOf(prev) && before > 0) { digits = digits.slice(0, before - 1) + digits.slice(before); before--; }
+      const out = shape(digits, twelve);
+      let c = 0; for (let n = 0; c < out.length && n < before; c++) if (/\d/.test(out[c])) n++;
+      if (out !== v) el.value = out;
+      if (out !== v || c !== pos) { try { el.setSelectionRange(c, c); } catch (err) { /* number keyboards */ } }
+      prev = out;
+    });
+  }
+  function fromStamp(txt, tz) {
+    const m = txt.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ t](\d{1,2}):(\d{2})$/i);
+    if (!m) return null;
+    const want = Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5]);
+    const wall = x => { const p = placeParts(new Date(x), tz); return Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute); };
+    let t = want;                                           // the zone's offset at that moment, found by two corrections
+    for (let i = 0; i < 2; i++) t += want - wall(t);
+    if (wall(t) !== want) t = want - (wall(t - 864e5) - (t - 864e5));   // a time the clocks skipped (spring): read it with the offset in force before the change, so 02:30 becomes 03:30
+    return new Date(t);
+  }
+  const fromPlaceStamp = txt => fromStamp(txt, S.place.tz);
+
+  /* ---------- the gesture: turn the dial to travel in time ----------
+     clockwise = forward. one full turn = one day. the wheel moves ten minutes a notch. */
+  function bindGesture() {
+    /* one finger, the mouse or the pen on the dial turns it at once: time follows the hand, clockwise forward,
+       counterclockwise back, one turn one day. the page scrolls under a finger only where the dial is not: from the
+       margins of its square and everywhere else on the page. two fingers pinch to zoom and pan. ctrl/⌘ + wheel, or a
+       trackpad pinch, zooms at the pointer. the plain wheel moves time. double click or double tap returns to the
+       whole dial. (a hold before the turn was tried in November 2026 and taken back: the dial is drawn on, not pressed) */
+    const pts = new Map();
+    let drag = null, pinch = null, lastTap = 0;
+    const local = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left - (S.ox || 0), y: e.clientY - r.top }; };
+    const toDial = p => ({ x: (p.x - view.x) / view.z, y: (p.y - view.y) / view.z });
+    const clampView = () => {
+      view.z = Math.max(1, Math.min(8, view.z));
+      if (view.z === 1) { view.x = 0; view.y = 0; }
+      view.x = Math.min(0, Math.max(S.side * (1 - view.z), view.x));
+      view.y = Math.min(0, Math.max(S.side * (1 - view.z), view.y));
+      S.dirty = true;
+    };
+    const zoomAt = (p, z) => { const w = toDial(p); view.z = z; view.x = p.x - w.x * view.z; view.y = p.y - w.y * view.z; clampView(); };
+    const angleAt = p => { const Lt = SD.render.layout(S.side, S.side < 560), q = toDial(p); return { a: Math.atan2(q.y - Lt.cy, q.x - Lt.cx), d: Math.hypot(q.y - Lt.cy, q.x - Lt.cx), R: Lt.Rb }; };
+    const endTurn = () => { if (!drag) return; drag = null; S.dragging = false; canvas.classList.remove('turning'); recompute(); };
+    const beginTurn = a => { drag = { last: a, base: S.offsetMs, turned: 0 }; S.playing = false; S.dragging = true; canvas.classList.add('turning'); };
+    const onDisc = (x, y) => { const r = canvas.getBoundingClientRect(), p = angleAt({ x: x - r.left - (S.ox || 0), y: y - r.top }); return p.d <= p.R; };
+    canvas.addEventListener('pointerdown', e => {
+      canvas.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, local(e));
+      if (pts.size === 2) {                                  // second finger: leave time alone, start the pinch
+        endTurn();
+        const [a, b] = [...pts.values()];
+        pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z, w: toDial({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) };
+        view.pinching = true; return;
+      }
+      const now = performance.now();
+      if (now - lastTap < 300) { view.z = 1; clampView(); lastTap = 0; return; }   // double tap: the whole dial
+      lastTap = now;
+      const p = angleAt(local(e)); if (p.d > p.R) return;   // the margins of the square are the page's
+      beginTurn(p.a);
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, local(e));
+      if (pinch && pts.size >= 2) {
+        const [a, b] = [...pts.values()], mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        view.z = pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
+        view.x = mid.x - pinch.w.x * Math.max(1, Math.min(8, view.z)); view.y = mid.y - pinch.w.y * Math.max(1, Math.min(8, view.z));
+        clampView(); return;
+      }
+      if (!drag) return;
+      const p = angleAt(local(e));
+      let d = p.a - drag.last; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      drag.last = p.a; drag.turned += d;                    // screen y points down: a positive delta is clockwise
+      S.offsetMs = drag.base + drag.turned / (2 * Math.PI) * 864e5;   // one turn, one day; the slider under the dial follows
+      recompute();
+    });
+    const up = e => {                                        // lifted, or taken by the browser (pointercancel): either way nothing is left turning
+      pts.delete(e.pointerId);
+      if (pinch && pts.size < 2) { pinch = null; view.pinching = false; S.dirty = true; }
+      if (!pts.size) endTurn();
+    };
+    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+    canvas.addEventListener('dblclick', () => { view.z = 1; clampView(); });
+    /* the browser may scroll the page up and down from the dial's square (touch-action: pan-y), so the touch is kept
+       from it wherever the dial itself is touched: a finger that lands on the disc turns time and never scrolls, nor do
+       two fingers (some phone browsers start their own page zoom despite touch-action). a finger on the margins scrolls */
+    let held = false;
+    canvas.addEventListener('touchstart', e => { if (e.touches.length === 1) held = onDisc(e.touches[0].clientX, e.touches[0].clientY); if (held || e.touches.length >= 2) e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchmove', e => { if (held || e.touches.length >= 2) e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchend', e => { if (!e.touches.length) held = false; });
+    canvas.addEventListener('touchcancel', () => { held = false; });
+    canvas.addEventListener('contextmenu', e => { if (held) e.preventDefault(); });   // a finger resting on the dial is a turn, not the browser's menu
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) { zoomAt(local(e), view.z * Math.exp(-e.deltaY * 0.005)); return; }   // trackpad pinch arrives as ctrl + wheel
+      S.playing = false; S.offsetMs += Math.sign(e.deltaY) * 600000;
+      recompute();
+    }, { passive: false });
+    window.addEventListener('keydown', e => {
+      if (!$('birth').hidden || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;   // the open form keeps its keys: no zoom behind it
+      const c = { x: S.side / 2, y: S.side / 2 };
+      if (e.key === '+' || e.key === '=') zoomAt(c, view.z * 1.4);
+      if (e.key === '-' || e.key === '_') zoomAt(c, view.z / 1.4);
+      if (e.key === '0') { view.z = 1; clampView(); }
+    });
+  }
+
+  /* the device's position: asked only when "here" is pressed. kept to a hundredth of a degree, about a kilometre:
+     enough for the horizon and the houses, too coarse to point at a door. a clock already set to "here" follows the
+     device on later visits only while the browser's permission stands, so that no visit opens with a question */
+  const coarse = x => Math.round(x * 100) / 100;
+  let locSeq = 0;
+  function locate(asked) {
+    if (!navigator.geolocation) return;
+    const seq = ++locSeq;
+    navigator.geolocation.getCurrentPosition(p => {
+      if (seq !== locSeq) return;                           // a city was chosen, or "here" pressed again, while this one was on its way
+      S.place = { name: 'here', lat: coarse(p.coords.latitude), lon: coarse(p.coords.longitude), tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+      store.set('place', S.place);
+      const sel = $('city'); if (![...sel.options].some(o => o.value === '')) sel.insertAdjacentHTML('beforeend', `<option value="">${esc(SD.i18n.placeName('here'))}</option>`);
+      sel.value = ''; recompute();
+    }, () => { if (asked) { $('here').dataset.i18nTitle = 'ui.noLocation'; $('here').title = SD.i18n.cap1(SD.i18n.t('ui.noLocation')); } }, { timeout: 10000, maximumAge: 3600e3 });
+  }
+
+  function whenHint() {                                     // the Clock's field says its order in the language
+    const i = SD.i18n, f = `${i.t('ui.dateFmt')} hh:mm`;
+    $('when').placeholder = f; $('when').setAttribute('aria-label', `${i.t('ui.whenAria')}: ${f}`);
+  }
+  function setLang(l) {
+    const typed = parseDate($('birth-date').value);           // read in the old language's order, before it changes
+    S.lang = l; store.set('lang', l); SD.i18n.set(l); SD.i18n.apply(); ampmLabels(); fillCity(); glossaryTerms(); glossaryLang = null;
+    if ($('set-lang').value !== l) $('set-lang').value = l;
+    if (typed) $('birth-date').value = fmtDate(typed);
+    if (!$('birth-date-err').hidden) dateError(true);         // the error, in the new language
+    readBirthDate();                                          // and the date in words
+    whenHint();
+    requestAnimationFrame(slideSeg);
+    if (!$('menu').hidden) refreshMenu();
+    document.querySelectorAll('[data-about]').forEach(el => { el.hidden = el.dataset.about !== l; });
+    scan.key = null;                                        // the week's labels are rebuilt in the new language
+    if (S.state) recompute(); drawNexts();
+  }
+
+  async function start() {
+    SD.i18n.set(S.lang); SD.i18n.apply(); ampmLabels(); whenHint();
+    document.querySelectorAll('[data-about]').forEach(el => { el.hidden = el.dataset.about !== S.lang; });
+    try {
+      await Promise.all(['400 20px Geist', '500 20px Geist', '400 20px "Geist Mono"'].map(f => document.fonts.load(f)));
+    } catch (e) { /* fonts are a nicety */ }
+    if (natalModes.includes(S.mode) && !S.natal) S.mode = 'clock';
+    reconcileNatal();                                       // the loaded chart as the list holds it, or the list as the loaded chart, whichever was edited later
+    document.body.classList.toggle('reading', S.reading && !S.wall); document.body.classList.toggle('wall', S.wall);
+    bind(); bindMenu(); if (!S.wall) bindGesture(); hintSync(); size(); glossaryTerms();
+    try { recompute(); } catch (e) { S.fixed = null; S.live = true; S.offsetMs = 0; S.mode = 'clock'; recompute(); }   // a moment or a view that cannot be computed falls back to the clock of now
+    drawNexts(); requestAnimationFrame(slideSeg);
+    // a wallpaper never asks for the position: it takes the address's place or the device's zone. nor does a first visit
+    if (!S.wall && S.place === placeKept && placeKept.name === 'here' && navigator.permissions && navigator.permissions.query)
+      navigator.permissions.query({ name: 'geolocation' }).then(r => { if (r.state === 'granted') locate(false); }).catch(() => {});
+    requestAnimationFrame(frame);
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});   // ask the browser not to evict the saved charts under storage pressure
+    if (!store.works()) { const w = document.createElement('p'); w.className = 'meta storage-warn'; w.textContent = SD.i18n.cap1(SD.i18n.t('ui.noStorage')); const ns = $('natal-summary'); if (ns) ns.after(w); }
+    if ('serviceWorker' in navigator && /^https?:/.test(location.protocol) && !/claude\.ai$/.test(location.hostname)) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+  SD.app = { start, exportPNG, exportWallpaper, setLang, S, viewState, view, voicing, audio, reportText };
+  start();
+})(window.SD = window.SD || {});
